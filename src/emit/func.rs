@@ -5,7 +5,9 @@ use std::{
 
 use anyhow::{anyhow, Result};
 use hugr::{
-    ops::{FuncDecl, FuncDefn}, types::Type, HugrView, NodeIndex, OutgoingPort, PortIndex, Wire
+    ops::{FuncDecl, FuncDefn},
+    types::Type,
+    HugrView, NodeIndex, OutgoingPort, PortIndex, Wire,
 };
 use inkwell::{
     basic_block::BasicBlock,

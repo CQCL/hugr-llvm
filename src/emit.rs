@@ -117,7 +117,7 @@ impl<OT, H: HugrView> EmitOp<'_, OT, H> for NullEmitLlvm {
 #[derive(Clone)]
 pub struct Namer {
     prefix: String,
-    node_suffix: bool
+    node_suffix: bool,
 }
 
 impl Namer {
@@ -127,13 +127,17 @@ impl Namer {
     pub fn new(prefix: impl Into<String>, node_suffix: bool) -> Self {
         Self {
             prefix: prefix.into(),
-            node_suffix
+            node_suffix,
         }
     }
 
     /// Mangle the the name of a [FuncDefn] or [FuncDecl].
     pub fn name_func(&self, name: impl AsRef<str>, node: Node) -> String {
-        let suffix = if self.node_suffix { format!(".{}", node.index()) } else { "".to_string() };
+        let suffix = if self.node_suffix {
+            format!(".{}", node.index())
+        } else {
+            "".to_string()
+        };
         format!("{}{}{}", &self.prefix, name.as_ref(), suffix)
     }
 }
@@ -144,7 +148,7 @@ impl Default for Namer {
     fn default() -> Self {
         Self {
             prefix: NAMER_DEFAULT_PREFIX.into(),
-            node_suffix: true
+            node_suffix: true,
         }
     }
 }

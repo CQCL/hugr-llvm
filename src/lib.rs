@@ -61,11 +61,11 @@
 //! [BasicValueEnum]: [inkwell::values::BasicValueEnum]
 //! [BasicValue]: [inkwell::values::BasicValue]
 //!
+pub mod cli;
 pub mod custom;
 pub mod emit;
 pub mod fat;
 pub mod types;
-pub mod cli;
 
 #[allow(unreachable_code)]
 pub fn llvm_version() -> &'static str {
@@ -73,7 +73,6 @@ pub fn llvm_version() -> &'static str {
     return "llvm14";
     panic!("No recognised llvm feature")
 }
-
 
 #[cfg(test)]
 pub mod test;

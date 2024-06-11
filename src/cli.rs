@@ -2,18 +2,18 @@
 use std::rc::Rc;
 
 use clap::Parser;
-use hugr::{HugrView, Hugr};
-use inkwell::module::Module;
-use thiserror::Error;
 use hugr::std_extensions::arithmetic::{
     conversions::EXTENSION as CONVERSIONS_EXTENSION, float_ops::EXTENSION as FLOAT_OPS_EXTENSION,
     float_types::EXTENSION as FLOAT_TYPES_EXTENSION, int_ops::EXTENSION as INT_OPS_EXTENSION,
     int_types::EXTENSION as INT_TYPES_EXTENSION,
 };
 use hugr::std_extensions::logic::EXTENSION as LOGICS_EXTENSION;
+use hugr::Hugr;
+use inkwell::module::Module;
+use thiserror::Error;
 
+use anyhow::Result;
 use hugr::extension::{ExtensionRegistry, PRELUDE};
-use anyhow::{anyhow,Result};
 use lazy_static::lazy_static;
 
 use crate::custom::CodegenExtsMap;
@@ -54,7 +54,13 @@ pub enum CliError {
     Other(#[from] anyhow::Error),
 }
 
-pub fn emit_module<'c>(context: &'c inkwell::context::Context, hugr: &'c Hugr, module_name: impl AsRef<str>, namer: Rc<Namer>, exts: Rc<CodegenExtsMap<'c, Hugr>>) -> Result<Module<'c>> {
+pub fn emit_module<'c>(
+    context: &'c inkwell::context::Context,
+    hugr: &'c Hugr,
+    module_name: impl AsRef<str>,
+    namer: Rc<Namer>,
+    exts: Rc<CodegenExtsMap<'c, Hugr>>,
+) -> Result<Module<'c>> {
     let module = context.create_module(module_name.as_ref());
     let emit = EmitHugr::new(context, module, namer, exts);
     Ok(emit.emit_module(hugr.fat_root().unwrap())?.finish())
@@ -67,8 +73,16 @@ impl CmdLineArgs {
         let hugr = self.base.run(registry)?;
 
         let context = inkwell::context::Context::create();
-        let module = emit_module(&context, &hugr, &self.module_name, self.namer(), self.codegenexts())?;
-        module.verify().map_err(|e| anyhow::anyhow!(e.to_string()))?;
+        let module = emit_module(
+            &context,
+            &hugr,
+            &self.module_name,
+            self.namer(),
+            self.codegenexts(),
+        )?;
+        module
+            .verify()
+            .map_err(|e| anyhow::anyhow!(e.to_string()))?;
         println!("{}", module.print_to_string());
         Ok(())
     }
@@ -82,7 +96,7 @@ impl CmdLineArgs {
         Namer::new(self.mangle_prefix.clone(), self.mangle_node_suffix).into()
     }
 
-    fn codegenexts<'c>(&self) -> Rc<CodegenExtsMap<'c,Hugr>> {
+    fn codegenexts<'c>(&self) -> Rc<CodegenExtsMap<'c, Hugr>> {
         CodegenExtsMap::new().add_int_extensions().into()
     }
 }
