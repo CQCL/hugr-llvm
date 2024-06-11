@@ -142,7 +142,7 @@ impl Namer {
     }
 }
 
-const NAMER_DEFAULT_PREFIX: &str = "_hl.";
+pub const NAMER_DEFAULT_PREFIX: &str = "_hl.";
 
 impl Default for Namer {
     fn default() -> Self {
@@ -382,9 +382,7 @@ impl<'c, H: HugrView> EmitHugr<'c, H> {
     /// are not emitted directly, but instead by [hugr::ops::LoadConstant] emission. So
     /// [FuncDefn] and [FuncDecl] are the only interesting children.
     pub fn emit_module(mut self, node: FatNode<'c, hugr::ops::Module, H>) -> Result<Self> {
-        println!("emit module");
         for c in node.children() {
-            println!("emit child: {}", &c);
             match c.get() {
                 OpType::FuncDefn(ref fd) => {
                     self = self.emit_global(c.into_ot(fd))?;
