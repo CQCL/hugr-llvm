@@ -117,27 +117,35 @@ impl<OT, H: HugrView> EmitOp<'_, OT, H> for NullEmitLlvm {
 #[derive(Clone)]
 pub struct Namer {
     prefix: String,
+    node_suffix: bool
 }
 
 impl Namer {
     /// Create a new `Namer` that for each symbol:
     /// * prefix  `prefix`
     /// * postfixes ".{node.index()}"
-    pub fn new(prefix: impl Into<String>) -> Self {
+    pub fn new(prefix: impl Into<String>, node_suffix: bool) -> Self {
         Self {
             prefix: prefix.into(),
+            node_suffix
         }
     }
 
     /// Mangle the the name of a [FuncDefn] or [FuncDecl].
     pub fn name_func(&self, name: impl AsRef<str>, node: Node) -> String {
-        format!("{}{}.{}", &self.prefix, name.as_ref(), node.index())
+        let suffix = if self.node_suffix { format!(".{}", node.index()) } else { "".to_string() };
+        format!("{}{}{}", &self.prefix, name.as_ref(), suffix)
     }
 }
 
+const NAMER_DEFAULT_PREFIX: &str = "_hl.";
+
 impl Default for Namer {
     fn default() -> Self {
-        Self::new("_hl.")
+        Self {
+            prefix: NAMER_DEFAULT_PREFIX.into(),
+            node_suffix: true
+        }
     }
 }
 
@@ -321,6 +329,7 @@ impl<'c, H: HugrView> EmitHugr<'c, H> {
     pub fn new(
         iw_context: &'c Context,
         module: Module<'c>,
+        namer: Rc<Namer>,
         exts: Rc<CodegenExtsMap<'c, H>>,
     ) -> Self {
         assert_eq!(iw_context, &module.get_context());
@@ -329,7 +338,7 @@ impl<'c, H: HugrView> EmitHugr<'c, H> {
             emitted: Default::default(),
             module_context: EmitModuleContext::new(
                 module,
-                Default::default(),
+                namer,
                 exts,
                 TypeConverter::new(iw_context),
             ),

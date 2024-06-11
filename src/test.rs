@@ -11,7 +11,7 @@ use rstest::fixture;
 
 use crate::{
     custom::CodegenExtsMap,
-    emit::EmitHugr,
+    emit::{EmitHugr, Namer},
     types::{TypeConverter, TypingSession},
 };
 
@@ -116,7 +116,8 @@ impl TestContext {
         self.with_context(|ctx| {
             let m = ctx.create_module("test_context");
             let exts = self.extensions();
-            let (r, ectx) = f(EmitHugr::new(ctx, m, exts));
+            let namer = Namer::default().into();
+            let (r, ectx) = f(EmitHugr::new(ctx, m, namer, exts));
             (r, ectx.finish())
         })
     }

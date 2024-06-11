@@ -52,13 +52,10 @@ impl<'c, H: HugrView> TypingSession<'c, H> {
         use hugr::types::TypeEnum;
         match hugr_type.as_type_enum() {
             TypeEnum::Extension(ref custom_type) => self.extensions.llvm_type(self, custom_type),
-            TypeEnum::Alias(ref alias) => Err(anyhow!("Invalid type: {:?}", alias)),
-
+            TypeEnum::Sum(sum) => self.llvm_sum_type(sum.clone()).map(Into::into),
             // TODO Function Types are fine
             TypeEnum::Function(ref func_ty) => Err(anyhow!("Invalid type: {:?}", func_ty)),
-
-            x @ TypeEnum::Variable(_, _) => Err(anyhow!("Invalid type: {:?}", x)),
-            TypeEnum::Sum(sum) => self.llvm_sum_type(sum.clone()).map(Into::into),
+            x => Err(anyhow!("Invalid type: {:?}", x)),
         }
     }
 

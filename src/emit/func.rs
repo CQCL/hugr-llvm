@@ -5,9 +5,7 @@ use std::{
 
 use anyhow::{anyhow, Result};
 use hugr::{
-    ops::{FuncDecl, FuncDefn},
-    types::Type,
-    HugrView, NodeIndex, PortIndex, Wire,
+    ops::{FuncDecl, FuncDefn}, types::Type, HugrView, NodeIndex, OutgoingPort, PortIndex, Wire
 };
 use inkwell::{
     basic_block::BasicBlock,
@@ -249,7 +247,7 @@ impl<'c, H: HugrView> EmitFuncContext<'c, H> {
     fn map_wire<OT>(
         &mut self,
         node: FatNode<'c, OT, H>,
-        port: hugr::OutgoingPort,
+        port: OutgoingPort,
         hugr_type: &Type,
     ) -> Result<ValueMailBox<'c>> {
         let wire = Wire::new(node.node(), port);
