@@ -8,7 +8,7 @@ use hugr::types::SumType;
 use hugr::{types::TypeRow, HugrView};
 use inkwell::builder::Builder;
 use inkwell::types::{self as iw, AnyType, AsTypeRef, IntType};
-use inkwell::values::{BasicValue, BasicValueEnum, StructValue};
+use inkwell::values::{BasicValue, BasicValueEnum, IntValue, StructValue};
 use inkwell::{
     context::Context,
     types::{BasicMetadataTypeEnum, BasicType, BasicTypeEnum, StructType},
@@ -52,13 +52,11 @@ impl<'c, H: HugrView> TypingSession<'c, H> {
         use hugr::types::TypeEnum;
         match hugr_type.as_type_enum() {
             TypeEnum::Extension(ref custom_type) => self.extensions.llvm_type(self, custom_type),
-            TypeEnum::Alias(ref alias) => Err(anyhow!("Invalid type: {:?}", alias)),
-
+            TypeEnum::Sum(sum) => self.llvm_sum_type(sum.clone()).map(Into::into),
             // TODO Function Types are fine
             TypeEnum::Function(ref func_ty) => Err(anyhow!("Invalid type: {:?}", func_ty)),
 
-            x @ TypeEnum::Variable(_, _) => Err(anyhow!("Invalid type: {:?}", x)),
-            TypeEnum::Sum(sum) => self.llvm_sum_type(sum.clone()).map(Into::into),
+            x => Err(anyhow!("Invalid type: {:?}", x)),
         }
     }
 
@@ -199,15 +197,17 @@ impl<'c> LLVMSumType<'c> {
         &self,
         builder: &Builder<'c>,
         v: impl BasicValue<'c>,
-    ) -> Result<BasicValueEnum<'c>> {
+    ) -> Result<IntValue<'c>> {
         let struct_value: StructValue<'c> = v
             .as_basic_value_enum()
             .try_into()
             .map_err(|_| anyhow!("Not a struct type"))?;
         if self.has_tag_field() {
-            Ok(builder.build_extract_value(struct_value, 0, "")?)
+            Ok(builder
+                .build_extract_value(struct_value, 0, "")?
+                .into_int_value())
         } else {
-            Ok(self.get_tag_type().const_int(0, false).into())
+            Ok(self.get_tag_type().const_int(0, false))
         }
     }
 
