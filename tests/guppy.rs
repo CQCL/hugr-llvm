@@ -1,8 +1,5 @@
 use std::{
-    env,
-    fs::File,
-    path::{Path, PathBuf},
-    process::Command,
+    env, fmt::Display, fs::File, path::{Path, PathBuf}, process::Command
 };
 
 use insta_cmd::assert_cmd_snapshot;
@@ -13,6 +10,7 @@ struct TestConfig {
     python_bin: PathBuf,
     hugr_llvm_bin: PathBuf,
     test_dir: PathBuf,
+    pub opt: bool
 }
 
 impl TestConfig {
@@ -30,6 +28,7 @@ impl TestConfig {
             python_bin,
             hugr_llvm_bin,
             test_dir,
+            opt: true
         }
     }
 }
@@ -54,6 +53,9 @@ impl TestConfig {
     fn hugr_llvm(&self, json_file: impl AsRef<Path>) -> Command {
         let mut command = Command::new(&self.hugr_llvm_bin);
         command.arg(json_file.as_ref());
+        if !self.opt {
+            command.arg("--no-opt");
+        }
         command
     }
 }
@@ -67,10 +69,29 @@ fn test_dir_exists(test_config: TestConfig) {
     assert!(test_config.test_dir.is_dir())
 }
 
-#[rstest]
-fn test_even_odd(test_config: TestConfig) {
-    let json_file = test_config.get_guppy_output("even_odd.py");
-    let v: serde_json::Value = serde_json::from_reader(File::open(&json_file).unwrap()).unwrap();
-    // println!("{}", serde_json::to_string_pretty(&v).unwrap());
-    assert_cmd_snapshot!(test_config.hugr_llvm(&json_file))
+fn with_suffix<R>(s: impl Display, go: impl FnOnce() -> R) -> R {
+    let mut settings = insta::Settings::clone_current();
+    let old_suffix = settings.snapshot_suffix().map_or("".to_string(),|s| format!("{s}."));
+    let llvm_str = hugr_llvm::llvm_version();
+    settings.set_snapshot_suffix(format!("{old_suffix}{llvm_str}.{s}"));
+    settings.bind(go)
 }
+
+macro_rules! guppy_test {
+    ($filename:expr, $testname:ident) => {
+        #[rstest]
+        fn $testname(mut test_config: TestConfig) {
+            let json_file = test_config.get_guppy_output($filename);
+            with_suffix("noopt", || {
+                test_config.opt = false;
+                assert_cmd_snapshot!(test_config.hugr_llvm(&json_file))
+            });
+            with_suffix("opt", || {
+                test_config.opt = true;
+                assert_cmd_snapshot!(test_config.hugr_llvm(&json_file))
+            });
+        }
+    }
+}
+
+guppy_test!("even_odd.py", even_odd);

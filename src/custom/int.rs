@@ -2,12 +2,12 @@ use std::{any::TypeId, collections::HashSet};
 
 use hugr::{
     extension::{simple_op::MakeExtensionOp, ExtensionId},
-    ops::{constant::CustomConst, CustomOp, NamedOp},
+    ops::{constant::CustomConst, CustomOp, NamedOp, Value},
     std_extensions::arithmetic::{
         int_ops::{self, ConcreteIntOp},
         int_types::{self, ConstInt},
     },
-    types::{CustomType, TypeArg},
+    types::{CustomType, SumType, TypeArg},
     HugrView,
 };
 use inkwell::{
@@ -16,7 +16,7 @@ use inkwell::{
 };
 
 use crate::{
-    emit::{func::EmitFuncContext, EmitOp, EmitOpArgs, NullEmitLlvm},
+    emit::{func::EmitFuncContext, emit_value, EmitOp, EmitOpArgs, NullEmitLlvm},
     types::TypingSession,
 };
 
@@ -37,10 +37,23 @@ impl<'c, H: HugrView> EmitOp<'c, CustomOp, H> for IntOpEmitter<'c, '_, H> {
                 args.outputs.finish(builder, [a.into()])
             }
             "ieq" => {
+                let true_val = emit_value(self.0, &Value::true_val())?;
+                let false_val = emit_value(self.0, &Value::false_val())?;
                 let builder = self.0.builder();
                 let [lhs, rhs] = TryInto::<[_; 2]>::try_into(args.inputs).unwrap();
                 let a = builder.build_int_compare(
                     inkwell::IntPredicate::EQ,
+                    lhs.into_int_value(),
+                    rhs.into_int_value(),
+                    "",
+                )?;
+                let a = builder.build_select(a, true_val, false_val, "")?;
+                args.outputs.finish(builder, [a.into()])
+            }
+            "isub" => {
+                let builder = self.0.builder();
+                let [lhs, rhs] = TryInto::<[_; 2]>::try_into(args.inputs).unwrap();
+                let a = builder.build_int_sub(
                     lhs.into_int_value(),
                     rhs.into_int_value(),
                     "",

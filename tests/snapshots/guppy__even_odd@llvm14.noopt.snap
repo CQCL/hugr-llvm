@@ -1,0 +1,387 @@
+---
+source: tests/guppy.rs
+info:
+  program: hugr-llvm
+  args:
+<<<<<<< HEAD
+    - /tmp/.tmpxU5UNY
+=======
+    - /tmp/.tmpAfcUvM
+>>>>>>> 0a1f180 (fixup! cfg)
+    - "--no-opt"
+---
+success: true
+exit_code: 0
+----- stdout -----
+; ModuleID = 'module'
+source_filename = "module"
+
+define { {}, {} } @_hl.is_even.29(i64 %0) {
+alloca_block:
+  %"0" = alloca { {}, {} }, align 8
+  %"5_0" = alloca i64, align 8
+  %"31_0" = alloca { {}, {} }, align 8
+  %"02" = alloca { {}, {} }, align 8
+  %"6_0" = alloca i64, align 8
+  %"10_0" = alloca i64, align 8
+  %"35_0" = alloca { { i64 }, {} }, align 8
+  %"33_0" = alloca i64, align 8
+  %"34_0" = alloca { {}, {} }, align 8
+  %"07" = alloca { { i64 }, {} }, align 8
+  %"37_0" = alloca { { i64 }, {} }, align 8
+  %"39_0" = alloca { { i64 }, {} }, align 8
+  %"43_0" = alloca { i32, {} }, align 8
+  %"42_0" = alloca { {}, {} }, align 8
+  %"49_0" = alloca { i32, {} }, align 8
+  %"48_0" = alloca { {}, {} }, align 8
+  %"46_0" = alloca i64, align 8
+  %"47_0" = alloca i64, align 8
+  br label %entry_block
+
+entry_block:                                      ; preds = %alloca_block
+  store i64 %0, i64* %"5_0", align 4
+  %"5_01" = load i64, i64* %"5_0", align 4
+  store i64 %"5_01", i64* %"6_0", align 4
+  br label %6
+
+1:                                                ; preds = %cond_exit_35
+  %2 = extractvalue { { i64 }, {} } %"35_013", 0
+  %3 = extractvalue { i64 } %2, 0
+  store i64 %3, i64* %"10_0", align 4
+  br label %17
+
+4:                                                ; preds = %cond_exit_35
+  %5 = extractvalue { { i64 }, {} } %"35_013", 1
+  br label %13
+
+6:                                                ; preds = %entry_block
+  %"6_03" = load i64, i64* %"6_0", align 4
+  store i64 0, i64* %"33_0", align 4
+  store i64 %"6_03", i64* %"6_0", align 4
+  %"6_04" = load i64, i64* %"6_0", align 4
+  %"33_05" = load i64, i64* %"33_0", align 4
+  %7 = icmp eq i64 %"6_04", %"33_05"
+  %8 = select i1 %7, { {}, {} } { {} poison, {} undef }, { {}, {} } { {} undef, {} poison }
+  store { {}, {} } %8, { {}, {} }* %"34_0", align 1
+  %"34_06" = load { {}, {} }, { {}, {} }* %"34_0", align 1
+  %9 = extractvalue { {}, {} } %"34_06", 0
+  %10 = extractvalue { {}, {} } %"34_06", 1
+  switch i32 0, label %cond_35_case_0 [
+    i32 1, label %cond_35_case_1
+  ]
+
+<<<<<<< HEAD
+11:                                               ; preds = %13
+  %12 = extractvalue { i32, {} } %"43_016", 1
+  store { {}, {} } %"42_017", { {}, {} }* %"02", align 1
+  br label %21
+
+13:                                               ; preds = %4
+  store { i32, {} } { i32 0, {} undef }, { i32, {} }* %"43_0", align 4
+  store { {}, {} } { {} poison, {} undef }, { {}, {} }* %"42_0", align 1
+  %"43_014" = load { i32, {} }, { i32, {} }* %"43_0", align 4
+  %"42_015" = load { {}, {} }, { {}, {} }* %"42_0", align 1
+  store { i32, {} } %"43_014", { i32, {} }* %"43_0", align 4
+  store { {}, {} } %"42_015", { {}, {} }* %"42_0", align 1
+  %"43_016" = load { i32, {} }, { i32, {} }* %"43_0", align 4
+  %"42_017" = load { {}, {} }, { {}, {} }* %"42_0", align 1
+  %14 = extractvalue { i32, {} } %"43_016", 0
+  switch i32 %14, label %11 [
+  ]
+
+15:                                               ; preds = %17
+  %16 = extractvalue { i32, {} } %"49_024", 1
+  store { {}, {} } %"48_025", { {}, {} }* %"02", align 1
+  br label %21
+
+17:                                               ; preds = %1
+  %"10_018" = load i64, i64* %"10_0", align 4
+  store { i32, {} } { i32 0, {} undef }, { i32, {} }* %"49_0", align 4
+=======
+12:                                               ; preds = %14
+  %13 = extractvalue { {} } %"43_017", 0
+  store { i32, {}, {} } %"42_018", { i32, {}, {} }* %"02", align 4
+  br label %20
+
+14:                                               ; preds = %4
+  store { {} } undef, { {} }* %"43_0", align 1
+  store { i32, {}, {} } { i32 1, {} poison, {} undef }, { i32, {}, {} }* %"42_0", align 4
+  %"43_015" = load { {} }, { {} }* %"43_0", align 1
+  %"42_016" = load { i32, {}, {} }, { i32, {}, {} }* %"42_0", align 4
+  store { {} } %"43_015", { {} }* %"43_0", align 1
+  store { i32, {}, {} } %"42_016", { i32, {}, {} }* %"42_0", align 4
+  %"43_017" = load { {} }, { {} }* %"43_0", align 1
+  %"42_018" = load { i32, {}, {} }, { i32, {}, {} }* %"42_0", align 4
+  switch i32 0, label %12 [
+  ]
+
+15:                                               ; preds = %17
+  %16 = extractvalue { {} } %"49_025", 0
+  store { i32, {}, {} } %"48_026", { i32, {}, {} }* %"02", align 4
+  br label %20
+
+17:                                               ; preds = %1
+  %"10_019" = load i64, i64* %"10_0", align 4
+  store { {} } undef, { {} }* %"49_0", align 1
+>>>>>>> 0a1f180 (fixup! cfg)
+  store i64 1, i64* %"46_0", align 4
+  store i64 %"10_019", i64* %"10_0", align 4
+  %"10_020" = load i64, i64* %"10_0", align 4
+  %"46_021" = load i64, i64* %"46_0", align 4
+  %18 = sub i64 %"10_020", %"46_021"
+  store i64 %18, i64* %"47_0", align 4
+<<<<<<< HEAD
+  %"47_021" = load i64, i64* %"47_0", align 4
+  %19 = call { {}, {} } @_hl.is_odd.30(i64 %"47_021")
+  store { {}, {} } %19, { {}, {} }* %"48_0", align 1
+  %"49_022" = load { i32, {} }, { i32, {} }* %"49_0", align 4
+  %"48_023" = load { {}, {} }, { {}, {} }* %"48_0", align 1
+  store { i32, {} } %"49_022", { i32, {} }* %"49_0", align 4
+  store { {}, {} } %"48_023", { {}, {} }* %"48_0", align 1
+  %"49_024" = load { i32, {} }, { i32, {} }* %"49_0", align 4
+  %"48_025" = load { {}, {} }, { {}, {} }* %"48_0", align 1
+  %20 = extractvalue { i32, {} } %"49_024", 0
+  switch i32 %20, label %15 [
+  ]
+
+21:                                               ; preds = %15, %11
+  %"026" = load { {}, {} }, { {}, {} }* %"02", align 1
+  store { {}, {} } %"026", { {}, {} }* %"31_0", align 1
+  %"31_027" = load { {}, {} }, { {}, {} }* %"31_0", align 1
+  store { {}, {} } %"31_027", { {}, {} }* %"0", align 1
+  %"028" = load { {}, {} }, { {}, {} }* %"0", align 1
+  ret { {}, {} } %"028"
+=======
+  %"47_022" = load i64, i64* %"47_0", align 4
+  %19 = call { i32, {}, {} } @_hl.is_odd.30(i64 %"47_022")
+  store { i32, {}, {} } %19, { i32, {}, {} }* %"48_0", align 4
+  %"49_023" = load { {} }, { {} }* %"49_0", align 1
+  %"48_024" = load { i32, {}, {} }, { i32, {}, {} }* %"48_0", align 4
+  store { {} } %"49_023", { {} }* %"49_0", align 1
+  store { i32, {}, {} } %"48_024", { i32, {}, {} }* %"48_0", align 4
+  %"49_025" = load { {} }, { {} }* %"49_0", align 1
+  %"48_026" = load { i32, {}, {} }, { i32, {}, {} }* %"48_0", align 4
+  switch i32 0, label %15 [
+  ]
+
+20:                                               ; preds = %15, %12
+  %"014" = load { i32, {}, {} }, { i32, {}, {} }* %"02", align 4
+  store { i32, {}, {} } %"014", { i32, {}, {} }* %"31_0", align 4
+  %"31_027" = load { i32, {}, {} }, { i32, {}, {} }* %"31_0", align 4
+  store { i32, {}, {} } %"31_027", { i32, {}, {} }* %"0", align 4
+  %"028" = load { i32, {}, {} }, { i32, {}, {} }* %"0", align 4
+  ret { i32, {}, {} } %"028"
+>>>>>>> 0a1f180 (fixup! cfg)
+
+cond_35_case_0:                                   ; preds = %6
+  %"6_09" = load i64, i64* %"6_0", align 4
+  %22 = insertvalue { i64 } undef, i64 %"6_09", 0
+  %23 = insertvalue { { i64 }, {} } poison, { i64 } %22, 0
+  store { { i64 }, {} } %23, { { i64 }, {} }* %"37_0", align 4
+  %"37_010" = load { { i64 }, {} }, { { i64 }, {} }* %"37_0", align 4
+  store { { i64 }, {} } %"37_010", { { i64 }, {} }* %"07", align 4
+  br label %cond_exit_35
+
+cond_35_case_1:                                   ; preds = %6
+  store { { i64 }, {} } { { i64 } poison, {} undef }, { { i64 }, {} }* %"39_0", align 4
+  %"39_011" = load { { i64 }, {} }, { { i64 }, {} }* %"39_0", align 4
+  store { { i64 }, {} } %"39_011", { { i64 }, {} }* %"07", align 4
+  br label %cond_exit_35
+
+cond_exit_35:                                     ; preds = %cond_35_case_1, %cond_35_case_0
+  %"08" = load { { i64 }, {} }, { { i64 }, {} }* %"07", align 4
+  store { { i64 }, {} } %"08", { { i64 }, {} }* %"35_0", align 4
+  %"35_012" = load { { i64 }, {} }, { { i64 }, {} }* %"35_0", align 4
+  store { { i64 }, {} } %"35_012", { { i64 }, {} }* %"35_0", align 4
+  %"35_013" = load { { i64 }, {} }, { { i64 }, {} }* %"35_0", align 4
+  switch i32 0, label %1 [
+    i32 1, label %4
+  ]
+}
+
+define { {}, {} } @_hl.is_odd.30(i64 %0) {
+alloca_block:
+  %"0" = alloca { {}, {} }, align 8
+  %"11_0" = alloca i64, align 8
+  %"50_0" = alloca { {}, {} }, align 8
+  %"02" = alloca { {}, {} }, align 8
+  %"12_0" = alloca i64, align 8
+  %"16_0" = alloca i64, align 8
+  %"54_0" = alloca { { i64 }, {} }, align 8
+  %"52_0" = alloca i64, align 8
+  %"53_0" = alloca { {}, {} }, align 8
+  %"07" = alloca { { i64 }, {} }, align 8
+  %"56_0" = alloca { { i64 }, {} }, align 8
+  %"58_0" = alloca { { i64 }, {} }, align 8
+  %"62_0" = alloca { i32, {} }, align 8
+  %"61_0" = alloca { {}, {} }, align 8
+  %"68_0" = alloca { i32, {} }, align 8
+  %"67_0" = alloca { {}, {} }, align 8
+  %"65_0" = alloca i64, align 8
+  %"66_0" = alloca i64, align 8
+  br label %entry_block
+
+entry_block:                                      ; preds = %alloca_block
+  store i64 %0, i64* %"11_0", align 4
+  %"11_01" = load i64, i64* %"11_0", align 4
+  store i64 %"11_01", i64* %"12_0", align 4
+  br label %6
+
+1:                                                ; preds = %cond_exit_54
+  %2 = extractvalue { { i64 }, {} } %"54_013", 0
+  %3 = extractvalue { i64 } %2, 0
+  store i64 %3, i64* %"16_0", align 4
+  br label %17
+
+4:                                                ; preds = %cond_exit_54
+  %5 = extractvalue { { i64 }, {} } %"54_013", 1
+  br label %13
+
+6:                                                ; preds = %entry_block
+  %"12_03" = load i64, i64* %"12_0", align 4
+  store i64 0, i64* %"52_0", align 4
+  store i64 %"12_03", i64* %"12_0", align 4
+  %"12_04" = load i64, i64* %"12_0", align 4
+  %"52_05" = load i64, i64* %"52_0", align 4
+  %7 = icmp eq i64 %"12_04", %"52_05"
+  %8 = select i1 %7, { {}, {} } { {} poison, {} undef }, { {}, {} } { {} undef, {} poison }
+  store { {}, {} } %8, { {}, {} }* %"53_0", align 1
+  %"53_06" = load { {}, {} }, { {}, {} }* %"53_0", align 1
+  %9 = extractvalue { {}, {} } %"53_06", 0
+  %10 = extractvalue { {}, {} } %"53_06", 1
+  switch i32 0, label %cond_54_case_0 [
+    i32 1, label %cond_54_case_1
+  ]
+
+<<<<<<< HEAD
+11:                                               ; preds = %13
+  %12 = extractvalue { i32, {} } %"62_016", 1
+  store { {}, {} } %"61_017", { {}, {} }* %"02", align 1
+  br label %21
+
+13:                                               ; preds = %4
+  store { i32, {} } { i32 0, {} undef }, { i32, {} }* %"62_0", align 4
+  store { {}, {} } { {} undef, {} poison }, { {}, {} }* %"61_0", align 1
+  %"62_014" = load { i32, {} }, { i32, {} }* %"62_0", align 4
+  %"61_015" = load { {}, {} }, { {}, {} }* %"61_0", align 1
+  store { i32, {} } %"62_014", { i32, {} }* %"62_0", align 4
+  store { {}, {} } %"61_015", { {}, {} }* %"61_0", align 1
+  %"62_016" = load { i32, {} }, { i32, {} }* %"62_0", align 4
+  %"61_017" = load { {}, {} }, { {}, {} }* %"61_0", align 1
+  %14 = extractvalue { i32, {} } %"62_016", 0
+  switch i32 %14, label %11 [
+  ]
+
+15:                                               ; preds = %17
+  %16 = extractvalue { i32, {} } %"68_024", 1
+  store { {}, {} } %"67_025", { {}, {} }* %"02", align 1
+  br label %21
+
+17:                                               ; preds = %1
+  %"16_018" = load i64, i64* %"16_0", align 4
+  store { i32, {} } { i32 0, {} undef }, { i32, {} }* %"68_0", align 4
+=======
+12:                                               ; preds = %14
+  %13 = extractvalue { {} } %"62_017", 0
+  store { i32, {}, {} } %"61_018", { i32, {}, {} }* %"02", align 4
+  br label %20
+
+14:                                               ; preds = %4
+  store { {} } undef, { {} }* %"62_0", align 1
+  store { i32, {}, {} } { i32 0, {} undef, {} poison }, { i32, {}, {} }* %"61_0", align 4
+  %"62_015" = load { {} }, { {} }* %"62_0", align 1
+  %"61_016" = load { i32, {}, {} }, { i32, {}, {} }* %"61_0", align 4
+  store { {} } %"62_015", { {} }* %"62_0", align 1
+  store { i32, {}, {} } %"61_016", { i32, {}, {} }* %"61_0", align 4
+  %"62_017" = load { {} }, { {} }* %"62_0", align 1
+  %"61_018" = load { i32, {}, {} }, { i32, {}, {} }* %"61_0", align 4
+  switch i32 0, label %12 [
+  ]
+
+15:                                               ; preds = %17
+  %16 = extractvalue { {} } %"68_025", 0
+  store { i32, {}, {} } %"67_026", { i32, {}, {} }* %"02", align 4
+  br label %20
+
+17:                                               ; preds = %1
+  %"16_019" = load i64, i64* %"16_0", align 4
+  store { {} } undef, { {} }* %"68_0", align 1
+>>>>>>> 0a1f180 (fixup! cfg)
+  store i64 1, i64* %"65_0", align 4
+  store i64 %"16_019", i64* %"16_0", align 4
+  %"16_020" = load i64, i64* %"16_0", align 4
+  %"65_021" = load i64, i64* %"65_0", align 4
+  %18 = sub i64 %"16_020", %"65_021"
+  store i64 %18, i64* %"66_0", align 4
+<<<<<<< HEAD
+  %"66_021" = load i64, i64* %"66_0", align 4
+  %19 = call { {}, {} } @_hl.is_even.29(i64 %"66_021")
+  store { {}, {} } %19, { {}, {} }* %"67_0", align 1
+  %"68_022" = load { i32, {} }, { i32, {} }* %"68_0", align 4
+  %"67_023" = load { {}, {} }, { {}, {} }* %"67_0", align 1
+  store { i32, {} } %"68_022", { i32, {} }* %"68_0", align 4
+  store { {}, {} } %"67_023", { {}, {} }* %"67_0", align 1
+  %"68_024" = load { i32, {} }, { i32, {} }* %"68_0", align 4
+  %"67_025" = load { {}, {} }, { {}, {} }* %"67_0", align 1
+  %20 = extractvalue { i32, {} } %"68_024", 0
+  switch i32 %20, label %15 [
+  ]
+
+21:                                               ; preds = %15, %11
+  %"026" = load { {}, {} }, { {}, {} }* %"02", align 1
+  store { {}, {} } %"026", { {}, {} }* %"50_0", align 1
+  %"50_027" = load { {}, {} }, { {}, {} }* %"50_0", align 1
+  store { {}, {} } %"50_027", { {}, {} }* %"0", align 1
+  %"028" = load { {}, {} }, { {}, {} }* %"0", align 1
+  ret { {}, {} } %"028"
+=======
+  %"66_022" = load i64, i64* %"66_0", align 4
+  %19 = call { i32, {}, {} } @_hl.is_even.29(i64 %"66_022")
+  store { i32, {}, {} } %19, { i32, {}, {} }* %"67_0", align 4
+  %"68_023" = load { {} }, { {} }* %"68_0", align 1
+  %"67_024" = load { i32, {}, {} }, { i32, {}, {} }* %"67_0", align 4
+  store { {} } %"68_023", { {} }* %"68_0", align 1
+  store { i32, {}, {} } %"67_024", { i32, {}, {} }* %"67_0", align 4
+  %"68_025" = load { {} }, { {} }* %"68_0", align 1
+  %"67_026" = load { i32, {}, {} }, { i32, {}, {} }* %"67_0", align 4
+  switch i32 0, label %15 [
+  ]
+
+20:                                               ; preds = %15, %12
+  %"014" = load { i32, {}, {} }, { i32, {}, {} }* %"02", align 4
+  store { i32, {}, {} } %"014", { i32, {}, {} }* %"50_0", align 4
+  %"50_027" = load { i32, {}, {} }, { i32, {}, {} }* %"50_0", align 4
+  store { i32, {}, {} } %"50_027", { i32, {}, {} }* %"0", align 4
+  %"028" = load { i32, {}, {} }, { i32, {}, {} }* %"0", align 4
+  ret { i32, {}, {} } %"028"
+>>>>>>> 0a1f180 (fixup! cfg)
+
+cond_54_case_0:                                   ; preds = %6
+  %"12_09" = load i64, i64* %"12_0", align 4
+  %22 = insertvalue { i64 } undef, i64 %"12_09", 0
+  %23 = insertvalue { { i64 }, {} } poison, { i64 } %22, 0
+  store { { i64 }, {} } %23, { { i64 }, {} }* %"56_0", align 4
+  %"56_010" = load { { i64 }, {} }, { { i64 }, {} }* %"56_0", align 4
+  store { { i64 }, {} } %"56_010", { { i64 }, {} }* %"07", align 4
+  br label %cond_exit_54
+
+cond_54_case_1:                                   ; preds = %6
+  store { { i64 }, {} } { { i64 } poison, {} undef }, { { i64 }, {} }* %"58_0", align 4
+  %"58_011" = load { { i64 }, {} }, { { i64 }, {} }* %"58_0", align 4
+  store { { i64 }, {} } %"58_011", { { i64 }, {} }* %"07", align 4
+  br label %cond_exit_54
+
+cond_exit_54:                                     ; preds = %cond_54_case_1, %cond_54_case_0
+  %"08" = load { { i64 }, {} }, { { i64 }, {} }* %"07", align 4
+  store { { i64 }, {} } %"08", { { i64 }, {} }* %"54_0", align 4
+  %"54_012" = load { { i64 }, {} }, { { i64 }, {} }* %"54_0", align 4
+  store { { i64 }, {} } %"54_012", { { i64 }, {} }* %"54_0", align 4
+  %"54_013" = load { { i64 }, {} }, { { i64 }, {} }* %"54_0", align 4
+  switch i32 0, label %1 [
+    i32 1, label %4
+  ]
+}
+
+
+----- stderr -----
+HUGR valid!

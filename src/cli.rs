@@ -10,6 +10,7 @@ use hugr::std_extensions::arithmetic::{
 use hugr::std_extensions::logic::EXTENSION as LOGICS_EXTENSION;
 use hugr::Hugr;
 use inkwell::module::Module;
+use inkwell::passes::PassManager;
 use thiserror::Error;
 
 use anyhow::Result;
@@ -73,6 +74,9 @@ pub struct CmdLineArgs {
     mangle_prefix: String,
     #[arg(short = 's', long, default_value_t = true)]
     mangle_node_suffix: bool,
+
+    #[arg(long, default_value_t = false)]
+    no_opt: bool,
 }
 
 #[derive(Error, Debug)]
@@ -90,7 +94,6 @@ pub fn emit_module<'c>(
     namer: Rc<Namer>,
     exts: Rc<CodegenExtsMap<'c, Hugr>>,
 ) -> Result<Module<'c>> {
-    println!("emit module {}", module_name.as_ref());
     let module = context.create_module(module_name.as_ref());
     let emit = EmitHugr::new(context, module, namer, exts);
     Ok(emit.emit_module(hugr.fat_root().unwrap())?.finish())
@@ -113,7 +116,16 @@ impl CmdLineArgs {
         module
             .verify()
             .map_err(|e| anyhow::anyhow!(e.to_string()))?;
-        println!("{}", module.print_to_string());
+
+        if !self.no_opt {
+            let pb = PassManager::create(());
+            pb.add_promote_memory_to_register_pass();
+            pb.add_scalar_repl_aggregates_pass();
+            pb.add_cfg_simplification_pass();
+            pb.run_on(&module);
+        }
+
+        println!("{}", module.print_to_string().to_str().unwrap());
         Ok(())
     }
 

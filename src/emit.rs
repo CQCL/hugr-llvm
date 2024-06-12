@@ -24,6 +24,7 @@ use self::func::{EmitFuncContext, RowPromise};
 
 pub mod func;
 mod ops;
+pub use ops::emit_value;
 
 /// A type used whenever emission is delegated to a function
 pub struct EmitOpArgs<'c, OT, H> {

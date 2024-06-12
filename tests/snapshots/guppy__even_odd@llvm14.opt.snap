@@ -1,0 +1,48 @@
+---
+source: tests/guppy.rs
+info:
+  program: hugr-llvm
+  args:
+    - /tmp/.tmpxU5UNY
+---
+success: true
+exit_code: 0
+----- stdout -----
+; ModuleID = 'module'
+source_filename = "module"
+
+define { {}, {} } @_hl.is_even.29(i64 %0) {
+alloca_block:
+  %1 = icmp eq i64 %0, 0
+  %2 = select i1 %1, { {}, {} } { {} poison, {} undef }, { {}, {} } { {} undef, {} poison }
+  %3 = extractvalue { {}, {} } %2, 0
+  %4 = extractvalue { {}, {} } %2, 1
+  %5 = insertvalue { i64 } undef, i64 %0, 0
+  %6 = insertvalue { { i64 }, {} } poison, { i64 } %5, 0
+  %7 = extractvalue { { i64 }, {} } %6, 0
+  %8 = extractvalue { i64 } %7, 0
+  %9 = sub i64 %8, 1
+  %10 = call { {}, {} } @_hl.is_odd.30(i64 %9)
+  %11 = extractvalue { i32, {} } { i32 0, {} undef }, 1
+  ret { {}, {} } %10
+}
+
+define { {}, {} } @_hl.is_odd.30(i64 %0) {
+alloca_block:
+  %1 = icmp eq i64 %0, 0
+  %2 = select i1 %1, { {}, {} } { {} poison, {} undef }, { {}, {} } { {} undef, {} poison }
+  %3 = extractvalue { {}, {} } %2, 0
+  %4 = extractvalue { {}, {} } %2, 1
+  %5 = insertvalue { i64 } undef, i64 %0, 0
+  %6 = insertvalue { { i64 }, {} } poison, { i64 } %5, 0
+  %7 = extractvalue { { i64 }, {} } %6, 0
+  %8 = extractvalue { i64 } %7, 0
+  %9 = sub i64 %8, 1
+  %10 = call { {}, {} } @_hl.is_even.29(i64 %9)
+  %11 = extractvalue { i32, {} } { i32 0, {} undef }, 1
+  ret { {}, {} } %10
+}
+
+
+----- stderr -----
+HUGR valid!

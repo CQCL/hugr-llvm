@@ -42,11 +42,9 @@ impl<'c, 'd, H: HugrView> SumOpEmitter<'c, 'd, H> {
 impl<'c, H: HugrView> EmitOp<'c, MakeTuple, H> for SumOpEmitter<'c, '_, H> {
     fn emit(&mut self, args: EmitOpArgs<'c, MakeTuple, H>) -> Result<()> {
         let builder = self.0.builder();
-        println!("dougrulz3");
         let r = args
             .outputs
             .finish(builder, [self.1.build_tag(builder, 0, args.inputs)?])?;
-        println!("dougrulz4");
         Ok(r)
     }
 }
@@ -66,7 +64,6 @@ impl<'c, H: HugrView> EmitOp<'c, UnpackTuple, H> for SumOpEmitter<'c, '_, H> {
 
 impl<'c, H: HugrView> EmitOp<'c, Tag, H> for SumOpEmitter<'c, '_, H> {
     fn emit(&mut self, args: EmitOpArgs<'c, Tag, H>) -> Result<()> {
-        println!("dougrulz5");
         let builder = self.0.builder();
         let r = args.outputs.finish(
             builder,
@@ -74,7 +71,6 @@ impl<'c, H: HugrView> EmitOp<'c, Tag, H> for SumOpEmitter<'c, '_, H> {
                 .1
                 .build_tag(builder, args.node.tag as u32, args.inputs)?],
         )?;
-        println!("dougrulz6");
         Ok(r)
     }
 }
@@ -341,11 +337,8 @@ impl<'c, 'd, H: HugrView> CfgEmitter<'c, 'd, H> {
                 Err(anyhow!("unknown optype: {c}"))?;
             }
         }
-        let outputs = self.take_outputs()?;
-        let (exit_bb, outputs_rmb) = self.get_block_data(&self.exit_node).cloned()?;
-        let builder = self.context.builder();
-        builder.position_at_end(exit_bb);
-        outputs.finish(builder, outputs_rmb.read_vec(builder, [])?)?;
+        let (exit_bb, _) = self.get_block_data(&self.exit_node).cloned()?;
+        self.context.builder().position_at_end(exit_bb);
         Ok(())
     }
 }
@@ -410,15 +403,13 @@ impl<'c, H: HugrView> EmitOp<'c, DataflowBlock, H> for CfgEmitter<'c, '_, H> {
 }
 
 impl<'c, H: HugrView> EmitOp<'c, ExitBlock, H> for CfgEmitter<'c, '_, H> {
-    fn emit(
-        &mut self,
-        EmitOpArgs {
-            node,
-            inputs: _,
-            outputs: _,
-        }: EmitOpArgs<'c, ExitBlock, H>,
-    ) -> Result<()> {
-        Ok(())
+    fn emit(&mut self, args: EmitOpArgs<'c, ExitBlock, H>) -> Result<()> {
+        let outputs = self.take_outputs()?;
+        let (bb, inputs_rmb) = self.bbs.get(&args.node().generalise()).unwrap();
+        self.context.build_positioned(*bb, |context| {
+            let builder = context.builder();
+            outputs.finish(builder, inputs_rmb.read_vec(builder, [])?)
+        })
     }
 }
 
@@ -441,11 +432,10 @@ fn get_exactly_one_sum_type(ts: impl IntoIterator<Item = Type>) -> Result<SumTyp
     Ok(sum_type)
 }
 
-fn emit_value<'c, H: HugrView>(
+pub fn emit_value<'c, H: HugrView>(
     context: &mut EmitFuncContext<'c, H>,
     v: &Value,
 ) -> Result<BasicValueEnum<'c>> {
-    println!("emit_value: {v:?}");
     match v {
         Value::Extension { e } => {
             let exts = context.extensions();
@@ -455,7 +445,6 @@ fn emit_value<'c, H: HugrView>(
         }
         Value::Function { .. } => todo!(),
         Value::Tuple { vs } => {
-            println!("dougrulz1");
             let tys = vs.iter().map(|x| x.get_type()).collect_vec();
             let llvm_st = LLVMSumType::try_new(&context.typing_session(), SumType::new([tys]))?;
             let llvm_vs = vs
@@ -463,7 +452,6 @@ fn emit_value<'c, H: HugrView>(
                 .map(|x| emit_value(context, x))
                 .collect::<Result<Vec<_>>>()?;
             let r = llvm_st.build_tag(context.builder(), 0, llvm_vs)?;
-            println!("dougrulz2");
             Ok(r)
         }
         Value::Sum {
@@ -471,14 +459,12 @@ fn emit_value<'c, H: HugrView>(
             values,
             sum_type,
         } => {
-            println!("dougrulz7");
             let llvm_st = LLVMSumType::try_new(&context.typing_session(), sum_type.clone())?;
             let vs = values
                 .iter()
                 .map(|x| emit_value(context, x))
                 .collect::<Result<Vec<_>>>()?;
             let r = llvm_st.build_tag(context.builder(), *tag as u32, vs)?;
-            println!("dougrulz8");
             Ok(r)
         }
     }

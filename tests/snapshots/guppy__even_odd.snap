@@ -1,0 +1,17 @@
+---
+source: tests/guppy.rs
+info:
+  program: hugr-llvm
+  args:
+    - /tmp/.tmpggqcJI
+---
+success: false
+exit_code: 101
+----- stdout -----
+emit module module
+
+----- stderr -----
+HUGR valid!
+thread 'main' panicked at src/emit/ops.rs:395:14:
+not yet implemented: Unimplemented OpTypeEmitter: CFG
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
