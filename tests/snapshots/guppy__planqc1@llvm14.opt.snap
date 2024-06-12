@@ -1,0 +1,14 @@
+---
+source: tests/guppy.rs
+info:
+  program: hugr-llvm
+  args:
+    - /tmp/.tmpA9z1vr
+---
+success: false
+exit_code: 1
+----- stdout -----
+
+----- stderr -----
+HUGR valid!
+Unknown extension: prelude

@@ -22,6 +22,9 @@ use crate::{
 use super::emit::EmitOp;
 
 pub mod int;
+pub mod prelude;
+pub mod float;
+pub mod tket2;
 // pub mod float_ops;
 // pub mod logic_ops;
 

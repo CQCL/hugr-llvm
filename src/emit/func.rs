@@ -10,11 +10,7 @@ use hugr::{
     HugrView, NodeIndex, OutgoingPort, PortIndex, Wire,
 };
 use inkwell::{
-    basic_block::BasicBlock,
-    builder::Builder,
-    context::Context,
-    types::{BasicTypeEnum, FunctionType},
-    values::FunctionValue,
+    basic_block::BasicBlock, builder::Builder, context::Context, module::Module, types::{BasicTypeEnum, FunctionType}, values::FunctionValue
 };
 use itertools::zip_eq;
 
@@ -60,6 +56,9 @@ impl<'c, H: HugrView> EmitFuncContext<'c, H> {
     delegate! {
         to self.emit_context {
             fn iw_context(&self) ->  &'c Context;
+            /// Returns the internal [CodegenExtsMap] .
+
+            pub fn module(&self) ->  &Module<'c>;
             /// Returns the internal [CodegenExtsMap] .
             pub fn extensions(&self) ->  Rc<CodegenExtsMap<'c,H>>;
             /// Returns a new [TypingSession].
