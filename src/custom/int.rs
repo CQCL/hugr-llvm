@@ -7,7 +7,7 @@ use hugr::{
         int_ops::{self, ConcreteIntOp},
         int_types::{self, ConstInt},
     },
-    types::{CustomType, TypeArg},
+    types::{CustomType, SumType, TypeArg},
     HugrView,
 };
 use inkwell::{
@@ -53,7 +53,11 @@ impl<'c, H: HugrView> EmitOp<'c, CustomOp, H> for IntOpEmitter<'c, '_, H> {
             "isub" => {
                 let builder = self.0.builder();
                 let [lhs, rhs] = TryInto::<[_; 2]>::try_into(args.inputs).unwrap();
-                let a = builder.build_int_sub(lhs.into_int_value(), rhs.into_int_value(), "")?;
+                let a = builder.build_int_sub(
+                    lhs.into_int_value(),
+                    rhs.into_int_value(),
+                    "",
+                )?;
                 args.outputs.finish(builder, [a.into()])
             }
             n => Err(anyhow!("IntOpEmitter: unknown name: {n}")),

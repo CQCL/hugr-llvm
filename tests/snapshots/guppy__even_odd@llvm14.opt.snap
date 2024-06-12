@@ -3,7 +3,7 @@ source: tests/guppy.rs
 info:
   program: hugr-llvm
   args:
-    - "-"
+    - /tmp/.tmpxU5UNY
 ---
 success: true
 exit_code: 0
@@ -11,70 +11,36 @@ exit_code: 0
 ; ModuleID = 'module'
 source_filename = "module"
 
-define { i32, {}, {} } @_hl.is_even.29(i64 %0) {
+define { {}, {} } @_hl.is_even.29(i64 %0) {
 alloca_block:
   %1 = icmp eq i64 %0, 0
-  %2 = select i1 %1, { i32, {}, {} } { i32 1, {} poison, {} undef }, { i32, {}, {} } { i32 0, {} undef, {} poison }
-  %3 = extractvalue { i32, {}, {} } %2, 0
-  %4 = extractvalue { i32, {}, {} } %2, 1
-  %5 = extractvalue { i32, {}, {} } %2, 2
-  %cond = icmp eq i32 %3, 1
-  %6 = insertvalue { i64 } undef, i64 %0, 0
-  %7 = insertvalue { i32, { i64 }, {} } { i32 0, { i64 } poison, {} poison }, { i64 } %6, 1
-  %"07.0" = select i1 %cond, { i32, { i64 }, {} } { i32 1, { i64 } poison, {} undef }, { i32, { i64 }, {} } %7
-  %8 = extractvalue { i32, { i64 }, {} } %"07.0", 0
-  %cond29 = icmp eq i32 %8, 1
-  br i1 %cond29, label %15, label %9
-
-9:                                                ; preds = %alloca_block
-  %10 = extractvalue { i32, { i64 }, {} } %"07.0", 1
-  %11 = extractvalue { i64 } %10, 0
-  %12 = sub i64 %11, 1
-  %13 = call { i32, {}, {} } @_hl.is_odd.30(i64 %12)
-  %14 = extractvalue { {} } undef, 0
-  br label %18
-
-15:                                               ; preds = %alloca_block
-  %16 = extractvalue { i32, { i64 }, {} } %"07.0", 2
-  %17 = extractvalue { {} } undef, 0
-  br label %18
-
-18:                                               ; preds = %9, %15
-  %"02.0" = phi { i32, {}, {} } [ %13, %9 ], [ { i32 1, {} poison, {} undef }, %15 ]
-  ret { i32, {}, {} } %"02.0"
+  %2 = select i1 %1, { {}, {} } { {} poison, {} undef }, { {}, {} } { {} undef, {} poison }
+  %3 = extractvalue { {}, {} } %2, 0
+  %4 = extractvalue { {}, {} } %2, 1
+  %5 = insertvalue { i64 } undef, i64 %0, 0
+  %6 = insertvalue { { i64 }, {} } poison, { i64 } %5, 0
+  %7 = extractvalue { { i64 }, {} } %6, 0
+  %8 = extractvalue { i64 } %7, 0
+  %9 = sub i64 %8, 1
+  %10 = call { {}, {} } @_hl.is_odd.30(i64 %9)
+  %11 = extractvalue { i32, {} } { i32 0, {} undef }, 1
+  ret { {}, {} } %10
 }
 
-define { i32, {}, {} } @_hl.is_odd.30(i64 %0) {
+define { {}, {} } @_hl.is_odd.30(i64 %0) {
 alloca_block:
   %1 = icmp eq i64 %0, 0
-  %2 = select i1 %1, { i32, {}, {} } { i32 1, {} poison, {} undef }, { i32, {}, {} } { i32 0, {} undef, {} poison }
-  %3 = extractvalue { i32, {}, {} } %2, 0
-  %4 = extractvalue { i32, {}, {} } %2, 1
-  %5 = extractvalue { i32, {}, {} } %2, 2
-  %cond = icmp eq i32 %3, 1
-  %6 = insertvalue { i64 } undef, i64 %0, 0
-  %7 = insertvalue { i32, { i64 }, {} } { i32 0, { i64 } poison, {} poison }, { i64 } %6, 1
-  %"07.0" = select i1 %cond, { i32, { i64 }, {} } { i32 1, { i64 } poison, {} undef }, { i32, { i64 }, {} } %7
-  %8 = extractvalue { i32, { i64 }, {} } %"07.0", 0
-  %cond29 = icmp eq i32 %8, 1
-  br i1 %cond29, label %15, label %9
-
-9:                                                ; preds = %alloca_block
-  %10 = extractvalue { i32, { i64 }, {} } %"07.0", 1
-  %11 = extractvalue { i64 } %10, 0
-  %12 = sub i64 %11, 1
-  %13 = call { i32, {}, {} } @_hl.is_even.29(i64 %12)
-  %14 = extractvalue { {} } undef, 0
-  br label %18
-
-15:                                               ; preds = %alloca_block
-  %16 = extractvalue { i32, { i64 }, {} } %"07.0", 2
-  %17 = extractvalue { {} } undef, 0
-  br label %18
-
-18:                                               ; preds = %9, %15
-  %"02.0" = phi { i32, {}, {} } [ %13, %9 ], [ { i32 0, {} undef, {} poison }, %15 ]
-  ret { i32, {}, {} } %"02.0"
+  %2 = select i1 %1, { {}, {} } { {} poison, {} undef }, { {}, {} } { {} undef, {} poison }
+  %3 = extractvalue { {}, {} } %2, 0
+  %4 = extractvalue { {}, {} } %2, 1
+  %5 = insertvalue { i64 } undef, i64 %0, 0
+  %6 = insertvalue { { i64 }, {} } poison, { i64 } %5, 0
+  %7 = extractvalue { { i64 }, {} } %6, 0
+  %8 = extractvalue { i64 } %7, 0
+  %9 = sub i64 %8, 1
+  %10 = call { {}, {} } @_hl.is_even.29(i64 %9)
+  %11 = extractvalue { i32, {} } { i32 0, {} undef }, 1
+  ret { {}, {} } %10
 }
 
 

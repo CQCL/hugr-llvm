@@ -29,21 +29,25 @@ test = ["coverage", "pytest (>=7,<8.1)", "pytest-cov", "pytest-mock (>=3)"]
 
 [[package]]
 name = "guppylang"
-version = "0.5.1"
+version = "0.5.0"
 description = "Pythonic quantum-classical programming language"
 optional = false
-python-versions = "<4.0,>=3.10"
-files = [
-    {file = "guppylang-0.5.1-py3-none-any.whl", hash = "sha256:d688917f83d91b3446159c864281c2cbfc1318e5829d262759fa05c705972224"},
-    {file = "guppylang-0.5.1.tar.gz", hash = "sha256:3136b45a0ad5452ebbf098e909a326d33393088541fc5f966830e2a2d78ef2d0"},
-]
+python-versions = "^3.10"
+files = []
+develop = false
 
 [package.dependencies]
-graphviz = ">=0.20.1,<0.21.0"
-hugr = ">=0.2.1,<0.3.0"
-networkx = ">=3.2.1,<4.0.0"
-pydantic = ">=2.7.0b1,<3.0.0"
-typing-extensions = ">=4.9.0,<5.0.0"
+graphviz = "^0.20.1"
+hugr = "~0.2.1"
+networkx = "^3.2.1"
+pydantic = "^2.7.0b1"
+typing-extensions = "^4.9.0"
+
+[package.source]
+type = "git"
+url = "https://github.com/CQCL/guppylang.git"
+reference = "fix/unit-sum-value"
+resolved_reference = "4c020dbb4a4022d49cc52e8d945f0455fa618c7d"
 
 [[package]]
 name = "hugr"
@@ -79,13 +83,13 @@ test = ["pytest (>=7.2)", "pytest-cov (>=4.0)"]
 
 [[package]]
 name = "pydantic"
-version = "2.7.4"
+version = "2.7.3"
 description = "Data validation using Python type hints"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "pydantic-2.7.4-py3-none-any.whl", hash = "sha256:ee8538d41ccb9c0a9ad3e0e5f07bf15ed8015b481ced539a1759d8cc89ae90d0"},
-    {file = "pydantic-2.7.4.tar.gz", hash = "sha256:0c84efd9548d545f63ac0060c1e4d39bb9b14db8b3c0652338aecc07b5adec52"},
+    {file = "pydantic-2.7.3-py3-none-any.whl", hash = "sha256:ea91b002777bf643bb20dd717c028ec43216b24a6001a280f83877fd2655d0b4"},
+    {file = "pydantic-2.7.3.tar.gz", hash = "sha256:c46c76a40bb1296728d7a8b99aa73dd70a48c3510111ff290034f860c99c419e"},
 ]
 
 [package.dependencies]
@@ -201,4 +205,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "a9815407d236beb499124c187662d6ebcca40fc9f33aecf0957c7b845d85ff6a"
+content-hash = "5ca6ca2f1966408f2edc87cece2f9076e3639d3f54ebcf1fdc86da6df8fccf66"
