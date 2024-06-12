@@ -155,11 +155,20 @@ impl<'c, OT, H: HugrView + ?Sized> FatNode<'c, OT, H> {
         ))
     }
 
+    pub fn node_outputs(&self) -> impl Iterator<Item = OutgoingPort> + '_ {
+        self.hugr.node_outputs(self.node)
+    }
+
+    pub fn output_neighbours(&self) -> impl Iterator<Item = FatNode<'c, OpType, H>> + '_ {
+        self.hugr
+            .output_neighbours(self.node)
+            .map(|n| FatNode::new_optype(self.hugr, n))
+    }
+
     /// Create a general `FatNode` from a specific one.
     pub fn generalise(self) -> FatNode<'c, OpType, H>
     where
-        &'c OpType: TryInto<&'c OT>,
-        OT: 'c,
+        OT: Into<OpType> + 'c,
     {
         // guaranteed to be valid becasue self is valid
         FatNode {
@@ -266,6 +275,12 @@ where
 }
 
 impl<'c, OT, H> NodeIndex for FatNode<'c, OT, H> {
+    fn index(self) -> usize {
+        self.node.index()
+    }
+}
+
+impl<'c, OT, H> NodeIndex for &FatNode<'c, OT, H> {
     fn index(self) -> usize {
         self.node.index()
     }

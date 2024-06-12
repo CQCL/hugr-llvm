@@ -1,7 +1,7 @@
 //! Provides a command line interface to tket2-hseries
 use std::rc::Rc;
 
-use clap::{Command, FromArgMatches, Parser,ArgMatches, Args};
+use clap::{ArgMatches, Args, Command, FromArgMatches, Parser};
 use hugr::std_extensions::arithmetic::{
     conversions::EXTENSION as CONVERSIONS_EXTENSION, float_ops::EXTENSION as FLOAT_OPS_EXTENSION,
     float_types::EXTENSION as FLOAT_TYPES_EXTENSION, int_ops::EXTENSION as INT_OPS_EXTENSION,
@@ -40,7 +40,9 @@ pub struct HugrCliCmdLineArgs(hugr_cli::CmdLineArgs);
 
 impl FromArgMatches for HugrCliCmdLineArgs {
     fn from_arg_matches(matches: &ArgMatches) -> Result<Self, clap::Error> {
-        Ok(HugrCliCmdLineArgs(hugr_cli::CmdLineArgs::from_arg_matches(matches)?))
+        Ok(HugrCliCmdLineArgs(hugr_cli::CmdLineArgs::from_arg_matches(
+            matches,
+        )?))
     }
 
     fn update_from_arg_matches(&mut self, matches: &clap::ArgMatches) -> Result<(), clap::Error> {
@@ -50,13 +52,11 @@ impl FromArgMatches for HugrCliCmdLineArgs {
 
 impl Args for HugrCliCmdLineArgs {
     fn augment_args(cmd: Command) -> Command {
-        hugr_cli::CmdLineArgs::augment_args(cmd)
-            .mut_arg("mermaid", |x| x.hide(true))
+        hugr_cli::CmdLineArgs::augment_args(cmd).mut_arg("mermaid", |x| x.hide(true))
     }
 
     fn augment_args_for_update(cmd: Command) -> Command {
-        hugr_cli::CmdLineArgs::augment_args_for_update(cmd)
-            .mut_arg("mermaid", |x| x.hide(true))
+        hugr_cli::CmdLineArgs::augment_args_for_update(cmd).mut_arg("mermaid", |x| x.hide(true))
     }
 }
 
@@ -71,7 +71,7 @@ pub struct CmdLineArgs {
 
     #[arg(short='p',long,default_value=crate::emit::NAMER_DEFAULT_PREFIX)]
     mangle_prefix: String,
-    #[arg(short='s',long, default_value_t=true)]
+    #[arg(short = 's', long, default_value_t = true)]
     mangle_node_suffix: bool,
 }
 

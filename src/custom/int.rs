@@ -36,7 +36,18 @@ impl<'c, H: HugrView> EmitOp<'c, CustomOp, H> for IntOpEmitter<'c, '_, H> {
                 let a = builder.build_int_add(lhs.into_int_value(), rhs.into_int_value(), "")?;
                 args.outputs.finish(builder, [a.into()])
             }
-            _ => Err(anyhow!("IntOpEmitter: unknown name")),
+            "ieq" => {
+                let builder = self.0.builder();
+                let [lhs, rhs] = TryInto::<[_; 2]>::try_into(args.inputs).unwrap();
+                let a = builder.build_int_compare(
+                    inkwell::IntPredicate::EQ,
+                    lhs.into_int_value(),
+                    rhs.into_int_value(),
+                    "",
+                )?;
+                args.outputs.finish(builder, [a.into()])
+            }
+            n => Err(anyhow!("IntOpEmitter: unknown name: {n}")),
         }
     }
 }

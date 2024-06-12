@@ -1,9 +1,13 @@
-use std::{env, fs::{read_to_string, File}, path::{Path, PathBuf}, process::Command};
+use std::{
+    env,
+    fs::File,
+    path::{Path, PathBuf},
+    process::Command,
+};
 
-use insta::assert_snapshot;
-use rstest::{fixture, rstest};
 use insta_cmd::assert_cmd_snapshot;
-use tempfile::{tempfile, NamedTempFile};
+use rstest::{fixture, rstest};
+use tempfile::NamedTempFile;
 
 struct TestConfig {
     python_bin: PathBuf,
@@ -19,11 +23,13 @@ impl TestConfig {
             .or_else(|| pathsearch::find_executable_in_path("python"))
             .unwrap_or_else(|| panic!("Could not find python in PATH or HUGR_LLVM_PYTHON_BIN"));
         let hugr_llvm_bin = env!("CARGO_BIN_EXE_hugr-llvm").into();
-        let test_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/guppy_test_cases").into();
+        let test_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/guppy_test_cases")
+            .into();
         TestConfig {
             python_bin,
             hugr_llvm_bin,
-            test_dir
+            test_dir,
         }
     }
 }
@@ -35,8 +41,13 @@ impl TestConfig {
             .arg(self.test_dir.join(path.as_ref()))
             .arg("--mermaid")
             .stdout(file.reopen().unwrap())
-            .status().unwrap();
-        assert!(status.success(), "Failed to run guppy test case: {:?}", path.as_ref());
+            .status()
+            .unwrap();
+        assert!(
+            status.success(),
+            "Failed to run guppy test case: {:?}",
+            path.as_ref()
+        );
         file
     }
 

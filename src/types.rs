@@ -8,7 +8,7 @@ use hugr::types::SumType;
 use hugr::{types::TypeRow, HugrView};
 use inkwell::builder::Builder;
 use inkwell::types::{self as iw, AnyType, AsTypeRef, IntType};
-use inkwell::values::{BasicValue, BasicValueEnum, StructValue};
+use inkwell::values::{BasicValue, BasicValueEnum, IntValue, StructValue};
 use inkwell::{
     context::Context,
     types::{BasicMetadataTypeEnum, BasicType, BasicTypeEnum, StructType},
@@ -196,13 +196,15 @@ impl<'c> LLVMSumType<'c> {
         &self,
         builder: &Builder<'c>,
         v: impl BasicValue<'c>,
-    ) -> Result<BasicValueEnum<'c>> {
+    ) -> Result<IntValue<'c>> {
         let struct_value: StructValue<'c> = v
             .as_basic_value_enum()
             .try_into()
             .map_err(|_| anyhow!("Not a struct type"))?;
         if self.has_tag_field() {
-            Ok(builder.build_extract_value(struct_value, 0, "")?)
+            Ok(builder
+                .build_extract_value(struct_value, 0, "")?
+                .into_int_value())
         } else {
             Ok(self.get_tag_type().const_int(0, false).into())
         }
@@ -244,7 +246,7 @@ impl<'c> LLVMSumType<'c> {
     ) -> Result<BasicValueEnum<'c>> {
         let expected_num_fields = self.num_fields(tag)?;
         if expected_num_fields != vs.len() {
-            Err(anyhow!("LLVMSumType::build: wrong number of fields: expected: {expected_num_fields} actual: {}", vs.len()))?
+            Err(anyhow!("LLVMSumType::build_tag: wrong number of fields: expected: {expected_num_fields} actual: {} sumtype: {} llvm_type {} vs: {:?}", vs.len(), &self.1, &self.0, vs.clone()))?
         }
         let variant_index = self.get_variant_index(tag);
         let row_t = self
