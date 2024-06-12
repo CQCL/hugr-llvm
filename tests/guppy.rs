@@ -1,5 +1,8 @@
 use std::{
-    env, fmt::Display, fs::File, path::{Path, PathBuf}, process::Command
+    env,
+    fmt::Display,
+    path::{Path, PathBuf},
+    process::Command,
 };
 
 use insta_cmd::assert_cmd_snapshot;
@@ -10,7 +13,7 @@ struct TestConfig {
     python_bin: PathBuf,
     hugr_llvm_bin: PathBuf,
     test_dir: PathBuf,
-    pub opt: bool
+    pub opt: bool,
 }
 
 impl TestConfig {
@@ -28,7 +31,7 @@ impl TestConfig {
             python_bin,
             hugr_llvm_bin,
             test_dir,
-            opt: true
+            opt: true,
         }
     }
 }
@@ -71,7 +74,9 @@ fn test_dir_exists(test_config: TestConfig) {
 
 fn with_suffix<R>(s: impl Display, go: impl FnOnce() -> R) -> R {
     let mut settings = insta::Settings::clone_current();
-    let old_suffix = settings.snapshot_suffix().map_or("".to_string(),|s| format!("{s}."));
+    let old_suffix = settings
+        .snapshot_suffix()
+        .map_or("".to_string(), |s| format!("{s}."));
     let llvm_str = hugr_llvm::llvm_version();
     settings.set_snapshot_suffix(format!("{old_suffix}{llvm_str}.{s}"));
     settings.bind(go)
@@ -91,7 +96,7 @@ macro_rules! guppy_test {
                 assert_cmd_snapshot!(test_config.hugr_llvm(&json_file))
             });
         }
-    }
+    };
 }
 
 guppy_test!("even_odd.py", even_odd);

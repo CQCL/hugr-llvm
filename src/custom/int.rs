@@ -7,7 +7,7 @@ use hugr::{
         int_ops::{self, ConcreteIntOp},
         int_types::{self, ConstInt},
     },
-    types::{CustomType, SumType, TypeArg},
+    types::{CustomType, TypeArg},
     HugrView,
 };
 use inkwell::{
@@ -16,7 +16,7 @@ use inkwell::{
 };
 
 use crate::{
-    emit::{func::EmitFuncContext, emit_value, EmitOp, EmitOpArgs, NullEmitLlvm},
+    emit::{emit_value, func::EmitFuncContext, EmitOp, EmitOpArgs, NullEmitLlvm},
     types::TypingSession,
 };
 
@@ -53,11 +53,7 @@ impl<'c, H: HugrView> EmitOp<'c, CustomOp, H> for IntOpEmitter<'c, '_, H> {
             "isub" => {
                 let builder = self.0.builder();
                 let [lhs, rhs] = TryInto::<[_; 2]>::try_into(args.inputs).unwrap();
-                let a = builder.build_int_sub(
-                    lhs.into_int_value(),
-                    rhs.into_int_value(),
-                    "",
-                )?;
+                let a = builder.build_int_sub(lhs.into_int_value(), rhs.into_int_value(), "")?;
                 args.outputs.finish(builder, [a.into()])
             }
             n => Err(anyhow!("IntOpEmitter: unknown name: {n}")),
