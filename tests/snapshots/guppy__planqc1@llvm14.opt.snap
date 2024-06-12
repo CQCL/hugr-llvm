@@ -3,12 +3,17 @@ source: tests/guppy.rs
 info:
   program: hugr-llvm
   args:
-    - /tmp/.tmpA9z1vr
+    - /tmp/.tmp0BaZyN
 ---
 success: false
 exit_code: 1
 ----- stdout -----
+measure OpaqueOp { extension: IdentList("quantum.tket2"), op_name: "Measure", description: "", args: [], signature: FunctionType { input: TypeRow { types: [Type(Extension(CustomType { extension: IdentList("prelude"), id: "qubit", args: [], bound: Any }), Any)] }, output: TypeRow { types: [Type(Extension(CustomType { extension: IdentList("prelude"), id: "qubit", args: [], bound: Any }), Any), Type(Sum(Unit { size: 2 }), Eq)] }, extension_reqs: ExtensionSet({}) } }
 
 ----- stderr -----
 HUGR valid!
-Unknown extension: prelude
+Stored value type does not match pointer operand type!
+  store i32 %"5_01", double* %"6_0", align 4
+ i32Stored value type does not match pointer operand type!
+  store double %"5_12", i32* %"6_1", align 8
+ double

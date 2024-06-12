@@ -239,7 +239,7 @@ impl<'c, H: HugrView> EmitOp<'c, Conditional, H> for ConditionalEmitter<'c, '_, 
     }
 }
 
-fn get_exactly_one_sum_type(ts: impl IntoIterator<Item = Type>) -> Result<SumType> {
+f(self.node)?;n get_exactly_one_sum_type(ts: impl IntoIterator<Item = Type>) -> Result<SumType> {
     let Some(TypeEnum::Sum(sum_type)) = ts
         .into_iter()
         .map(|t| t.as_type_enum().clone())

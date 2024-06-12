@@ -148,7 +148,9 @@ impl<'c> RowMailBox<'c> {
         builder: &Builder<'c>,
         vs: impl IntoIterator<Item = BasicValueEnum<'c>>,
     ) -> Result<()> {
-        zip_eq(self.0.iter(), vs).try_for_each(|(mb, v)| mb.write(builder, v))
+        let values = vs.into_iter().collect_vec();
+        // println!("rowmailbox write {:?} \n -> {:?}", values.clone(), self.get_types().collect_vec());
+        zip_eq(self.0.iter(), values.into_iter()).try_for_each(|(mb, v)| mb.write(builder, v))
     }
 
     fn mailboxes(&'_ self) -> impl Iterator<Item = ValueMailBox<'c>> + '_ {

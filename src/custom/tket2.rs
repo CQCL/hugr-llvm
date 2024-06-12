@@ -81,7 +81,6 @@ impl<'c, H: HugrView> EmitOp<'c, CustomOp, H> for Tket2Emitter<'c, '_, H> {
                 Ok(())
             }
             "QFree" => {
-                println!("qfree {:?}", opaque);
                 let func_type = self.0.llvm_func_type(&FunctionType::new(QB_T,type_row![]))?;
                 let h_func = self.0.module().add_function("___qfree", func_type, Some(Linkage::External));
                 let inputs = args.inputs.into_iter().map_into().collect_vec();

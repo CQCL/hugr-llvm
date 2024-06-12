@@ -113,6 +113,7 @@ impl CmdLineArgs {
             self.namer(),
             self.codegenexts(),
         )?;
+
         module
             .verify()
             .map_err(|e| anyhow::anyhow!(e.to_string()))?;

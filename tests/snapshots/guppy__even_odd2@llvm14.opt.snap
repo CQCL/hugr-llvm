@@ -1,0 +1,70 @@
+---
+source: tests/guppy.rs
+info:
+  program: hugr-llvm
+  args:
+    - /tmp/.tmpspOfKF
+---
+success: true
+exit_code: 0
+----- stdout -----
+measure OpaqueOp { extension: IdentList("quantum.tket2"), op_name: "Measure", description: "", args: [], signature: FunctionType { input: TypeRow { types: [Type(Extension(CustomType { extension: IdentList("prelude"), id: "qubit", args: [], bound: Any }), Any)] }, output: TypeRow { types: [Type(Extension(CustomType { extension: IdentList("prelude"), id: "qubit", args: [], bound: Any }), Any), Type(Sum(Unit { size: 2 }), Eq)] }, extension_reqs: ExtensionSet({}) } }
+; ModuleID = 'module'
+source_filename = "module"
+
+define { i32, {}, {} } @_hl.is_even.21(i64 %0) {
+alloca_block:
+  %qalloc_call = call i32 @___qalloc()
+  %h_call = call i32 @___h(i32 %qalloc_call)
+  %measure_call = call { i32, { i32, {}, {} } } @___measure(i32 %h_call)
+  %1 = extractvalue { i32, { i32, {}, {} } } %measure_call, 0
+  %2 = extractvalue { i32, { i32, {}, {} } } %measure_call, 1
+  call void @___qfree(i32 %1)
+  %3 = extractvalue { {} } undef, 0
+  ret { i32, {}, {} } %2
+}
+
+declare i32 @___qalloc()
+
+declare i32 @___h(i32)
+
+declare { i32, { i32, {}, {} } } @___measure(i32)
+
+declare void @___qfree(i32)
+
+define { i32, {}, {} } @_hl.is_odd.22(i64 %0) {
+alloca_block:
+  %1 = icmp eq i64 %0, 0
+  %2 = select i1 %1, { i32, {}, {} } { i32 1, {} poison, {} undef }, { i32, {}, {} } { i32 0, {} undef, {} poison }
+  %3 = extractvalue { i32, {}, {} } %2, 0
+  %4 = extractvalue { i32, {}, {} } %2, 1
+  %5 = extractvalue { i32, {}, {} } %2, 2
+  %cond = icmp eq i32 %3, 1
+  %6 = insertvalue { i64 } undef, i64 %0, 0
+  %7 = insertvalue { i32, { i64 }, {} } { i32 0, { i64 } poison, {} poison }, { i64 } %6, 1
+  %"07.0" = select i1 %cond, { i32, { i64 }, {} } { i32 1, { i64 } poison, {} undef }, { i32, { i64 }, {} } %7
+  %8 = extractvalue { i32, { i64 }, {} } %"07.0", 0
+  %cond29 = icmp eq i32 %8, 1
+  br i1 %cond29, label %15, label %9
+
+9:                                                ; preds = %alloca_block
+  %10 = extractvalue { i32, { i64 }, {} } %"07.0", 1
+  %11 = extractvalue { i64 } %10, 0
+  %12 = sub i64 %11, 1
+  %13 = call { i32, {}, {} } @_hl.is_even.21(i64 %12)
+  %14 = extractvalue { {} } undef, 0
+  br label %18
+
+15:                                               ; preds = %alloca_block
+  %16 = extractvalue { i32, { i64 }, {} } %"07.0", 2
+  %17 = extractvalue { {} } undef, 0
+  br label %18
+
+18:                                               ; preds = %9, %15
+  %"02.0" = phi { i32, {}, {} } [ %13, %9 ], [ { i32 0, {} undef, {} poison }, %15 ]
+  ret { i32, {}, {} } %"02.0"
+}
+
+
+----- stderr -----
+HUGR valid!
