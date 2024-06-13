@@ -3,7 +3,7 @@ source: tests/guppy.rs
 info:
   program: hugr-llvm
   args:
-    - /tmp/.tmp6o3Oz1
+    - "-"
 ---
 success: true
 exit_code: 0

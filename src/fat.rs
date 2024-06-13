@@ -5,10 +5,11 @@
 use std::{cmp::Ordering, hash::Hash, marker::PhantomData, ops::Deref};
 
 use hugr::{
-    ops::{Input, NamedOp, OpType, Output},
+    ops::{DataflowBlock, ExitBlock, Input, NamedOp, OpType, Output, CFG},
     types::Type,
     Hugr, HugrView, IncomingPort, Node, NodeIndex, OutgoingPort,
 };
+use itertools::Itertools as _;
 
 /// A Fat Node is a [Node] along with a reference to the [HugrView] whence it
 /// originates. It carries a type `OT`, the [OpType] of that node. `OT` may be
@@ -176,6 +177,25 @@ impl<'c, OT, H: HugrView + ?Sized> FatNode<'c, OT, H> {
             node: self.node,
             marker: PhantomData,
         }
+    }
+}
+
+impl<'c, H: HugrView> FatNode<'c, CFG, H> {
+    /// TODO it would be reasonable to remove Option and panic on failure here
+    pub fn get_entry_exit(
+        &self,
+    ) -> Option<(FatNode<'c, DataflowBlock, H>, FatNode<'c, ExitBlock, H>)> {
+        let [i, o] = self
+            .hugr
+            .children(self.node)
+            .take(2)
+            .collect_vec()
+            .try_into()
+            .ok()?;
+        Some((
+            FatNode::try_new(self.hugr, i)?,
+            FatNode::try_new(self.hugr, o)?,
+        ))
     }
 }
 

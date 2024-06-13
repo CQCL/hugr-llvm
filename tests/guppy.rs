@@ -2,12 +2,11 @@ use std::{
     env,
     fmt::Display,
     path::{Path, PathBuf},
-    process::Command,
+    process::{Command, Stdio},
 };
 
 use insta_cmd::assert_cmd_snapshot;
 use rstest::{fixture, rstest};
-use tempfile::NamedTempFile;
 
 struct TestConfig {
     python_bin: PathBuf,
@@ -37,29 +36,30 @@ impl TestConfig {
 }
 
 impl TestConfig {
-    fn get_guppy_output(&self, path: impl AsRef<Path>) -> NamedTempFile {
-        let file = NamedTempFile::new().unwrap();
-        let status = Command::new(&self.python_bin)
-            .arg(self.test_dir.join(path.as_ref()))
-            .arg("--mermaid")
-            .stdout(file.reopen().unwrap())
-            .status()
-            .unwrap();
-        assert!(
-            status.success(),
-            "Failed to run guppy test case: {:?}",
-            path.as_ref()
-        );
-        file
+    fn get_guppy_output(&self, path: impl AsRef<Path>) -> Command {
+        let mut cmd = Command::new(&self.python_bin);
+        cmd.arg(self.test_dir.join(path.as_ref()));
+        cmd
     }
 
-    fn hugr_llvm(&self, json_file: impl AsRef<Path>) -> Command {
-        let mut command = Command::new(&self.hugr_llvm_bin);
-        command.arg(json_file.as_ref());
+    fn hugr_llvm(&self) -> Command {
+        let mut cmd = Command::new(&self.hugr_llvm_bin);
         if !self.opt {
-            command.arg("--no-opt");
+            cmd.arg("--no-opt");
         }
-        command
+        cmd
+    }
+
+    fn run<T>(&self, path: impl AsRef<Path>, go: impl FnOnce(Command) -> T) -> T {
+        let mut guppy_cmd = self.get_guppy_output(path);
+        guppy_cmd.stdout(Stdio::piped());
+        let mut guppy_proc = guppy_cmd.spawn().expect("Failed to start guppy");
+
+        let mut hugr_llvm = self.hugr_llvm();
+        hugr_llvm.stdin(guppy_proc.stdout.take().unwrap()).arg("-");
+        let r = go(hugr_llvm);
+        assert!(guppy_proc.wait().unwrap().success());
+        r
     }
 }
 #[fixture]
@@ -86,14 +86,13 @@ macro_rules! guppy_test {
     ($filename:expr, $testname:ident) => {
         #[rstest]
         fn $testname(mut test_config: TestConfig) {
-            let json_file = test_config.get_guppy_output($filename);
             with_suffix("noopt", || {
                 test_config.opt = false;
-                assert_cmd_snapshot!(test_config.hugr_llvm(&json_file))
+                test_config.run($filename, |mut cmd| assert_cmd_snapshot!(cmd));
             });
             with_suffix("opt", || {
                 test_config.opt = true;
-                assert_cmd_snapshot!(test_config.hugr_llvm(&json_file))
+                test_config.run($filename, |mut cmd| assert_cmd_snapshot!(cmd));
             });
         }
     };

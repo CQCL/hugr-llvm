@@ -3,8 +3,8 @@ source: tests/guppy.rs
 info:
   program: hugr-llvm
   args:
-    - /tmp/.tmpSqlhGA
     - "--no-opt"
+    - "-"
 ---
 success: true
 exit_code: 0
@@ -17,8 +17,8 @@ alloca_block:
   %"0" = alloca { i32, {}, {} }, align 8
   %"5_0" = alloca i64, align 8
   %"31_0" = alloca { i32, {}, {} }, align 8
-  %"02" = alloca { i32, {}, {} }, align 8
   %"6_0" = alloca i64, align 8
+  %"02" = alloca { i32, {}, {} }, align 8
   %"10_0" = alloca i64, align 8
   %"35_0" = alloca { i32, { i64 }, {} }, align 8
   %"33_0" = alloca i64, align 8
@@ -150,8 +150,8 @@ alloca_block:
   %"0" = alloca { i32, {}, {} }, align 8
   %"11_0" = alloca i64, align 8
   %"50_0" = alloca { i32, {}, {} }, align 8
-  %"02" = alloca { i32, {}, {} }, align 8
   %"12_0" = alloca i64, align 8
+  %"02" = alloca { i32, {}, {} }, align 8
   %"16_0" = alloca i64, align 8
   %"54_0" = alloca { i32, { i64 }, {} }, align 8
   %"52_0" = alloca i64, align 8

@@ -60,7 +60,6 @@
 //!
 //! [BasicValueEnum]: [inkwell::values::BasicValueEnum]
 //! [BasicValue]: [inkwell::values::BasicValue]
-//!
 pub mod cli;
 pub mod custom;
 pub mod emit;
