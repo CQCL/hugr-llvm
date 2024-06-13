@@ -3,17 +3,48 @@ source: tests/guppy.rs
 info:
   program: hugr-llvm
   args:
-    - /tmp/.tmp0BaZyN
+    - "-"
 ---
-success: false
-exit_code: 1
+success: true
+exit_code: 0
 ----- stdout -----
 measure OpaqueOp { extension: IdentList("quantum.tket2"), op_name: "Measure", description: "", args: [], signature: FunctionType { input: TypeRow { types: [Type(Extension(CustomType { extension: IdentList("prelude"), id: "qubit", args: [], bound: Any }), Any)] }, output: TypeRow { types: [Type(Extension(CustomType { extension: IdentList("prelude"), id: "qubit", args: [], bound: Any }), Any), Type(Sum(Unit { size: 2 }), Eq)] }, extension_reqs: ExtensionSet({}) } }
+; ModuleID = 'module'
+source_filename = "module"
+
+define i32 @_hl.rx.13(i32 %0, double %1) {
+alloca_block:
+  %h_call = call i32 @___h(i32 %0)
+  %rz_call = call i32 @___rz(i32 %h_call, double %1)
+  %h_call10 = call i32 @___h.1(i32 %rz_call)
+  %2 = extractvalue { {} } undef, 0
+  ret i32 %h_call10
+}
+
+declare i32 @___h(i32)
+
+declare i32 @___rz(i32, double)
+
+declare i32 @___h.1(i32)
+
+define { i32, {}, {} } @_hl.main.14() {
+alloca_block:
+  %qalloc_call = call i32 @___qalloc()
+  %0 = call i32 @_hl.rx.13(i32 %qalloc_call, double 1.500000e+00)
+  %measure_call = call { i32, { i32, {}, {} } } @___measure(i32 %0)
+  %1 = extractvalue { i32, { i32, {}, {} } } %measure_call, 0
+  %2 = extractvalue { i32, { i32, {}, {} } } %measure_call, 1
+  call void @___qfree(i32 %1)
+  %3 = extractvalue { {} } undef, 0
+  ret { i32, {}, {} } %2
+}
+
+declare i32 @___qalloc()
+
+declare { i32, { i32, {}, {} } } @___measure(i32)
+
+declare void @___qfree(i32)
+
 
 ----- stderr -----
 HUGR valid!
-Stored value type does not match pointer operand type!
-  store i32 %"5_01", double* %"6_0", align 4
- i32Stored value type does not match pointer operand type!
-  store double %"5_12", i32* %"6_1", align 8
- double

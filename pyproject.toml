@@ -8,7 +8,7 @@ package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.11"
-guppylang= { git = "https://github.com/CQCL/guppylang.git", branch = "fix/unit-sum-value" }
+guppylang= { git = "https://github.com/CQCL/guppylang.git", branch = "fix/input-order" }
 
 
 [build-system]
