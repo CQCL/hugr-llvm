@@ -7,7 +7,7 @@ struct PreludeCodegenExtension;
 
 impl<'c, H: HugrView> CodegenExtension<'c, H> for PreludeCodegenExtension {
     fn extension(&self) -> hugr::extension::ExtensionId {
-        return prelude::PRELUDE_ID
+        return prelude::PRELUDE_ID;
     }
 
     fn llvm_type(
@@ -23,7 +23,7 @@ impl<'c, H: HugrView> CodegenExtension<'c, H> for PreludeCodegenExtension {
 
     fn emitter<'a>(
         &self,
-        context: &'a mut crate::emit::func::EmitFuncContext<'c, H>,
+        _context: &'a mut crate::emit::func::EmitFuncContext<'c, H>,
     ) -> Box<dyn crate::emit::EmitOp<'c, hugr::ops::CustomOp, H> + 'a> {
         todo!()
     }

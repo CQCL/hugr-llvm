@@ -10,7 +10,12 @@ use hugr::{
     HugrView, NodeIndex, OutgoingPort, PortIndex, Wire,
 };
 use inkwell::{
-    basic_block::BasicBlock, builder::Builder, context::Context, module::Module, types::{BasicTypeEnum, FunctionType}, values::FunctionValue
+    basic_block::BasicBlock,
+    builder::Builder,
+    context::Context,
+    module::Module,
+    types::{BasicTypeEnum, FunctionType},
+    values::FunctionValue,
 };
 use itertools::zip_eq;
 

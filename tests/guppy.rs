@@ -101,3 +101,4 @@ macro_rules! guppy_test {
 guppy_test!("even_odd.py", even_odd);
 guppy_test!("even_odd2.py", even_odd2);
 guppy_test!("planqc-1.py", planqc1);
+guppy_test!("planqc-2.py", planqc2);

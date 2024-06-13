@@ -1,8 +1,7 @@
 from guppylang.decorator import guppy
 from guppylang.module import GuppyModule
 from guppylang.prelude import quantum
-from guppylang.prelude.builtins import py
-from guppylang.prelude.quantum import measure, phased_x, qubit
+from guppylang.prelude.quantum import measure, qubit, h, rz
 
 mod = GuppyModule("main")
 mod.load(quantum)

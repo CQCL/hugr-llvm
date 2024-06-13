@@ -1,8 +1,15 @@
 use std::{any::TypeId, collections::HashSet};
 
-use hugr::{extension::prelude, ops::constant::CustomConst, std_extensions::arithmetic::float_types::{self, ConstF64}, HugrView};
-use inkwell::{types::{BasicType, FloatType}, values::{BasicValue, BasicValueEnum}};
 use anyhow::{anyhow, Result};
+use hugr::{
+    ops::constant::CustomConst,
+    std_extensions::arithmetic::float_types::{self, ConstF64},
+    HugrView,
+};
+use inkwell::{
+    types::{BasicType, FloatType},
+    values::{BasicValue, BasicValueEnum},
+};
 
 use crate::emit::func::EmitFuncContext;
 
@@ -28,7 +35,7 @@ impl<'c, H: HugrView> CodegenExtension<'c, H> for FloatCodegenExtension {
 
     fn emitter<'a>(
         &self,
-        context: &'a mut crate::emit::func::EmitFuncContext<'c, H>,
+        _context: &'a mut crate::emit::func::EmitFuncContext<'c, H>,
     ) -> Box<dyn crate::emit::EmitOp<'c, hugr::ops::CustomOp, H> + 'a> {
         todo!()
     }
@@ -52,7 +59,6 @@ impl<'c, H: HugrView> CodegenExtension<'c, H> for FloatCodegenExtension {
         // TODO we don't know whether this is signed or unsigned
         Ok(Some(ty.const_float(k.value()).as_basic_value_enum()))
     }
-
 }
 
 pub fn add_float_extensions<H: HugrView>(cem: CodegenExtsMap<'_, H>) -> CodegenExtsMap<'_, H> {

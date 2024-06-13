@@ -1,0 +1,411 @@
+---
+source: tests/guppy.rs
+info:
+  program: hugr-llvm
+  args:
+    - "--no-opt"
+    - "-"
+---
+success: true
+exit_code: 0
+----- stdout -----
+measure OpaqueOp { extension: IdentList("quantum.tket2"), op_name: "Measure", description: "", args: [], signature: FunctionType { input: TypeRow { types: [Type(Extension(CustomType { extension: IdentList("prelude"), id: "qubit", args: [], bound: Any }), Any)] }, output: TypeRow { types: [Type(Extension(CustomType { extension: IdentList("prelude"), id: "qubit", args: [], bound: Any }), Any), Type(Sum(Unit { size: 2 }), Eq)] }, extension_reqs: ExtensionSet({}) } }
+measure OpaqueOp { extension: IdentList("quantum.tket2"), op_name: "Measure", description: "", args: [], signature: FunctionType { input: TypeRow { types: [Type(Extension(CustomType { extension: IdentList("prelude"), id: "qubit", args: [], bound: Any }), Any)] }, output: TypeRow { types: [Type(Extension(CustomType { extension: IdentList("prelude"), id: "qubit", args: [], bound: Any }), Any), Type(Sum(Unit { size: 2 }), Eq)] }, extension_reqs: ExtensionSet({}) } }
+measure OpaqueOp { extension: IdentList("quantum.tket2"), op_name: "Measure", description: "", args: [], signature: FunctionType { input: TypeRow { types: [Type(Extension(CustomType { extension: IdentList("prelude"), id: "qubit", args: [], bound: Any }), Any)] }, output: TypeRow { types: [Type(Extension(CustomType { extension: IdentList("prelude"), id: "qubit", args: [], bound: Any }), Any), Type(Sum(Unit { size: 2 }), Eq)] }, extension_reqs: ExtensionSet({}) } }
+; ModuleID = 'module'
+source_filename = "module"
+
+define i32 @_hl.teleport.25(i32 %0, i32 %1) {
+alloca_block:
+  %"0" = alloca i32, align 4
+  %"5_0" = alloca i32, align 4
+  %"5_1" = alloca i32, align 4
+  %"27_0" = alloca i32, align 4
+  %"6_0" = alloca i32, align 4
+  %"6_1" = alloca i32, align 4
+  %"03" = alloca i32, align 4
+  %"7_0" = alloca i32, align 4
+  %"7_1" = alloca i32, align 4
+  %"8_0" = alloca i32, align 4
+  %"8_1" = alloca i32, align 4
+  %"9_0" = alloca i32, align 4
+  %"9_1" = alloca i32, align 4
+  %"10_0" = alloca i32, align 4
+  %"11_0" = alloca i32, align 4
+  %"12_0" = alloca i32, align 4
+  %"37_1" = alloca { i32, {}, {} }, align 8
+  %"32_1" = alloca i32, align 4
+  %"35_1" = alloca i32, align 4
+  %"28_0" = alloca i32, align 4
+  %"29_0" = alloca i32, align 4
+  %"30_0" = alloca i32, align 4
+  %"30_1" = alloca i32, align 4
+  %"31_0" = alloca { { i32, i32 } }, align 8
+  %"32_0" = alloca i32, align 4
+  %"33_0" = alloca i32, align 4
+  %"33_1" = alloca i32, align 4
+  %"34_0" = alloca { { i32, i32 } }, align 8
+  %"35_0" = alloca i32, align 4
+  %"36_0" = alloca i32, align 4
+  %"37_0" = alloca i32, align 4
+  %"41_0" = alloca { {} }, align 8
+  %"40_0" = alloca i32, align 4
+  %"43_0" = alloca { {} }, align 8
+  %"45_1" = alloca { i32, {}, {} }, align 8
+  %"45_0" = alloca i32, align 4
+  %"49_0" = alloca { {} }, align 8
+  %"48_0" = alloca i32, align 4
+  %"51_0" = alloca { {} }, align 8
+  %"53_0" = alloca { {} }, align 8
+  br label %entry_block
+
+entry_block:                                      ; preds = %alloca_block
+  store i32 %0, i32* %"5_0", align 4
+  store i32 %1, i32* %"5_1", align 4
+  %"5_01" = load i32, i32* %"5_0", align 4
+  %"5_12" = load i32, i32* %"5_1", align 4
+  store i32 %"5_01", i32* %"6_0", align 4
+  store i32 %"5_12", i32* %"6_1", align 4
+  br label %6
+
+2:                                                ; preds = %6
+  %3 = extractvalue { i32, {}, {} } %"37_125", 1
+  store i32 %"32_126", i32* %"8_0", align 4
+  store i32 %"35_127", i32* %"8_1", align 4
+  br label %31
+
+4:                                                ; preds = %6
+  %5 = extractvalue { i32, {}, {} } %"37_125", 2
+  store i32 %"32_126", i32* %"7_0", align 4
+  store i32 %"35_127", i32* %"7_1", align 4
+  br label %28
+
+6:                                                ; preds = %entry_block
+  %"6_04" = load i32, i32* %"6_0", align 4
+  %"6_15" = load i32, i32* %"6_1", align 4
+  %qalloc_call = call i32 @___qalloc()
+  store i32 %qalloc_call, i32* %"28_0", align 4
+  %"28_06" = load i32, i32* %"28_0", align 4
+  %h_call = call i32 @___h(i32 %"28_06")
+  store i32 %h_call, i32* %"29_0", align 4
+  store i32 %"6_04", i32* %"6_0", align 4
+  store i32 %"6_15", i32* %"6_1", align 4
+  %"29_07" = load i32, i32* %"29_0", align 4
+  %"6_18" = load i32, i32* %"6_1", align 4
+  %rz_call = call { i32, i32 } @___cx(i32 %"29_07", i32 %"6_18")
+  %7 = extractvalue { i32, i32 } %rz_call, 0
+  %8 = extractvalue { i32, i32 } %rz_call, 1
+  store i32 %7, i32* %"30_0", align 4
+  store i32 %8, i32* %"30_1", align 4
+  %"30_09" = load i32, i32* %"30_0", align 4
+  %"30_110" = load i32, i32* %"30_1", align 4
+  %9 = insertvalue { i32, i32 } undef, i32 %"30_09", 0
+  %10 = insertvalue { i32, i32 } %9, i32 %"30_110", 1
+  %11 = insertvalue { { i32, i32 } } poison, { i32, i32 } %10, 0
+  store { { i32, i32 } } %11, { { i32, i32 } }* %"31_0", align 4
+  %"31_011" = load { { i32, i32 } }, { { i32, i32 } }* %"31_0", align 4
+  %12 = extractvalue { { i32, i32 } } %"31_011", 0
+  %13 = extractvalue { i32, i32 } %12, 0
+  %14 = extractvalue { i32, i32 } %12, 1
+  store i32 %13, i32* %"32_0", align 4
+  store i32 %14, i32* %"32_1", align 4
+  %"6_012" = load i32, i32* %"6_0", align 4
+  %"32_013" = load i32, i32* %"32_0", align 4
+  %rz_call14 = call { i32, i32 } @___cx.1(i32 %"6_012", i32 %"32_013")
+  %15 = extractvalue { i32, i32 } %rz_call14, 0
+  %16 = extractvalue { i32, i32 } %rz_call14, 1
+  store i32 %15, i32* %"33_0", align 4
+  store i32 %16, i32* %"33_1", align 4
+  %"33_015" = load i32, i32* %"33_0", align 4
+  %"33_116" = load i32, i32* %"33_1", align 4
+  %17 = insertvalue { i32, i32 } undef, i32 %"33_015", 0
+  %18 = insertvalue { i32, i32 } %17, i32 %"33_116", 1
+  %19 = insertvalue { { i32, i32 } } poison, { i32, i32 } %18, 0
+  store { { i32, i32 } } %19, { { i32, i32 } }* %"34_0", align 4
+  %"34_017" = load { { i32, i32 } }, { { i32, i32 } }* %"34_0", align 4
+  %20 = extractvalue { { i32, i32 } } %"34_017", 0
+  %21 = extractvalue { i32, i32 } %20, 0
+  %22 = extractvalue { i32, i32 } %20, 1
+  store i32 %21, i32* %"35_0", align 4
+  store i32 %22, i32* %"35_1", align 4
+  %"35_018" = load i32, i32* %"35_0", align 4
+  %h_call19 = call i32 @___h.2(i32 %"35_018")
+  store i32 %h_call19, i32* %"36_0", align 4
+  %"36_020" = load i32, i32* %"36_0", align 4
+  %measure_call = call { i32, { i32, {}, {} } } @___measure(i32 %"36_020")
+  %23 = extractvalue { i32, { i32, {}, {} } } %measure_call, 0
+  %24 = extractvalue { i32, { i32, {}, {} } } %measure_call, 1
+  store i32 %23, i32* %"37_0", align 4
+  store { i32, {}, {} } %24, { i32, {}, {} }* %"37_1", align 4
+  %"37_121" = load { i32, {}, {} }, { i32, {}, {} }* %"37_1", align 4
+  %"32_122" = load i32, i32* %"32_1", align 4
+  %"35_123" = load i32, i32* %"35_1", align 4
+  store { i32, {}, {} } %"37_121", { i32, {}, {} }* %"37_1", align 4
+  store i32 %"32_122", i32* %"32_1", align 4
+  store i32 %"35_123", i32* %"35_1", align 4
+  %"37_024" = load i32, i32* %"37_0", align 4
+  call void @___qfree(i32 %"37_024")
+  %"37_125" = load { i32, {}, {} }, { i32, {}, {} }* %"37_1", align 4
+  %"32_126" = load i32, i32* %"32_1", align 4
+  %"35_127" = load i32, i32* %"35_1", align 4
+  %25 = extractvalue { i32, {}, {} } %"37_125", 0
+  switch i32 %25, label %2 [
+    i32 1, label %4
+  ]
+
+26:                                               ; preds = %28
+  %27 = extractvalue { {} } %"41_035", 0
+  store i32 %"40_036", i32* %"9_0", align 4
+  store i32 %"7_137", i32* %"9_1", align 4
+  br label %36
+
+28:                                               ; preds = %4
+  %"7_029" = load i32, i32* %"7_0", align 4
+  %"7_130" = load i32, i32* %"7_1", align 4
+  store { {} } undef, { {} }* %"41_0", align 1
+  store i32 %"7_029", i32* %"7_0", align 4
+  store i32 %"7_130", i32* %"7_1", align 4
+  %"7_031" = load i32, i32* %"7_0", align 4
+  %z_call = call i32 @___z(i32 %"7_031")
+  store i32 %z_call, i32* %"40_0", align 4
+  %"41_032" = load { {} }, { {} }* %"41_0", align 1
+  %"40_033" = load i32, i32* %"40_0", align 4
+  %"7_134" = load i32, i32* %"7_1", align 4
+  store { {} } %"41_032", { {} }* %"41_0", align 1
+  store i32 %"40_033", i32* %"40_0", align 4
+  store i32 %"7_134", i32* %"7_1", align 4
+  %"41_035" = load { {} }, { {} }* %"41_0", align 1
+  %"40_036" = load i32, i32* %"40_0", align 4
+  %"7_137" = load i32, i32* %"7_1", align 4
+  switch i32 0, label %26 [
+  ]
+
+29:                                               ; preds = %31
+  %30 = extractvalue { {} } %"43_043", 0
+  store i32 %"8_044", i32* %"9_0", align 4
+  store i32 %"8_145", i32* %"9_1", align 4
+  br label %36
+
+31:                                               ; preds = %2
+  %"8_038" = load i32, i32* %"8_0", align 4
+  %"8_139" = load i32, i32* %"8_1", align 4
+  store { {} } undef, { {} }* %"43_0", align 1
+  store i32 %"8_038", i32* %"8_0", align 4
+  store i32 %"8_139", i32* %"8_1", align 4
+  %"43_040" = load { {} }, { {} }* %"43_0", align 1
+  %"8_041" = load i32, i32* %"8_0", align 4
+  %"8_142" = load i32, i32* %"8_1", align 4
+  store { {} } %"43_040", { {} }* %"43_0", align 1
+  store i32 %"8_041", i32* %"8_0", align 4
+  store i32 %"8_142", i32* %"8_1", align 4
+  %"43_043" = load { {} }, { {} }* %"43_0", align 1
+  %"8_044" = load i32, i32* %"8_0", align 4
+  %"8_145" = load i32, i32* %"8_1", align 4
+  switch i32 0, label %29 [
+  ]
+
+32:                                               ; preds = %36
+  %33 = extractvalue { i32, {}, {} } %"45_153", 1
+  store i32 %"9_054", i32* %"11_0", align 4
+  br label %45
+
+34:                                               ; preds = %36
+  %35 = extractvalue { i32, {}, {} } %"45_153", 2
+  store i32 %"9_054", i32* %"10_0", align 4
+  br label %42
+
+36:                                               ; preds = %29, %26
+  %"9_046" = load i32, i32* %"9_0", align 4
+  %"9_147" = load i32, i32* %"9_1", align 4
+  store i32 %"9_046", i32* %"9_0", align 4
+  store i32 %"9_147", i32* %"9_1", align 4
+  %"9_148" = load i32, i32* %"9_1", align 4
+  %measure_call49 = call { i32, { i32, {}, {} } } @___measure.3(i32 %"9_148")
+  %37 = extractvalue { i32, { i32, {}, {} } } %measure_call49, 0
+  %38 = extractvalue { i32, { i32, {}, {} } } %measure_call49, 1
+  store i32 %37, i32* %"45_0", align 4
+  store { i32, {}, {} } %38, { i32, {}, {} }* %"45_1", align 4
+  %"45_150" = load { i32, {}, {} }, { i32, {}, {} }* %"45_1", align 4
+  %"9_051" = load i32, i32* %"9_0", align 4
+  store { i32, {}, {} } %"45_150", { i32, {}, {} }* %"45_1", align 4
+  store i32 %"9_051", i32* %"9_0", align 4
+  %"45_052" = load i32, i32* %"45_0", align 4
+  call void @___qfree.4(i32 %"45_052")
+  %"45_153" = load { i32, {}, {} }, { i32, {}, {} }* %"45_1", align 4
+  %"9_054" = load i32, i32* %"9_0", align 4
+  %39 = extractvalue { i32, {}, {} } %"45_153", 0
+  switch i32 %39, label %32 [
+    i32 1, label %34
+  ]
+
+40:                                               ; preds = %42
+  %41 = extractvalue { {} } %"49_059", 0
+  store i32 %"48_060", i32* %"12_0", align 4
+  br label %48
+
+42:                                               ; preds = %34
+  %"10_055" = load i32, i32* %"10_0", align 4
+  store { {} } undef, { {} }* %"49_0", align 1
+  store i32 %"10_055", i32* %"10_0", align 4
+  %"10_056" = load i32, i32* %"10_0", align 4
+  %x_call = call i32 @___x(i32 %"10_056")
+  store i32 %x_call, i32* %"48_0", align 4
+  %"49_057" = load { {} }, { {} }* %"49_0", align 1
+  %"48_058" = load i32, i32* %"48_0", align 4
+  store { {} } %"49_057", { {} }* %"49_0", align 1
+  store i32 %"48_058", i32* %"48_0", align 4
+  %"49_059" = load { {} }, { {} }* %"49_0", align 1
+  %"48_060" = load i32, i32* %"48_0", align 4
+  switch i32 0, label %40 [
+  ]
+
+43:                                               ; preds = %45
+  %44 = extractvalue { {} } %"51_064", 0
+  store i32 %"11_065", i32* %"12_0", align 4
+  br label %48
+
+45:                                               ; preds = %32
+  %"11_061" = load i32, i32* %"11_0", align 4
+  store { {} } undef, { {} }* %"51_0", align 1
+  store i32 %"11_061", i32* %"11_0", align 4
+  %"51_062" = load { {} }, { {} }* %"51_0", align 1
+  %"11_063" = load i32, i32* %"11_0", align 4
+  store { {} } %"51_062", { {} }* %"51_0", align 1
+  store i32 %"11_063", i32* %"11_0", align 4
+  %"51_064" = load { {} }, { {} }* %"51_0", align 1
+  %"11_065" = load i32, i32* %"11_0", align 4
+  switch i32 0, label %43 [
+  ]
+
+46:                                               ; preds = %48
+  %47 = extractvalue { {} } %"53_069", 0
+  store i32 %"12_070", i32* %"03", align 4
+  br label %49
+
+48:                                               ; preds = %43, %40
+  %"12_066" = load i32, i32* %"12_0", align 4
+  store { {} } undef, { {} }* %"53_0", align 1
+  store i32 %"12_066", i32* %"12_0", align 4
+  %"53_067" = load { {} }, { {} }* %"53_0", align 1
+  %"12_068" = load i32, i32* %"12_0", align 4
+  store { {} } %"53_067", { {} }* %"53_0", align 1
+  store i32 %"12_068", i32* %"12_0", align 4
+  %"53_069" = load { {} }, { {} }* %"53_0", align 1
+  %"12_070" = load i32, i32* %"12_0", align 4
+  switch i32 0, label %46 [
+  ]
+
+49:                                               ; preds = %46
+  %"028" = load i32, i32* %"03", align 4
+  store i32 %"028", i32* %"27_0", align 4
+  %"27_071" = load i32, i32* %"27_0", align 4
+  store i32 %"27_071", i32* %"0", align 4
+  %"072" = load i32, i32* %"0", align 4
+  ret i32 %"072"
+}
+
+declare i32 @___qalloc()
+
+declare i32 @___h(i32)
+
+declare { i32, i32 } @___cx(i32, i32)
+
+declare { i32, i32 } @___cx.1(i32, i32)
+
+declare i32 @___h.2(i32)
+
+declare { i32, { i32, {}, {} } } @___measure(i32)
+
+declare void @___qfree(i32)
+
+declare i32 @___z(i32)
+
+declare { i32, { i32, {}, {} } } @___measure.3(i32)
+
+declare void @___qfree.4(i32)
+
+declare i32 @___x(i32)
+
+define { i32, {}, {} } @_hl.main.26() {
+alloca_block:
+  %"0" = alloca { i32, {}, {} }, align 8
+  %"54_0" = alloca { i32, {}, {} }, align 8
+  %"01" = alloca { i32, {}, {} }, align 8
+  %"62_0" = alloca { {} }, align 8
+  %"60_1" = alloca { i32, {}, {} }, align 8
+  %"56_0" = alloca i32, align 4
+  %"55_0" = alloca i32, align 4
+  %"57_0" = alloca { { i32, i32 } }, align 8
+  %"58_0" = alloca i32, align 4
+  %"58_1" = alloca i32, align 4
+  %"59_0" = alloca i32, align 4
+  %"60_0" = alloca i32, align 4
+  br label %entry_block
+
+entry_block:                                      ; preds = %alloca_block
+  br label %2
+
+0:                                                ; preds = %2
+  %1 = extractvalue { {} } %"62_012", 0
+  store { i32, {}, {} } %"60_113", { i32, {}, {} }* %"01", align 4
+  br label %12
+
+2:                                                ; preds = %entry_block
+  store { {} } undef, { {} }* %"62_0", align 1
+  %qalloc_call = call i32 @___qalloc.5()
+  store i32 %qalloc_call, i32* %"56_0", align 4
+  %qalloc_call2 = call i32 @___qalloc.6()
+  store i32 %qalloc_call2, i32* %"55_0", align 4
+  %"55_03" = load i32, i32* %"55_0", align 4
+  %"56_04" = load i32, i32* %"56_0", align 4
+  %3 = insertvalue { i32, i32 } undef, i32 %"55_03", 0
+  %4 = insertvalue { i32, i32 } %3, i32 %"56_04", 1
+  %5 = insertvalue { { i32, i32 } } poison, { i32, i32 } %4, 0
+  store { { i32, i32 } } %5, { { i32, i32 } }* %"57_0", align 4
+  %"57_05" = load { { i32, i32 } }, { { i32, i32 } }* %"57_0", align 4
+  %6 = extractvalue { { i32, i32 } } %"57_05", 0
+  %7 = extractvalue { i32, i32 } %6, 0
+  %8 = extractvalue { i32, i32 } %6, 1
+  store i32 %7, i32* %"58_0", align 4
+  store i32 %8, i32* %"58_1", align 4
+  %"58_06" = load i32, i32* %"58_0", align 4
+  %"58_17" = load i32, i32* %"58_1", align 4
+  %9 = call i32 @_hl.teleport.25(i32 %"58_06", i32 %"58_17")
+  store i32 %9, i32* %"59_0", align 4
+  %"59_08" = load i32, i32* %"59_0", align 4
+  %measure_call = call { i32, { i32, {}, {} } } @___measure.7(i32 %"59_08")
+  %10 = extractvalue { i32, { i32, {}, {} } } %measure_call, 0
+  %11 = extractvalue { i32, { i32, {}, {} } } %measure_call, 1
+  store i32 %10, i32* %"60_0", align 4
+  store { i32, {}, {} } %11, { i32, {}, {} }* %"60_1", align 4
+  %"62_09" = load { {} }, { {} }* %"62_0", align 1
+  %"60_110" = load { i32, {}, {} }, { i32, {}, {} }* %"60_1", align 4
+  store { {} } %"62_09", { {} }* %"62_0", align 1
+  store { i32, {}, {} } %"60_110", { i32, {}, {} }* %"60_1", align 4
+  %"60_011" = load i32, i32* %"60_0", align 4
+  call void @___qfree.8(i32 %"60_011")
+  %"62_012" = load { {} }, { {} }* %"62_0", align 1
+  %"60_113" = load { i32, {}, {} }, { i32, {}, {} }* %"60_1", align 4
+  switch i32 0, label %0 [
+  ]
+
+12:                                               ; preds = %0
+  %"014" = load { i32, {}, {} }, { i32, {}, {} }* %"01", align 4
+  store { i32, {}, {} } %"014", { i32, {}, {} }* %"54_0", align 4
+  %"54_015" = load { i32, {}, {} }, { i32, {}, {} }* %"54_0", align 4
+  store { i32, {}, {} } %"54_015", { i32, {}, {} }* %"0", align 4
+  %"016" = load { i32, {}, {} }, { i32, {}, {} }* %"0", align 4
+  ret { i32, {}, {} } %"016"
+}
+
+declare i32 @___qalloc.5()
+
+declare i32 @___qalloc.6()
+
+declare { i32, { i32, {}, {} } } @___measure.7(i32)
+
+declare void @___qfree.8(i32)
+
+
+----- stderr -----
+HUGR valid!

@@ -140,7 +140,8 @@ impl CmdLineArgs {
     }
 
     fn codegenexts<'c>(&self) -> Rc<CodegenExtsMap<'c, Hugr>> {
-        CodegenExtsMap::new().add_int_extensions()
+        CodegenExtsMap::new()
+            .add_int_extensions()
             .add_prelude_extensions()
             .add_float_extensions()
             .add_tket2_extensions()
