@@ -131,6 +131,15 @@ impl<'c, 'd, H: HugrView> CfgEmitter<'c, 'd, H> {
     }
 }
 
+impl<'c, H: HugrView> EmitOp<'c, OpType, H> for CfgEmitter<'c, '_, H> {
+    fn emit(&mut self, args: EmitOpArgs<'c, OpType, H>) -> Result<()> {
+        match args.node().as_ref() {
+            OpType::DataflowBlock(ref dfb) => self.emit(args.into_ot(dfb)),
+            OpType::ExitBlock(ref eb) => self.emit(args.into_ot(eb)),
+            ot => Err(anyhow!("unknown optype: {ot:?}")),
+        }
+    }
+}
 impl<'c, H: HugrView> EmitOp<'c, DataflowBlock, H> for CfgEmitter<'c, '_, H> {
     fn emit(
         &mut self,

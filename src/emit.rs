@@ -8,7 +8,7 @@ use inkwell::{
     context::Context,
     module::Module,
     types::{BasicTypeEnum, FunctionType},
-    values::{BasicValueEnum, FunctionValue},
+    values::FunctionValue,
 };
 use std::{collections::HashSet, hash::Hash, rc::Rc};
 
@@ -20,74 +20,13 @@ use crate::{
     types::{LLVMSumType, TypeConverter},
 };
 
-use self::func::{EmitFuncContext, RowPromise};
+use self::func::EmitFuncContext;
 
 pub mod func;
 mod ops;
 pub use ops::emit_value;
-
-/// A type used whenever emission is delegated to a function
-pub struct EmitOpArgs<'c, OT, H> {
-    /// This [HugrView] and [Node] we are emitting
-    pub node: FatNode<'c, OT, H>,
-    /// The values that should be used for all Value input ports of the node
-    pub inputs: Vec<BasicValueEnum<'c>>,
-    /// The results of the node should be put here
-    pub outputs: RowPromise<'c>,
-}
-
-impl<'c, OT, H> EmitOpArgs<'c, OT, H> {
-    /// Get the internal [FatNode]
-    pub fn node(&self) -> FatNode<'c, OT, H> {
-        self.node.clone()
-    }
-}
-
-impl<'c, H: HugrView> EmitOpArgs<'c, OpType, H> {
-    /// Attempt to specialise the internal [FatNode].
-    pub fn try_into_ot<OT: 'c>(self) -> Result<EmitOpArgs<'c, OT, H>, Self>
-    where
-        &'c OpType: TryInto<&'c OT>,
-    {
-        let EmitOpArgs {
-            node,
-            inputs,
-            outputs,
-        } = self;
-        match node.try_into_ot() {
-            Some(new_node) => Ok(EmitOpArgs {
-                node: new_node,
-                inputs,
-                outputs,
-            }),
-            None => Err(EmitOpArgs {
-                node,
-                inputs,
-                outputs,
-            }),
-        }
-    }
-
-    /// Specialise the internal [FatNode].
-    ///
-    /// Panics if `OT` is not the `get_optype` of the internal [Node].
-    pub fn into_ot<OTInto: PartialEq + 'c>(self, ot: &'c OTInto) -> EmitOpArgs<'c, OTInto, H>
-    where
-        &'c OpType: TryInto<&'c OTInto>,
-        <&'c OpType as TryInto<&'c OTInto>>::Error: std::fmt::Debug,
-    {
-        let EmitOpArgs {
-            node,
-            inputs,
-            outputs,
-        } = self;
-        EmitOpArgs {
-            node: node.into_ot(ot),
-            inputs,
-            outputs,
-        }
-    }
-}
+mod args;
+pub use args::EmitOpArgs;
 
 /// A trait used to abstract over emission.
 ///
@@ -384,9 +323,9 @@ impl<'c, H: HugrView> EmitHugr<'c, H> {
     /// [FuncDefn] and [FuncDecl] are the only interesting children.
     pub fn emit_module(mut self, node: FatNode<'c, hugr::ops::Module, H>) -> Result<Self> {
         for c in node.children() {
-            match c.get() {
+            match c.as_ref() {
                 OpType::FuncDefn(ref fd) => {
-                    self = self.emit_global(c.into_ot(fd))?;
+                    self = self.emit_global(c.as_ot(fd))?;
                 }
                 _ => todo!("emit_module: unimplemented: {}", c.name()),
             }

@@ -4,10 +4,13 @@
 //! methods that return [FatNode]s rather than [Node]s.
 use std::{cmp::Ordering, hash::Hash, marker::PhantomData, ops::Deref};
 
+use delegate::delegate;
 use hugr::{
-    ops::{DataflowBlock, ExitBlock, Input, NamedOp, OpType, Output, CFG},
-    types::Type,
-    Hugr, HugrView, IncomingPort, Node, NodeIndex, OutgoingPort,
+    extension::ExtensionSet,
+    hugr::{views::HierarchyView, HugrError},
+    ops::{DataflowBlock, ExitBlock, Input, NamedOp, OpTag, OpTrait, OpType, Output, CFG},
+    types::{EdgeKind, FunctionType, Type},
+    Direction, Hugr, HugrView, IncomingPort, Node, NodeIndex, OutgoingPort,
 };
 use itertools::Itertools as _;
 
@@ -23,7 +26,7 @@ use itertools::Itertools as _;
 /// different base [Hugr]s. Note that [Node] has this same behaviour.
 ///
 /// [FuncDefn]: [hugr::ops::FuncDefn]
-#[derive(Debug, Copy)]
+#[derive(Debug)]
 pub struct FatNode<'c, OT = OpType, H = Hugr>
 where
     H: ?Sized,
@@ -36,7 +39,7 @@ where
 impl<'c, OT: 'c, H: HugrView + ?Sized> FatNode<'c, OT, H>
 where
     // FatNode<'c,OpType,H>: TryInto<FatNode<'c,OT,H>>,
-    &'c OpType: TryInto<&'c OT>,
+    for<'a> &'a OpType: TryInto<&'a OT>,
 {
     /// Create a `FatNode` from a [HugrView] and a [Node].
     ///
@@ -45,7 +48,7 @@ where
     ///
     /// Note that while we do check that the type of the node's `get_optype`, we do
     /// not verify that it is actually equal to `ot`.
-    pub fn new(hugr: &'c H, node: Node, #[allow(unused)] ot: &'c OT) -> Self {
+    pub fn new(hugr: &'c H, node: Node, #[allow(unused)] ot: &OT) -> Self {
         assert!(hugr.valid_node(node));
         assert!(TryInto::<&'c OT>::try_into(hugr.get_optype(node)).is_ok());
         // We don't actually check `ot == hugr.get_optype(node)` so as to not require OT: PartialEq`
@@ -67,11 +70,6 @@ where
             node,
             hugr.get_optype(node).try_into().ok()?,
         ))
-    }
-
-    // Get's the [OpType] of the `FatNode`.
-    pub fn get(&self) -> &'c OT {
-        self.hugr.get_optype(self.node).try_into().ok().unwrap()
     }
 }
 
@@ -99,7 +97,7 @@ impl<'c, H: HugrView + ?Sized> FatNode<'c, OpType, H> {
     // Tries to downcast a genearl `FatNode` into a specific `OT`.
     pub fn try_into_ot<OT: 'c>(&self) -> Option<FatNode<'c, OT, H>>
     where
-        &'c OpType: TryInto<&'c OT>,
+        for<'a> &'a OpType: TryInto<&'a OT>,
     {
         FatNode::try_new(self.hugr, self.node)
     }
@@ -107,9 +105,9 @@ impl<'c, H: HugrView + ?Sized> FatNode<'c, OpType, H> {
     // Creates a specific `FatNode` from a general `FatNode`.
     //
     // Panics if the node's `get_optype` is not `OT`.
-    pub fn into_ot<OT: PartialEq>(self, ot: &'c OT) -> FatNode<'c, OT, H>
+    pub fn as_ot<OT: PartialEq + 'c>(&self, ot: &OT) -> FatNode<'c, OT, H>
     where
-        &'c OpType: TryInto<&'c OT>,
+        for<'a> &'a OpType: TryInto<&'a OT>,
     {
         FatNode::new(self.hugr, self.node, ot)
     }
@@ -177,6 +175,13 @@ impl<'c, OT, H: HugrView + ?Sized> FatNode<'c, OT, H> {
             node: self.node,
             marker: PhantomData,
         }
+    }
+
+    pub fn try_new_hierarchy_view<HV: HierarchyView<'c>>(&self) -> Result<HV, HugrError>
+    where
+        H: Sized,
+    {
+        HV::try_new(self.hugr, self.node)
     }
 }
 
@@ -249,31 +254,28 @@ impl<'c, OT, H> Hash for FatNode<'c, OT, H> {
     }
 }
 
-impl<'c, OT, H: HugrView + ?Sized> AsRef<OT> for FatNode<'c, OT, H>
+impl<'c, OT: 'c, H: HugrView + ?Sized> AsRef<OT> for FatNode<'c, OT, H>
 where
-    &'c OpType: TryInto<&'c OT>,
-    <&'c OpType as TryInto<&'c OT>>::Error: std::fmt::Debug,
-    OT: 'c,
+    for<'a> &'a OpType: TryInto<&'a OT>,
 {
     fn as_ref(&self) -> &OT {
-        self.get()
+        self.hugr.get_optype(self.node).try_into().ok().unwrap()
     }
 }
 
-impl<'c, OT, H: HugrView + ?Sized> Deref for FatNode<'c, OT, H>
+impl<'c, OT: 'c, H: HugrView + ?Sized> Deref for FatNode<'c, OT, H>
 where
-    &'c OpType: TryInto<&'c OT>,
-    <&'c OpType as TryInto<&'c OT>>::Error: std::fmt::Debug,
+    for<'a> &'a OpType: TryInto<&'a OT>,
     OT: 'c,
 {
     type Target = OT;
 
     fn deref(&self) -> &Self::Target {
-        self.get()
+        self.as_ref()
     }
 }
 
-impl<'c, OT, H> Clone for FatNode<'c, OT, H> {
+impl<'c, OT, H: ?Sized> Clone for FatNode<'c, OT, H> {
     fn clone(&self) -> Self {
         Self {
             hugr: self.hugr,
@@ -283,14 +285,15 @@ impl<'c, OT, H> Clone for FatNode<'c, OT, H> {
     }
 }
 
-impl<'c, OT: NamedOp, H: HugrView + ?Sized> std::fmt::Display for FatNode<'c, OT, H>
+impl<OT, H: ?Sized> Copy for FatNode<'_, OT, H> {}
+
+impl<'c, OT: NamedOp + 'c, H: HugrView + ?Sized> std::fmt::Display for FatNode<'c, OT, H>
 where
-    &'c OpType: TryInto<&'c OT>,
-    <&'c OpType as TryInto<&'c OT>>::Error: std::fmt::Debug,
-    OT: 'c,
+    for<'a> &'a OpType: TryInto<&'a OT>,
+    for<'a> <&'a OpType as TryInto<&'a OT>>::Error: std::fmt::Debug,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!("N<{}:{}>", self.get().name(), self.node))
+        f.write_fmt(format_args!("N<{}:{}>", self.as_ref().name(), self.node))
     }
 }
 
@@ -303,6 +306,21 @@ impl<'c, OT, H> NodeIndex for FatNode<'c, OT, H> {
 impl<'c, OT, H> NodeIndex for &FatNode<'c, OT, H> {
     fn index(self) -> usize {
         self.node.index()
+    }
+}
+
+impl<'c, OT, H: HugrView> OpTrait for FatNode<'c, OT, H> {
+    delegate! {
+        to self.hugr.get_optype(self.node) {
+            fn description(&self) ->  &str;
+            fn tag(&self) -> OpTag;
+            fn dataflow_signature(&self) -> Option<FunctionType>;
+            fn extension_delta(&self) -> ExtensionSet;
+            fn other_input(&self) -> Option<EdgeKind>;
+            fn other_output(&self) -> Option<EdgeKind>;
+            fn static_output(&self) -> Option<EdgeKind>;
+            fn non_df_port_count(&self, dir: Direction) -> usize;
+        }
     }
 }
 
