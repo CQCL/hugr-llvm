@@ -8,7 +8,8 @@ mod.load(quantum)
 
 @guppy(mod)
 def rus(q: qubit, tries: int) -> qubit:
-  for _ in range(tries):
+  i = 0;
+  while i < tries:
     # Prepare ancillary qubits
     a, b = h(qubit()), h(qubit())
 
@@ -25,6 +26,7 @@ def rus(q: qubit, tries: int) -> qubit:
 
     # Otherwise, apply correction
     q = x(q)
+    i = i + 1
 
   return q
 

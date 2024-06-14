@@ -8,9 +8,6 @@ info:
 success: true
 exit_code: 0
 ----- stdout -----
-measure OpaqueOp { extension: IdentList("quantum.tket2"), op_name: "Measure", description: "", args: [], signature: FunctionType { input: TypeRow { types: [Type(Extension(CustomType { extension: IdentList("prelude"), id: "qubit", args: [], bound: Any }), Any)] }, output: TypeRow { types: [Type(Extension(CustomType { extension: IdentList("prelude"), id: "qubit", args: [], bound: Any }), Any), Type(Sum(Unit { size: 2 }), Eq)] }, extension_reqs: ExtensionSet({}) } }
-measure OpaqueOp { extension: IdentList("quantum.tket2"), op_name: "Measure", description: "", args: [], signature: FunctionType { input: TypeRow { types: [Type(Extension(CustomType { extension: IdentList("prelude"), id: "qubit", args: [], bound: Any }), Any)] }, output: TypeRow { types: [Type(Extension(CustomType { extension: IdentList("prelude"), id: "qubit", args: [], bound: Any }), Any), Type(Sum(Unit { size: 2 }), Eq)] }, extension_reqs: ExtensionSet({}) } }
-measure OpaqueOp { extension: IdentList("quantum.tket2"), op_name: "Measure", description: "", args: [], signature: FunctionType { input: TypeRow { types: [Type(Extension(CustomType { extension: IdentList("prelude"), id: "qubit", args: [], bound: Any }), Any)] }, output: TypeRow { types: [Type(Extension(CustomType { extension: IdentList("prelude"), id: "qubit", args: [], bound: Any }), Any), Type(Sum(Unit { size: 2 }), Eq)] }, extension_reqs: ExtensionSet({}) } }
 ; ModuleID = 'module'
 source_filename = "module"
 

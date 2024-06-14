@@ -25,6 +25,20 @@ use anyhow::{anyhow, Result};
 
 struct IntOpEmitter<'c, 'd, H: HugrView>(&'d mut EmitFuncContext<'c, H>);
 
+fn emit_icmp<'c, H: HugrView>(
+    context: &mut EmitFuncContext<'c, H>,
+    args: EmitOpArgs<'c, CustomOp, H>,
+    pred: inkwell::IntPredicate,
+) -> Result<()> {
+    let true_val = emit_value(context, &Value::true_val())?;
+    let false_val = emit_value(context, &Value::false_val())?;
+    let builder = context.builder();
+    let [lhs, rhs] = TryInto::<[_; 2]>::try_into(args.inputs).unwrap();
+    let a = builder.build_int_compare(pred, lhs.into_int_value(), rhs.into_int_value(), "")?;
+    let a = builder.build_select(a, true_val, false_val, "")?;
+    args.outputs.finish(builder, [a.into()])
+}
+
 impl<'c, H: HugrView> EmitOp<'c, CustomOp, H> for IntOpEmitter<'c, '_, H> {
     fn emit(&mut self, args: EmitOpArgs<'c, CustomOp, H>) -> Result<()> {
         let iot = ConcreteIntOp::from_optype(&args.node().generalise())
@@ -37,18 +51,10 @@ impl<'c, H: HugrView> EmitOp<'c, CustomOp, H> for IntOpEmitter<'c, '_, H> {
                 args.outputs.finish(builder, [a.into()])
             }
             "ieq" => {
-                let true_val = emit_value(self.0, &Value::true_val())?;
-                let false_val = emit_value(self.0, &Value::false_val())?;
-                let builder = self.0.builder();
-                let [lhs, rhs] = TryInto::<[_; 2]>::try_into(args.inputs).unwrap();
-                let a = builder.build_int_compare(
-                    inkwell::IntPredicate::EQ,
-                    lhs.into_int_value(),
-                    rhs.into_int_value(),
-                    "",
-                )?;
-                let a = builder.build_select(a, true_val, false_val, "")?;
-                args.outputs.finish(builder, [a.into()])
+                emit_icmp(self.0, args, inkwell::IntPredicate::EQ)
+            }
+            "ilt_s" => {
+                emit_icmp(self.0, args, inkwell::IntPredicate::SLT)
             }
             "isub" => {
                 let builder = self.0.builder();

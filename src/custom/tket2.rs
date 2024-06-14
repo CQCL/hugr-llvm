@@ -90,6 +90,32 @@ impl<'c, H: HugrView> EmitOp<'c, CustomOp, H> for Tket2Emitter<'c, '_, H> {
                     .finish(builder, [call.try_as_basic_value().unwrap_left()])?;
                 Ok(())
             }
+            "Tdg" => {
+                let func_type = self.0.llvm_func_type(&FunctionType::new(QB_T, QB_T))?;
+                let x_func =
+                    self.0
+                        .module()
+                        .add_function("___tdg", func_type, Some(Linkage::External));
+                let inputs = args.inputs.into_iter().map_into().collect_vec();
+                let builder = self.0.builder();
+                let call = builder.build_call(x_func, inputs.as_ref(), "tdg_call")?;
+                args.outputs
+                    .finish(builder, [call.try_as_basic_value().unwrap_left()])?;
+                Ok(())
+            }
+            "T" => {
+                let func_type = self.0.llvm_func_type(&FunctionType::new(QB_T, QB_T))?;
+                let x_func =
+                    self.0
+                        .module()
+                        .add_function("___t", func_type, Some(Linkage::External));
+                let inputs = args.inputs.into_iter().map_into().collect_vec();
+                let builder = self.0.builder();
+                let call = builder.build_call(x_func, inputs.as_ref(), "t_call")?;
+                args.outputs
+                    .finish(builder, [call.try_as_basic_value().unwrap_left()])?;
+                Ok(())
+            }
             "RzF64" => {
                 let func_type = self
                     .0
@@ -156,7 +182,6 @@ impl<'c, H: HugrView> EmitOp<'c, CustomOp, H> for Tket2Emitter<'c, '_, H> {
                 Ok(())
             }
             "Measure" => {
-                println!("measure {:?}", opaque);
                 let func_type = self
                     .0
                     .llvm_func_type(&FunctionType::new(QB_T, type_row![QB_T, BOOL_T]))?;
