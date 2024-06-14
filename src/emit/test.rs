@@ -75,7 +75,7 @@ impl SimpleHugrConfig {
 #[macro_export]
 macro_rules! check_emission {
     ($hugr: ident, $test_ctx:ident) => {
-        let root = crate::fat::FatExt::fat_root::<hugr::ops::Module>(&$hugr).unwrap();
+        let root = $crate::fat::FatExt::fat_root::<hugr::ops::Module>(&$hugr).unwrap();
         let (_, module) = $test_ctx.with_emit_context(|ec| ((), ec.emit_module(root).unwrap()));
 
         let mut settings = insta::Settings::clone_current();

@@ -154,7 +154,7 @@ impl<'c, H: HugrView> EmitOp<'c, DataflowBlock, H> for CfgEmitter<'c, '_, H> {
         // the basic block and mailbox of each of our successors
         let successor_data = node
             .output_neighbours()
-            .map(|succ| self.get_block_data(&succ).map(|x| x.clone()))
+            .map(|succ| self.get_block_data(&succ).cloned())
             .collect::<Result<Vec<_>>>()?;
 
         self.context.build_positioned(*bb, |context| {
@@ -175,6 +175,14 @@ impl<'c, H: HugrView> EmitOp<'c, DataflowBlock, H> for CfgEmitter<'c, '_, H> {
             )?;
             let outputs = outputs_rmb.read_vec(context.builder(), [])?;
 
+            // We create a helper block per-tag. We switch to the helper block,
+            // where we then store the input args for the successor block, then
+            // unconditionally branch.
+            //
+            // We use switch even when we have 1 or 2 successors, where we could
+            // use unconditional branch or conditional branch, to simplify the
+            // code here at the expense of messier generated code. We expect the
+            // simplify-cfg pass to clean this up without issue.
             let branch_sum_type = SumType::new(node.sum_rows.clone());
             let llvm_sum_type = context.llvm_sum_type(branch_sum_type)?;
             let tag_bbs = successor_data
