@@ -2,7 +2,7 @@ use std::{any::TypeId, collections::HashSet};
 
 use anyhow::{anyhow, Result};
 use hugr::{
-    extension::prelude::{self, ConstUsize, QB_T, USIZE_T},
+    extension::prelude::{self, ConstExternalSymbol, ConstUsize, QB_T, USIZE_T},
     ops::constant::CustomConst,
     types::TypeEnum,
     HugrView,
@@ -102,7 +102,12 @@ impl<'c, H: HugrView, PCG: PreludeCodegen> CodegenExtension<'c, H>
     }
 
     fn supported_consts(&self) -> HashSet<TypeId> {
-        [TypeId::of::<ConstUsize>()].into_iter().collect()
+        [
+            TypeId::of::<ConstUsize>(),
+            TypeId::of::<ConstExternalSymbol>(),
+        ]
+        .into_iter()
+        .collect()
     }
 
     fn load_constant(
@@ -110,14 +115,23 @@ impl<'c, H: HugrView, PCG: PreludeCodegen> CodegenExtension<'c, H>
         context: &mut EmitFuncContext<'c, H>,
         konst: &dyn CustomConst,
     ) -> Result<Option<BasicValueEnum<'c>>> {
-        let Some(k) = konst.downcast_ref::<ConstUsize>() else {
-            return Ok(None);
-        };
-        let ty: IntType<'c> = context
-            .llvm_type(&k.get_type())?
-            .try_into()
-            .map_err(|_| anyhow!("Failed to get ConstUsize as IntType"))?;
-        Ok(Some(ty.const_int(k.value(), false).into()))
+        if let Some(k) = konst.downcast_ref::<ConstUsize>() {
+            let ty: IntType<'c> = context
+                .llvm_type(&k.get_type())?
+                .try_into()
+                .map_err(|_| anyhow!("Failed to get ConstUsize as IntType"))?;
+            Ok(Some(ty.const_int(k.value(), false).into()))
+        } else if let Some(k) = konst.downcast_ref::<ConstExternalSymbol>() {
+            let llvm_type = context.llvm_type(&k.get_type())?;
+            let global = context.get_global(&k.symbol, llvm_type, k.constant)?;
+            Ok(Some(
+                context
+                    .builder()
+                    .build_load(global.as_pointer_value(), &k.symbol)?,
+            ))
+        } else {
+            Ok(None)
+        }
     }
 }
 
@@ -155,6 +169,8 @@ impl<'c, H: HugrView> CodegenExtsMap<'c, H> {
 #[cfg(test)]
 mod test {
     use hugr::builder::{Dataflow, DataflowSubContainer};
+    use hugr::type_row;
+    use hugr::types::Type;
     use rstest::rstest;
 
     use crate::check_emission;
@@ -178,7 +194,7 @@ mod test {
     }
 
     #[rstest]
-    fn test_prelude_extension(llvm_ctx: TestContext) {
+    fn prelude_extension_types(llvm_ctx: TestContext) {
         let ctx = llvm_ctx.iw_context();
         let ext: PreludeCodegenExtension<TestPreludeCodegen> = TestPreludeCodegen.into();
         let tc = llvm_ctx.get_typing_session();
@@ -201,7 +217,7 @@ mod test {
     }
 
     #[rstest]
-    fn test_prelude_extension_in_test_context(mut llvm_ctx: TestContext) {
+    fn prelude_extension_types_in_test_context(mut llvm_ctx: TestContext) {
         llvm_ctx.add_extensions(|x| x.add_prelude_extensions(TestPreludeCodegen));
         let tc = llvm_ctx.get_typing_session();
         assert_eq!(
@@ -215,7 +231,7 @@ mod test {
     }
 
     #[rstest]
-    fn test_prelude_extension_const_usize(mut llvm_ctx: TestContext) {
+    fn prelude_const_usize(mut llvm_ctx: TestContext) {
         llvm_ctx.add_extensions(add_default_prelude_extensions);
 
         let hugr = SimpleHugrConfig::new()
@@ -224,6 +240,27 @@ mod test {
             .finish(|mut builder| {
                 let k = builder.add_load_value(ConstUsize::new(17));
                 builder.finish_with_outputs([k]).unwrap()
+            });
+        check_emission!(hugr, llvm_ctx);
+    }
+
+    #[rstest]
+    fn prelude_const_external_symbol(mut llvm_ctx: TestContext) {
+        llvm_ctx.add_extensions(add_default_prelude_extensions);
+        let konst1 = ConstExternalSymbol::new("sym1", USIZE_T, true);
+        let konst2 = ConstExternalSymbol::new(
+            "sym2",
+            Type::new_sum([type_row![USIZE_T, Type::new_unit_sum(3)], type_row![]]),
+            false,
+        );
+
+        let hugr = SimpleHugrConfig::new()
+            .with_outs(vec![konst1.get_type(), konst2.get_type()])
+            .with_extensions(prelude::PRELUDE_REGISTRY.to_owned())
+            .finish(|mut builder| {
+                let k1 = builder.add_load_value(konst1);
+                let k2 = builder.add_load_value(konst2);
+                builder.finish_with_outputs([k1, k2]).unwrap()
             });
         check_emission!(hugr, llvm_ctx);
     }
