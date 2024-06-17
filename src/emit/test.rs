@@ -76,7 +76,11 @@ impl SimpleHugrConfig {
 macro_rules! check_emission {
     ($hugr: ident, $test_ctx:ident) => {
         let root = $crate::fat::FatExt::fat_root::<hugr::ops::Module>(&$hugr).unwrap();
-        let (_, module) = $test_ctx.with_emit_context(|ec| ((), ec.emit_module(root).unwrap()));
+        let module = $test_ctx
+            .get_emit_hugr()
+            .emit_module(root)
+            .unwrap()
+            .finish();
 
         let mut settings = insta::Settings::clone_current();
         let new_suffix = settings
@@ -209,7 +213,8 @@ fn emit_hugr_conditional(llvm_ctx: TestContext) {
 }
 
 #[rstest]
-fn emit_hugr_load_constant(#[with(-1, add_int_extensions)] llvm_ctx: TestContext) {
+fn emit_hugr_load_constant(mut llvm_ctx: TestContext) {
+    llvm_ctx.add_extensions(add_int_extensions);
     let v = Value::tuple([
         Value::unit_sum(2, 4).unwrap(),
         ConstInt::new_s(4, -24).unwrap().into(),
@@ -247,7 +252,8 @@ fn emit_hugr_call(llvm_ctx: TestContext) {
 }
 
 #[rstest]
-fn emit_hugr_custom_op(#[with(-1, add_int_extensions)] llvm_ctx: TestContext) {
+fn emit_hugr_custom_op(mut llvm_ctx: TestContext) {
+    llvm_ctx.add_extensions(add_int_extensions);
     let v1 = ConstInt::new_s(4, -24).unwrap();
     let v2 = ConstInt::new_s(4, 24).unwrap();
 

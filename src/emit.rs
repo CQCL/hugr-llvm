@@ -454,4 +454,4 @@ impl<'c, H: HugrView> EmitHugr<'c, H> {
 }
 
 #[cfg(test)]
-mod test;
+pub mod test;
