@@ -79,11 +79,11 @@ impl<'c, H: HugrView> EmitFuncContext<'c, H> {
             ///
             /// The name of the result may have been mangled.
             pub fn get_func_decl(&self, node: FatNode<'c, FuncDecl, H>) -> Result<FunctionValue<'c>>;
-            /// Adds or get the [FunctionValue] in the [Module] with the given symbol
+            /// Adds or get the [FunctionValue] in the [inkwell::module::Module] with the given symbol
             /// and function type.
             ///
             /// The name undergoes no mangling. The [FunctionValue] will have
-            /// [Linkage::External].
+            /// [inkwell::module::Linkage::External].
             ///
             /// If this function is called multiple times with the same arguments it
             /// will return the same [FunctionValue].
