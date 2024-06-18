@@ -105,7 +105,7 @@ impl<'c, H: HugrView + ?Sized> FatNode<'c, OpType, H> {
 
     /// Creates a specific `FatNode` from a general `FatNode`.
     ///
-    /// Panics if the node is not valid in the `Hugr` or if it's `get_optype` is
+    /// Panics if the node is not valid in the `Hugr` or if its `get_optype` is
     /// not an `OT`.
     ///
     /// Note that while we do check that the type of the node's `get_optype`, we do
