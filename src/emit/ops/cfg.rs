@@ -107,21 +107,11 @@ impl<'c, 'd, H: HugrView> CfgEmitter<'c, 'd, H> {
         // emit each child by delegating to the `impl EmitOp<_>` of self.
         for c in self.node.children() {
             let (inputs, outputs) = (vec![], RowMailBox::new_empty().promise());
-            if let Some(node) = c.try_into_ot::<DataflowBlock>() {
-                self.emit(EmitOpArgs {
-                    node,
-                    inputs,
-                    outputs,
-                })?;
-            } else if let Some(node) = c.try_into_ot::<ExitBlock>() {
-                self.emit(EmitOpArgs {
-                    node,
-                    inputs,
-                    outputs,
-                })?;
-            } else {
-                Err(anyhow!("unknown optype: {c}"))?;
-            }
+            self.emit(EmitOpArgs {
+                node: c.clone(),
+                inputs,
+                outputs,
+            })?;
         }
 
         // move the builder to the end of the exit block
