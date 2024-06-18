@@ -217,10 +217,14 @@ impl<'c, H: HugrView> EmitOp<'c, ExitBlock, H> for CfgEmitter<'c, '_, H> {
 #[cfg(test)]
 mod test {
     use hugr::builder::{Dataflow, DataflowSubContainer, SubContainer};
+    use hugr::extension::prelude::BOOL_T;
     use hugr::extension::{ExtensionRegistry, ExtensionSet};
+    use hugr::ops::Value;
     use hugr::std_extensions::arithmetic::int_types::{self, INT_TYPES};
     use hugr::type_row;
 
+    use hugr::types::Type;
+    use itertools::Itertools as _;
     use rstest::rstest;
 
     use crate::custom::int::add_int_extensions;
@@ -230,7 +234,7 @@ mod test {
     use crate::check_emission;
 
     #[rstest]
-    fn emit_cfg(#[with(-1, add_int_extensions)] llvm_ctx: TestContext) {
+    fn diverse_outputs(#[with(-1, add_int_extensions)] llvm_ctx: TestContext) {
         let t1 = INT_TYPES[0].clone();
         let t2 = INT_TYPES[1].clone();
         let es = ExtensionSet::singleton(&int_types::EXTENSION_ID);
@@ -282,6 +286,134 @@ mod test {
                 let cfg = cfg_builder.finish_sub_container().unwrap();
                 let [cfg_out] = cfg.outputs_arr();
                 builder.finish_with_outputs([cfg_out]).unwrap()
+            });
+        check_emission!(hugr, llvm_ctx);
+    }
+
+    #[rstest]
+    fn nested(llvm_ctx: TestContext) {
+        let t1 = Type::new_unit_sum(3);
+        let es = ExtensionSet::default();
+        let hugr = SimpleHugrConfig::new()
+            .with_ins(vec![t1.clone(), BOOL_T])
+            .with_outs(BOOL_T)
+            .finish(|mut builder| {
+                let [in1, in2] = builder.input_wires_arr();
+                let unit_val = builder.add_load_value(Value::unit());
+                let [outer_cfg_out] = {
+                    let mut outer_cfg_builder = builder
+                        .cfg_builder(
+                            [(t1.clone(), in1), (BOOL_T, in2)],
+                            None,
+                            BOOL_T.into(),
+                            es.clone(),
+                        )
+                        .unwrap();
+
+                    let outer_entry_block = {
+                        let mut outer_entry_builder = outer_cfg_builder
+                            .entry_builder([type_row![], type_row![]], type_row![], es.clone())
+                            .unwrap();
+                        let [outer_entry_in1, outer_entry_in2] =
+                            outer_entry_builder.input_wires_arr();
+                        let [outer_entry_out] = {
+                            let mut inner_cfg_builder = outer_entry_builder
+                                .cfg_builder([], None, BOOL_T.into(), es.clone())
+                                .unwrap();
+                            let inner_exit_block = inner_cfg_builder.exit_block();
+                            let inner_entry_block = {
+                                let inner_entry_builder = inner_cfg_builder
+                                    .entry_builder(
+                                        [type_row![], type_row![], type_row![]],
+                                        type_row![],
+                                        es.clone(),
+                                    )
+                                    .unwrap();
+                                // non-local edge
+                                inner_entry_builder
+                                    .finish_with_outputs(outer_entry_in1, [])
+                                    .unwrap()
+                            };
+                            let [b1, b2, b3] = (0..3)
+                                .map(|i| {
+                                    let mut b_builder = inner_cfg_builder
+                                        .block_builder(
+                                            type_row![],
+                                            vec![type_row![]],
+                                            es.clone(),
+                                            BOOL_T.into(),
+                                        )
+                                        .unwrap();
+                                    let output = match i {
+                                        0 => b_builder.add_load_value(Value::true_val()),
+                                        1 => b_builder.add_load_value(Value::false_val()),
+                                        2 => outer_entry_in2,
+                                        _ => unreachable!(),
+                                    };
+                                    b_builder.finish_with_outputs(unit_val, [output]).unwrap()
+                                })
+                                .collect_vec()
+                                .try_into()
+                                .unwrap();
+                            inner_cfg_builder
+                                .branch(&inner_entry_block, 0, &b1)
+                                .unwrap();
+                            inner_cfg_builder
+                                .branch(&inner_entry_block, 1, &b2)
+                                .unwrap();
+                            inner_cfg_builder
+                                .branch(&inner_entry_block, 2, &b3)
+                                .unwrap();
+                            inner_cfg_builder.branch(&b1, 0, &inner_exit_block).unwrap();
+                            inner_cfg_builder.branch(&b2, 0, &inner_exit_block).unwrap();
+                            inner_cfg_builder.branch(&b3, 0, &inner_exit_block).unwrap();
+                            inner_cfg_builder
+                                .finish_sub_container()
+                                .unwrap()
+                                .outputs_arr()
+                        };
+
+                        outer_entry_builder
+                            .finish_with_outputs(outer_entry_out, [])
+                            .unwrap()
+                    };
+
+                    let [b1, b2] = (0..2)
+                        .map(|i| {
+                            let mut b_builder = outer_cfg_builder
+                                .block_builder(
+                                    type_row![],
+                                    vec![type_row![]],
+                                    es.clone(),
+                                    BOOL_T.into(),
+                                )
+                                .unwrap();
+                            let output = match i {
+                                0 => b_builder.add_load_value(Value::true_val()),
+                                1 => b_builder.add_load_value(Value::false_val()),
+                                _ => unreachable!(),
+                            };
+                            b_builder.finish_with_outputs(unit_val, [output]).unwrap()
+                        })
+                        .collect_vec()
+                        .try_into()
+                        .unwrap();
+
+                    let exit_block = outer_cfg_builder.exit_block();
+                    outer_cfg_builder
+                        .branch(&outer_entry_block, 0, &b1)
+                        .unwrap();
+                    outer_cfg_builder
+                        .branch(&outer_entry_block, 1, &b2)
+                        .unwrap();
+                    outer_cfg_builder.branch(&b1, 0, &exit_block).unwrap();
+                    outer_cfg_builder.branch(&b2, 0, &exit_block).unwrap();
+                    outer_cfg_builder
+                        .finish_sub_container()
+                        .unwrap()
+                        .outputs_arr()
+                };
+                builder.finish_with_outputs([outer_cfg_out]).unwrap()
             });
         check_emission!(hugr, llvm_ctx);
     }
