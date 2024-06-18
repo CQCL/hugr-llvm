@@ -95,7 +95,7 @@ impl<'c, H: HugrView + ?Sized> FatNode<'c, OpType, H> {
         FatNode::new(hugr, node, hugr.get_optype(node))
     }
 
-    /// Tries to downcast a genearl `FatNode` into a specific `OT`.
+    /// Tries to downcast a general `FatNode` into a specific `OT`.
     pub fn try_into_ot<OT: 'c>(&self) -> Option<FatNode<'c, OT, H>>
     where
         &'c OpType: TryInto<&'c OT>,
