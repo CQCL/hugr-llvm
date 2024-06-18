@@ -227,19 +227,16 @@ mod test {
     use hugr::{
         builder::{Dataflow, DataflowSubContainer},
         extension::prelude::BOOL_T,
-        std_extensions::arithmetic::{
-            int_ops::{self, INT_OPS_REGISTRY},
-            int_types::INT_TYPES,
-        },
+        std_extensions::arithmetic::{int_ops, int_types::INT_TYPES},
         types::TypeRow,
-        Hugr, Wire,
+        Hugr,
     };
     use rstest::rstest;
 
     use crate::{
         check_emission,
         custom::int::add_int_extensions,
-        emit::test::{SimpleHugrConfig, DFGW},
+        emit::test::SimpleHugrConfig,
         test::{llvm_ctx, TestContext},
     };
 
