@@ -182,21 +182,22 @@ impl<'c, OT, H: HugrView + ?Sized> FatNode<'c, OT, H> {
 }
 
 impl<'c, H: HugrView> FatNode<'c, CFG, H> {
-    /// TODO it would be reasonable to remove Option and panic on failure here
-    pub fn get_entry_exit(
-        &self,
-    ) -> Option<(FatNode<'c, DataflowBlock, H>, FatNode<'c, ExitBlock, H>)> {
+    /// Returns the entry and exit nodes of a CFG.
+    ///
+    /// These are guaranteed to exist the `Hugr` is valid. Panics if they do not
+    /// exist.
+    pub fn get_entry_exit(&self) -> (FatNode<'c, DataflowBlock, H>, FatNode<'c, ExitBlock, H>) {
         let [i, o] = self
             .hugr
             .children(self.node)
             .take(2)
             .collect_vec()
             .try_into()
-            .ok()?;
-        Some((
-            FatNode::try_new(self.hugr, i)?,
-            FatNode::try_new(self.hugr, o)?,
-        ))
+            .unwrap();
+        (
+            FatNode::try_new(self.hugr, i).unwrap(),
+            FatNode::try_new(self.hugr, o).unwrap(),
+        )
     }
 }
 

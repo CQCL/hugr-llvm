@@ -60,7 +60,7 @@ impl<'c, 'd, H: HugrView> CfgEmitter<'c, 'd, H> {
                 }
             })
             .collect::<Result<HashMap<_, _>>>()?;
-        let (entry_node, exit_node) = node.get_entry_exit().unwrap();
+        let (entry_node, exit_node) = node.get_entry_exit();
         Ok(CfgEmitter {
             context,
             bbs,
