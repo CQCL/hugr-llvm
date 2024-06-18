@@ -57,7 +57,7 @@ where
 
     /// Tries to create a `FatNode` from a [HugrView] and a [Node].
     ///
-    /// If the node is invalid, or if it's `get_optype` is not `OT`, returns
+    /// If the node is invalid, or if its `get_optype` is not `OT`, returns
     /// `None`.
     pub fn try_new(hugr: &'c H, node: Node) -> Option<Self> {
         (hugr.valid_node(node)).then_some(())?;
