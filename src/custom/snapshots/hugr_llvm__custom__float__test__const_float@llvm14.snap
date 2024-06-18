@@ -10,5 +10,5 @@ alloca_block:
   br label %entry_block
 
 entry_block:                                      ; preds = %alloca_block
-  ret double 3.140000e+00
+  ret double 3.120000e+00
 }

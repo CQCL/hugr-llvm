@@ -22,7 +22,7 @@ struct FloatTypesCodegenExtension;
 
 impl<'c, H: HugrView> CodegenExtension<'c, H> for FloatTypesCodegenExtension {
     fn extension(&self) -> hugr::extension::ExtensionId {
-        return float_types::EXTENSION_ID;
+        float_types::EXTENSION_ID
     }
 
     fn llvm_type(
@@ -71,7 +71,7 @@ struct FloatOpsCodegenExtension;
 
 impl<'c, H: HugrView> CodegenExtension<'c, H> for FloatOpsCodegenExtension {
     fn extension(&self) -> hugr::extension::ExtensionId {
-        return float_ops::EXTENSION_ID;
+        float_ops::EXTENSION_ID
     }
 
     fn llvm_type(
@@ -101,8 +101,9 @@ impl<'c, H: HugrView> EmitOp<'c, CustomOp, H> for FloatOpEmitter<'c, '_, H> {
     fn emit(&mut self, args: EmitOpArgs<'c, CustomOp, H>) -> Result<()> {
         use hugr::ops::NamedOp;
         let name = args.node().name();
+        #[allow(clippy::match_single_binding)]
         match name.as_str() {
-            n => Err(anyhow!("FloatOpEmitter: unknown op: {}", n)),
+            n => Err(anyhow!("FloatOpEmitter: unknown op: {n}")),
         }
     }
 }
@@ -143,7 +144,7 @@ mod test {
             .with_outs(FLOAT64_TYPE)
             .with_extensions(FLOAT_OPS_REGISTRY.to_owned())
             .finish(|mut builder| {
-                let c = builder.add_load_value(ConstF64::new(3.14));
+                let c = builder.add_load_value(ConstF64::new(3.12));
                 builder.finish_with_outputs([c]).unwrap()
             });
         check_emission!(hugr, llvm_ctx);
