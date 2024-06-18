@@ -147,21 +147,6 @@ impl TestContext {
             self.type_converter(),
         )
     }
-
-    pub fn with_emit_module_context<'c, T>(
-        &'c self,
-        f: impl FnOnce(EmitModuleContext<'c, THugrView>) -> T,
-    ) -> T {
-        self.with_context(|ctx| {
-            let m = ctx.create_module("test_module");
-            f(EmitModuleContext::new(
-                m,
-                Namer::default().into(),
-                self.extensions(),
-                TypeConverter::new(ctx),
-            ))
-        })
-    }
 }
 
 #[fixture]
