@@ -8,7 +8,7 @@ use super::func::RowPromise;
 /// A type used whenever emission is delegated to a function, for example in
 /// [crate::emit::EmitOp].
 pub struct EmitOpArgs<'c, OT, H> {
-    /// This [HugrView] and [hugr::Node] we are emitting
+    /// The [HugrView] and [hugr::Node] we are emitting
     pub node: FatNode<'c, OT, H>,
     /// The values that should be used for all Value input ports of the node
     pub inputs: Vec<BasicValueEnum<'c>>,
