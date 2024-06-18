@@ -75,7 +75,7 @@ where
 }
 
 impl<'c, OT, H> FatNode<'c, OT, H> {
-    /// Get's the [Node] of the `FatNode`.
+    /// Gets the [Node] of the `FatNode`.
     pub fn node(&self) -> Node {
         self.node
     }
