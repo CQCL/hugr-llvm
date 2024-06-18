@@ -95,24 +95,21 @@ impl TestContext {
     }
 
     pub fn add_extensions<
-        F: for<'a> Fn(CodegenExtsMap<'a, THugrView>) -> CodegenExtsMap<'a, THugrView>,
+        F: for<'a> Fn(CodegenExtsMap<'a, THugrView>) -> CodegenExtsMap<'a, THugrView> + 'static,
     >(
         &'_ mut self,
         f: F,
-    ) where
-        F: 'static,
-    {
+    ) {
         self.add_extensions_with_context(move |_, exts| f(exts))
     }
 
     pub fn add_extensions_with_context<
-        F: for<'a> Fn(&'a Context, CodegenExtsMap<'a, THugrView>) -> CodegenExtsMap<'a, THugrView>,
+        F: for<'a> Fn(&'a Context, CodegenExtsMap<'a, THugrView>) -> CodegenExtsMap<'a, THugrView>
+            + 'static,
     >(
         &'_ mut self,
         f: F,
-    ) where
-        F: 'static,
-    {
+    ) {
         fn dummy(_: &'_ Context) -> CodegenExtsMap<'_, THugrView> {
             unreachable!()
         }

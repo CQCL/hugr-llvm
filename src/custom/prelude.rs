@@ -146,9 +146,7 @@ pub fn add_prelude_extensions<'c, H: HugrView>(
 
 /// Add a [PreludeCodegenExtension] to the given [CodegenExtsMap] using
 /// [DefaultPreludeCodegen] as the implementation.
-pub fn add_default_prelude_extensions<'c, H: HugrView>(
-    cem: CodegenExtsMap<'c, H>,
-) -> CodegenExtsMap<'c, H> {
+pub fn add_default_prelude_extensions<H: HugrView>(cem: CodegenExtsMap<H>) -> CodegenExtsMap<H> {
     cem.add_cge(PreludeCodegenExtension::from(DefaultPreludeCodegen))
 }
 

@@ -72,6 +72,12 @@ impl SimpleHugrConfig {
     }
 }
 
+impl Default for SimpleHugrConfig {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[macro_export]
 macro_rules! check_emission {
     ($hugr: ident, $test_ctx:ident) => {
