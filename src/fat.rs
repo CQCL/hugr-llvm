@@ -80,7 +80,7 @@ impl<'c, OT, H> FatNode<'c, OT, H> {
         self.node
     }
 
-    /// Get's the [HugrView] of the `FatNode`.
+    /// Gets the [HugrView] of the `FatNode`.
     pub fn hugr(&self) -> &'c H {
         self.hugr
     }
