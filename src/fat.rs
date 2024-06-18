@@ -68,7 +68,7 @@ where
         ))
     }
 
-    /// Get's the [OpType] of the `FatNode`.
+    /// Gets the [OpType] of the `FatNode`.
     pub fn get(&self) -> &'c OT {
         self.hugr.get_optype(self.node).try_into().ok().unwrap()
     }
