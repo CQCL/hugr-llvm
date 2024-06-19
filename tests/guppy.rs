@@ -102,9 +102,7 @@ impl TestConfig {
             .ok()
             .or_else(|| pathsearch::find_executable_in_path("python"))
             .unwrap_or_else(|| panic!("Could not find python in PATH or HUGR_LLVM_PYTHON_BIN"));
-        let test_dir: PathBuf = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("tests/guppy_test_cases")
-            .into();
+        let test_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/guppy_test_cases");
         assert!(test_dir.is_dir());
         TestConfig {
             python_bin,
