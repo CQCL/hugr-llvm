@@ -59,10 +59,7 @@ impl<'c, H: HugrView> CodegenExtension<'c, H> for FloatTypesCodegenExtension {
         let Some(k) = konst.downcast_ref::<ConstF64>() else {
             return Ok(None);
         };
-        let ty: FloatType<'c> = context
-            .llvm_type(&k.get_type())?
-            .try_into()
-            .map_err(|_| anyhow!("Failed to get type of ConstF64 as FloatType"))?;
+        let ty: FloatType<'c> = context.llvm_type(&k.get_type())?.try_into().unwrap();
         Ok(Some(ty.const_float(k.value()).as_basic_value_enum()))
     }
 }
@@ -101,6 +98,8 @@ impl<'c, H: HugrView> EmitOp<'c, CustomOp, H> for FloatOpEmitter<'c, '_, H> {
     fn emit(&mut self, args: EmitOpArgs<'c, CustomOp, H>) -> Result<()> {
         use hugr::ops::NamedOp;
         let name = args.node().name();
+        // This looks strange now, but we will add cases for ops piecemeal, as
+        // in the analgous match expression in `IntOpEmitter`.
         #[allow(clippy::match_single_binding)]
         match name.as_str() {
             n => Err(anyhow!("FloatOpEmitter: unknown op: {n}")),
