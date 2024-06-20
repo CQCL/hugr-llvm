@@ -414,7 +414,7 @@ impl<'c, H: HugrView> EmitHugr<'c, H> {
 
 /// Extract all return values from the result of a `call`.
 ///
-/// LLVM supports only supports functions with exactly zero or one return value.
+/// LLVM only supports functions with exactly zero or one return value.
 /// For functions with multiple return values, we return a struct containing
 /// all the return values.
 ///
