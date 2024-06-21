@@ -88,7 +88,7 @@ impl<'c, 'd, H: HugrView> CfgEmitter<'c, 'd, H> {
         for<'a> &'a OpType: TryInto<&'a OT>,
     {
         self.bbs
-            .get(&node.clone().generalise())
+            .get(&node.generalise())
             .ok_or(anyhow!("Couldn't get block data for: {}", node.index()))
     }
 
@@ -105,10 +105,10 @@ impl<'c, 'd, H: HugrView> CfgEmitter<'c, 'd, H> {
         builder.build_unconditional_branch(entry_bb)?;
 
         // emit each child by delegating to the `impl EmitOp<_>` of self.
-        for c in self.node.children() {
+        for child_node in self.node.children() {
             let (inputs, outputs) = (vec![], RowMailBox::new_empty().promise());
             self.emit(EmitOpArgs {
-                node: c.clone(),
+                node: child_node,
                 inputs,
                 outputs,
             })?;
@@ -140,7 +140,7 @@ impl<'c, H: HugrView> EmitOp<'c, DataflowBlock, H> for CfgEmitter<'c, '_, H> {
         }: EmitOpArgs<'c, DataflowBlock, H>,
     ) -> Result<()> {
         // our entry basic block and our input RowMailBox
-        let (bb, inputs_rmb) = self.bbs.get(&node.clone().generalise()).unwrap();
+        let (bb, inputs_rmb) = self.bbs.get(&node.generalise()).unwrap();
         // the basic block and mailbox of each of our successors
         let successor_data = node
             .output_neighbours()
@@ -158,7 +158,7 @@ impl<'c, H: HugrView> EmitOp<'c, DataflowBlock, H> for CfgEmitter<'c, '_, H> {
             emit_dataflow_parent(
                 context,
                 EmitOpArgs {
-                    node: node.clone(),
+                    node,
                     inputs,
                     outputs: outputs_rmb.promise(),
                 },

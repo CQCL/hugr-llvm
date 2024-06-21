@@ -19,7 +19,7 @@ pub struct EmitOpArgs<'c, OT, H> {
 impl<'c, OT, H> EmitOpArgs<'c, OT, H> {
     /// Get the internal [FatNode]
     pub fn node(&self) -> FatNode<'c, OT, H> {
-        self.node.clone()
+        self.node
     }
 }
 

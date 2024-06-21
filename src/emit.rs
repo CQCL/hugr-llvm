@@ -281,8 +281,8 @@ impl<'c, H> Hash for Emission<'c, H> {
 impl<'c, H> Clone for Emission<'c, H> {
     fn clone(&self) -> Self {
         match self {
-            Self::FuncDefn(arg0) => Self::FuncDefn(arg0.clone()),
-            Self::FuncDecl(arg0) => Self::FuncDecl(arg0.clone()),
+            Self::FuncDefn(arg0) => Self::FuncDefn(*arg0),
+            Self::FuncDecl(arg0) => Self::FuncDecl(*arg0),
         }
     }
 }
@@ -382,7 +382,7 @@ impl<'c, H: HugrView> EmitHugr<'c, H> {
         mut self,
         node: FatNode<'c, FuncDefn, H>,
     ) -> Result<(Self, EmissionSet<'c, H>)> {
-        let func = self.module_context.get_func_defn(node.clone())?;
+        let func = self.module_context.get_func_defn(node)?;
         let mut func_ctx = EmitFuncContext::new(self.module_context, func)?;
         let ret_rmb = func_ctx.new_row_mail_box(node.signature.body().output.iter(), "ret")?;
         ops::emit_dataflow_parent(

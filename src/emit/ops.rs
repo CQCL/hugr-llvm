@@ -110,7 +110,7 @@ where
 
     pub fn emit_children(mut self) -> Result<()> {
         use petgraph::visit::Topo;
-        let node = self.node.clone();
+        let node = self.node;
         if !OpTag::DataflowParent.is_superset(node.tag()) {
             Err(anyhow!("Not a dataflow parent"))?
         };
@@ -127,9 +127,9 @@ where
             .filter(|x| (*x != node.node()))
             .map(|x| node.hugr().fat_optype(x))
             .try_for_each(|node| {
-                let inputs_rmb = self.context.node_ins_rmb(node.clone())?;
+                let inputs_rmb = self.context.node_ins_rmb(node)?;
                 let inputs = inputs_rmb.read(self.builder(), [])?;
-                let outputs = self.context.node_outs_rmb(node.clone())?.promise();
+                let outputs = self.context.node_outs_rmb(node)?.promise();
                 self.emit(EmitOpArgs {
                     node,
                     inputs,

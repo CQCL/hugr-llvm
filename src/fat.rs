@@ -280,11 +280,7 @@ impl<OT, H> Copy for FatNode<'_, OT, H> {}
 
 impl<OT, H> Clone for FatNode<'_, OT, H> {
     fn clone(&self) -> Self {
-        Self {
-            hugr: self.hugr,
-            node: self.node,
-            marker: self.marker,
-        }
+        *self
     }
 }
 
