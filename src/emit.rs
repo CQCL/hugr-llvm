@@ -357,10 +357,8 @@ impl<'c, H: HugrView> EmitHugr<'c, H> {
     /// are not emitted directly, but instead by [hugr::ops::LoadConstant] emission. So
     /// [FuncDefn] and [FuncDecl] are the only interesting children.
     pub fn emit_module(mut self, node: FatNode<'c, hugr::ops::Module, H>) -> Result<Self> {
-        println!("emit module");
         for c in node.children() {
-            println!("emit child: {}", &c);
-            match c.get() {
+            match c.as_ref() {
                 OpType::FuncDefn(ref fd) => {
                     self = self.emit_global(c.into_ot(fd))?;
                 }

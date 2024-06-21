@@ -25,9 +25,9 @@ impl<'c, OT, H> EmitOpArgs<'c, OT, H> {
 
 impl<'c, H: HugrView> EmitOpArgs<'c, OpType, H> {
     /// Attempt to specialise the internal [FatNode].
-    pub fn try_into_ot<OT: 'c>(self) -> Result<EmitOpArgs<'c, OT, H>, Self>
+    pub fn try_into_ot<OT>(self) -> Result<EmitOpArgs<'c, OT, H>, Self>
     where
-        &'c OpType: TryInto<&'c OT>,
+        for<'a> &'a OpType: TryInto<&'a OT>,
     {
         let EmitOpArgs {
             node,
