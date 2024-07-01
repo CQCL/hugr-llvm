@@ -312,9 +312,7 @@ impl<'c, H: HugrView> EmitHugr<'c, H> {
             match c.as_ref() {
                 OpType::FuncDefn(ref fd) => {
                     let fat_ot = c.into_ot(fd);
-                    if self.emitted.insert(fat_ot) {
-                        self = self.emit_func(fat_ot)?;
-                    }
+                    self = self.emit_func(fat_ot)?;
                 }
                 // FuncDecls are allowed, but we don't need to do anything here.
                 OpType::FuncDecl(_) => (),
@@ -330,6 +328,9 @@ impl<'c, H: HugrView> EmitHugr<'c, H> {
         mut self,
         node: FatNode<'c, FuncDefn, H>,
     ) -> Result<(Self, EmissionSet<'c, H>)> {
+        if !self.emitted.insert(node) {
+            return Ok((self, EmissionSet::default()));
+        }
         let func = self.module_context.get_func_defn(node)?;
         let mut func_ctx = EmitFuncContext::new(self.module_context, func)?;
         let ret_rmb = func_ctx.new_row_mail_box(node.signature.body().output.iter(), "ret")?;
