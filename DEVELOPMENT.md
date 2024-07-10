@@ -11,7 +11,7 @@ You can set up the development environment in two ways:
 ### The Nix way
 
 The easiest way to set up the development environment is to use the provided
-[`devenv.nix`](devenv.nix) file. This will setup a development shell with all the
+[`devenv.nix`](devenv.nix) file. This will set up a development shell with all the
 required dependencies.
 
 To use this, you will need to install [devenv](https://devenv.sh/getting-started/).
