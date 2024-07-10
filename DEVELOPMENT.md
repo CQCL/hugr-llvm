@@ -95,7 +95,7 @@ We accept the following contribution types:
 - feat: New features.
 - fix: Bug fixes.
 - docs: Improvements to the documentation.
-- style: Formatting, missing semi colons, etc; no code change.
+- style: Formatting, missing semicolons, etc; no code change.
 - refactor: Refactoring code without changing behaviour.
 - perf: Code refactoring focused on improving performance.
 - test: Adding missing tests, refactoring tests; no production code change.
