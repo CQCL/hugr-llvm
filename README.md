@@ -19,7 +19,7 @@ At present only `llvm14-0` is supported but we expect to introduce supported ver
 
 See the [llvm-sys][] crate for details on how to use your preferred llvm installation.
 
-For an example lowering [guppy][] programs to LLVM see [tests/guppy.rs](./tests/guppy.rs) 
+For an example lowering [guppy][] programs to LLVM see ![./tests/guppy.rs](./tests/guppy.rs) 
 
 ## Recent Changes
 
@@ -32,7 +32,7 @@ See [DEVELOPMENT](DEVELOPMENT.md) for instructions on setting up the development
 
 ## License
 
-This project is licensed under Apache License, Version 2.0 ([LICENCE](LICENSE) or http://www.apache.org/licenses/LICENSE-2.0).
+This project is licensed under Apache License, Version 2.0 ([LICENCE](LICENCE) or http://www.apache.org/licenses/LICENSE-2.0).
 
 
   [build_status]: https://github.com/CQCL/hugr-llvm/actions/workflows/ci-rs.yml/badge.svg?branch=main
