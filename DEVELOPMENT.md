@@ -29,7 +29,8 @@ shell by setting up [direnv](https://devenv.sh/automatic-shell-activation/).
 To setup the environment manually you will need:
 
 - Rust `>=1.75`: https://www.rust-lang.org/tools/install
-- llvm `== 14.0`: [https://llvm.org/], [https://crates.io/crates/llvm-sys]
+- llvm `== 14.0`: we use the rust bindings 
+[llvm-sys](https://crates.io/crates/llvm-sys) to [llvm](https://llvm.org/), 
 - Poetry `>=1.8`: https://python-poetry.org/
 
 Once you have these installed, verify that your setup is working
@@ -49,21 +50,21 @@ To format your code, run:
 cargo format
 ```
 
-We also use various linters to catch common mistakes and enforce best practices. To run these, see [/.github/workflows/ci-rs.yml]. TODO Provide a better way, contributions welcome.
+We also use various linters to catch common mistakes and enforce best practices. To run these, see [out ci config](./.github/workflows/ci-rs.yml). TODO Provide a better way, contributions welcome.
 
 
 ## 📈 Code Coverage
 
 We run coverage checks on the CI. Once you submit a PR, you can review the
 line-by-line coverage report on
-[codecov](https://app.codecov.io/gh/CQCL/tket2/commits?branch=All%20branches).
+[codecov](https://app.codecov.io/gh/CQCL/hugr-llvm/commits?branch=All%20branches).
 
 To run the coverage checks locally, first install `cargo-llvm-cov`.
 ```bash
 cargo install cargo-llvm-cov
 ```
 
-Then run the tests, see [/.github/workflows/ci-rs.yml]
+Then run the tests, see [our CI config](/.github/workflows/ci-rs.yml).
 
 ```bash
 just coverage
