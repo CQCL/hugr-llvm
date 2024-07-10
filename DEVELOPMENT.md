@@ -99,7 +99,7 @@ We accept the following contribution types:
 - refactor: Refactoring code without changing behaviour.
 - perf: Code refactoring focused on improving performance.
 - test: Adding missing tests, refactoring tests; no production code change.
-- ci: CI related changes. These changes are not published in the changelog.
+- ci: CI-related changes. These changes are not published in the changelog.
 - chore: Updating build tasks, package manager configs, etc. These changes are not published in the changelog.
 - revert: Reverting previous commits.
 
