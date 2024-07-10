@@ -26,7 +26,7 @@ shell by setting up [direnv](https://devenv.sh/automatic-shell-activation/).
 
 ### Manual setup
 
-To setup the environment manually you will need:
+To set up the environment manually you will need:
 
 - Rust `>=1.75`: https://www.rust-lang.org/tools/install
 - llvm `== 14.0`: we use the rust bindings 
