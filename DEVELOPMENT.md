@@ -50,7 +50,7 @@ To format your code, run:
 cargo format
 ```
 
-We also use various linters to catch common mistakes and enforce best practices. To run these, see [out ci config](./.github/workflows/ci-rs.yml). TODO Provide a better way, contributions welcome.
+We also use various linters to catch common mistakes and enforce best practices. To run these, see [our CI config](./.github/workflows/ci-rs.yml). TODO Provide a better way, contributions welcome.
 
 
 ## 📈 Code Coverage
