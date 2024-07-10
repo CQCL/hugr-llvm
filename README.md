@@ -5,7 +5,7 @@
 [![msrv][]](https://github.com/CQCL/hugr-llvm)
 
 
-A general, extensible, rust crate for lowering `HUGR`s into `LLVM`-ir. Built on ![hugr][], [inkwell][], and [llvm][].
+A general, extensible, rust crate for lowering `HUGR`s into `LLVM` IR. Built on [hugr][], [inkwell][], and [llvm][].
 
 # Usage
 
@@ -19,20 +19,20 @@ At present only `llvm14-0` is supported but we expect to introduce supported ver
 
 See the [llvm-sys][] crate for details on how to use your preferred llvm installation.
 
-For an example lowering [guppy][] programs to LLVM see [tests/guppy.rs][] 
+For an example lowering [](guppy) programs to LLVM see [](tests/guppy.rs) 
 
 ## Recent Changes
 
-See [CHANGELOG.md][] for a list of changes. The minimum supported rust
+See [CHANGELOG](CHANGELOG.md) for a list of changes. The minimum supported rust
 version will only change on major releases.
 
 ## Developing hugr-llvm
 
-See [DEVELOPMENT.md][] for instructions on setting up the development environment.
+See [DEVELOPMENT](DEVELOPMENT.md) for instructions on setting up the development environment.
 
 ## License
 
-This project is licensed under Apache License, Version 2.0 ([LICENSE][] or http://www.apache.org/licenses/LICENSE-2.0).
+This project is licensed under Apache License, Version 2.0 ([LICENSE](LICENSE) or http://www.apache.org/licenses/LICENSE-2.0).
 
 
   [build_status]: https://github.com/CQCL/hugr-llvm/actions/workflows/ci-rs.yml/badge.svg?branch=main
