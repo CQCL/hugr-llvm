@@ -6,7 +6,7 @@ If you find any errors or omissions in this document, please [open an issue](htt
 
 ## #️⃣ Setting up the development environment
 
-You can setup the development environment in two ways:
+You can set up the development environment in two ways:
 
 ### The Nix way
 
