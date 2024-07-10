@@ -10,7 +10,7 @@ You can set up the development environment in two ways:
 
 ### The Nix way
 
-The easiest way to setup the development environment is to use the provided
+The easiest way to set up the development environment is to use the provided
 [`devenv.nix`](devenv.nix) file. This will setup a development shell with all the
 required dependencies.
 
