@@ -170,8 +170,8 @@ impl<'c> LLVMSumType<'c> {
         let variants = (0..sum_type.num_variants())
             .map(|i| {
                 let tr = Self::get_variant_typerow_st(&sum_type, i as u32)?;
-                tr.into_iter()
-                    .map(|t| session.llvm_type(&t))
+                tr.iter()
+                    .map(|t| session.llvm_type(t))
                     .collect::<Result<Vec<_>>>()
             })
             .collect::<Result<Vec<_>>>()?;
