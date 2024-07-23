@@ -128,7 +128,10 @@ impl<'c, H> CodegenExtsMap<'c, H> {
         self: Rc<Self>,
         context: &mut EmitFuncContext<'c, H>,
         args: EmitOpArgs<'c, CustomOp, H>,
-    ) -> Result<()> where H: HugrView {
+    ) -> Result<()>
+    where
+        H: HugrView,
+    {
         let node = args.node();
         self.get(custom_op_extension(&node))?
             .emitter(context)

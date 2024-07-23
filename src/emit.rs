@@ -62,7 +62,7 @@ pub struct EmitModuleContext<'c, H> {
     namer: Rc<Namer>,
 }
 
-impl<'c, H: HugrView> EmitModuleContext<'c, H> {
+impl<'c, H> EmitModuleContext<'c, H> {
     delegate! {
         to self.typer {
             /// Returns a reference to the inner [Context].
@@ -153,14 +153,20 @@ impl<'c, H: HugrView> EmitModuleContext<'c, H> {
     /// Adds or gets the [FunctionValue] in the [Module] corresponding to the given [FuncDefn].
     ///
     /// The name of the result is mangled by [EmitModuleContext::name_func].
-    pub fn get_func_defn(&self, node: FatNode<'c, FuncDefn, H>) -> Result<FunctionValue<'c>> where H: HugrView {
+    pub fn get_func_defn(&self, node: FatNode<'c, FuncDefn, H>) -> Result<FunctionValue<'c>>
+    where
+        H: HugrView,
+    {
         self.get_hugr_func_impl(&node.name, node.node(), &node.signature)
     }
 
     /// Adds or gets the [FunctionValue] in the [Module] corresponding to the given [FuncDecl].
     ///
     /// The name of the result is mangled by [EmitModuleContext::name_func].
-    pub fn get_func_decl(&self, node: FatNode<'c, FuncDecl, H>) -> Result<FunctionValue<'c>> where H: HugrView {
+    pub fn get_func_decl(&self, node: FatNode<'c, FuncDecl, H>) -> Result<FunctionValue<'c>>
+    where
+        H: HugrView,
+    {
         self.get_hugr_func_impl(&node.name, node.node(), &node.signature)
     }
 
