@@ -44,7 +44,7 @@ pub struct TypingSession<'c, H> {
     extensions: Rc<CodegenExtsMap<'c, H>>,
 }
 
-impl<'c, H: HugrView> TypingSession<'c, H> {
+impl<'c, H> TypingSession<'c, H> {
     delegate! {
         to self.tc {
             /// Returns a reference to the inner [Context].
@@ -119,7 +119,7 @@ impl<'c> TypeConverter<'c> {
     }
 
     /// Creates a new [TypingSession].
-    pub fn session<H: HugrView>(
+    pub fn session<H>(
         self: Rc<Self>,
         exts: Rc<CodegenExtsMap<'c, H>>,
     ) -> TypingSession<'c, H> {
@@ -165,7 +165,7 @@ pub struct LLVMSumType<'c>(StructType<'c>, SumType);
 
 impl<'c> LLVMSumType<'c> {
     /// Attempt to create a new `LLVMSumType` from a [HugrSumType].
-    pub fn try_new<H: HugrView>(session: &TypingSession<'c, H>, sum_type: SumType) -> Result<Self> {
+    pub fn try_new<H>(session: &TypingSession<'c, H>, sum_type: SumType) -> Result<Self> {
         assert!(sum_type.num_variants() < u32::MAX as usize);
         let variants = (0..sum_type.num_variants())
             .map(|i| {

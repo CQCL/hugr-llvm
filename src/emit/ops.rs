@@ -23,7 +23,7 @@ use super::{
 
 mod cfg;
 
-struct SumOpEmitter<'c, 'd, H: HugrView>(&'d mut EmitFuncContext<'c, H>, LLVMSumType<'c>);
+struct SumOpEmitter<'c, 'd, H>(&'d mut EmitFuncContext<'c, H>, LLVMSumType<'c>);
 
 impl<'c, 'd, H: HugrView> SumOpEmitter<'c, 'd, H> {
     pub fn new(context: &'d mut EmitFuncContext<'c, H>, st: LLVMSumType<'c>) -> Self {
