@@ -39,7 +39,7 @@ pub struct TypeConverter<'c> {
 
 /// A type that holds [Rc] shared pointers to everything needed to convert from
 /// a hugr [HugrType] to an LLVM [Type](inkwell::types).
-pub struct TypingSession<'c, H: HugrView> {
+pub struct TypingSession<'c, H> {
     tc: Rc<TypeConverter<'c>>,
     extensions: Rc<CodegenExtsMap<'c, H>>,
 }

@@ -26,7 +26,7 @@ pub mod int;
 pub mod prelude;
 
 /// The extension point for lowering HUGR Extensions to LLVM.
-pub trait CodegenExtension<'c, H: HugrView> {
+pub trait CodegenExtension<'c, H> {
     /// The [ExtensionId] for which this extension will lower `ExtensionOp`s and
     /// [CustomType]s.
     ///
@@ -80,7 +80,7 @@ pub struct CodegenExtsMap<'c, H> {
     extensions: HashMap<ExtensionId, Box<dyn 'c + CodegenExtension<'c, H>>>,
 }
 
-impl<'c, H: HugrView> CodegenExtsMap<'c, H> {
+impl<'c, H> CodegenExtsMap<'c, H> {
     /// Create a new, empty, `CodegenExtsMap`.
     pub fn new() -> Self {
         Self {
@@ -128,7 +128,7 @@ impl<'c, H: HugrView> CodegenExtsMap<'c, H> {
         self: Rc<Self>,
         context: &mut EmitFuncContext<'c, H>,
         args: EmitOpArgs<'c, CustomOp, H>,
-    ) -> Result<()> {
+    ) -> Result<()> where H: HugrView {
         let node = args.node();
         self.get(custom_op_extension(&node))?
             .emitter(context)
