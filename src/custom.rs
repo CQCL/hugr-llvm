@@ -75,7 +75,7 @@ pub trait CodegenExtension<'c, H: HugrView> {
 ///
 /// Provides methods to delegate operations to appropriate contained
 /// [CodegenExtension]s.
-pub struct CodegenExtsMap<'c, H: HugrView> {
+pub struct CodegenExtsMap<'c, H> {
     supported_consts: HashMap<TypeId, HashSet<ExtensionId>>,
     extensions: HashMap<ExtensionId, Box<dyn 'c + CodegenExtension<'c, H>>>,
 }

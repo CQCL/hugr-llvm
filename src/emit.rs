@@ -55,7 +55,7 @@ impl<OT, H: HugrView> EmitOp<'_, OT, H> for NullEmitLlvm {
     }
 }
 
-pub struct EmitModuleContext<'c, H: HugrView> {
+pub struct EmitModuleContext<'c, H> {
     module: Module<'c>,
     extensions: Rc<CodegenExtsMap<'c, H>>,
     typer: Rc<TypeConverter<'c>>,
