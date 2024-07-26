@@ -6,13 +6,9 @@ use hugr::{
     HugrView, Node,
 };
 use inkwell::{
-    builder::Builder,
-    context::Context,
-    module::{Linkage, Module},
-    types::{AnyType, BasicType, BasicTypeEnum, FunctionType},
-    values::{BasicValueEnum, CallSiteValue, FunctionValue, GlobalValue},
+    builder::Builder, context::Context, debug_info::{AsDIScope, DICompileUnit, DIScope, DebugInfoBuilder}, module::{Linkage, Module}, types::{AnyType, BasicType, BasicTypeEnum, FunctionType}, values::{BasicValueEnum, CallSiteValue, FunctionValue, GlobalValue}
 };
-use std::{collections::HashSet, rc::Rc};
+use std::{collections::{HashMap, HashSet}, rc::Rc};
 
 use crate::types::{HugrFuncType, HugrSumType, HugrType, TypingSession};
 
@@ -31,6 +27,8 @@ pub use args::EmitOpArgs;
 pub use func::{EmitFuncContext, RowPromise};
 pub use namer::Namer;
 pub use ops::emit_value;
+
+type DI<'c> = (Rc<DebugInfoBuilder<'c>>, DICompileUnit<'c>);
 
 /// A trait used to abstract over emission.
 ///
@@ -242,7 +240,7 @@ impl<'c, H> EmitModuleContext<'c, H> {
     }
 }
 
-type EmissionSet<'c, H> = HashSet<FatNode<'c, FuncDefn, H>>;
+type EmissionSet<'c, H> = HashMap<FatNode<'c, FuncDefn, H>, DIScope<'c>>;
 
 /// Emits [HugrView]s into an LLVM [Module].
 pub struct EmitHugr<'c, H> {
@@ -294,14 +292,20 @@ impl<'c, H: HugrView> EmitHugr<'c, H> {
     ///
     /// If any LLVM IR declaration which is to be emitted already exists in the
     /// [Module] and it differs from what would be emitted, then we fail.
-    pub fn emit_func(mut self, node: FatNode<'c, FuncDefn, H>) -> Result<Self> {
-        let mut worklist: EmissionSet<'c, H> = [node].into_iter().collect();
+    pub fn emit_func(mut self, node: FatNode<'c, FuncDefn, H>, di: DI<'c>) -> Result<Self> {
+        let mut worklist: EmissionSet<'c, H> = [(node, di.1.clone().as_debug_info_scope())].into_iter().collect();
         let pop =
-            |wl: &mut EmissionSet<'c, H>| wl.iter().next().cloned().map(|x| wl.take(&x).unwrap());
+            |wl: &mut EmissionSet<'c, H>| {
+                let &k = wl.keys().next()?;
+                wl.remove_entry(&k)
+            };
 
-        while let Some(x) = pop(&mut worklist) {
-            let (new_self, new_tasks) = self.emit_func_impl(x)?;
-            self = new_self;
+        while let Some((node, scope)) = pop(&mut worklist) {
+            if self.emitted.insert(node, scope.clone()).is_some() {
+                continue;
+            }
+            let (new_self, new_tasks) = func::emit_func(self.module_context, node, di.0.clone(), scope)?;
+            self.module_context = new_self;
             worklist.extend(new_tasks.into_iter());
         }
         Ok(self)
@@ -314,11 +318,29 @@ impl<'c, H: HugrView> EmitHugr<'c, H> {
     /// emission of ops with static edges from them. So [FuncDefn] are the only
     /// interesting children.
     pub fn emit_module(mut self, node: FatNode<'c, hugr::ops::Module, H>) -> Result<Self> {
+        let (di_builder, di_compile_unit) = self.module().create_debug_info_builder(
+            true, // allow_unresolved
+            inkwell::debug_info::DWARFSourceLanguage::C, // language
+            "filename", // filename
+            "directory", // directory
+            "producer", // produer
+            false, // is_optimised
+            "", //flags
+            0, // runtime_ver
+            "", //split_name
+            inkwell::debug_info::DWARFEmissionKind::Full,
+            0, // dwo_id
+            false, // split_debug_inlining
+            false, //debug_info_for_profiling
+            "", // sysroot
+            ""); // sdk
+        let di_builder = Rc::new(di_builder);
         for c in node.children() {
             match c.as_ref() {
                 OpType::FuncDefn(ref fd) => {
                     let fat_ot = c.into_ot(fd);
-                    self = self.emit_func(fat_ot)?;
+
+                    self = self.emit_func(fat_ot, (di_builder.clone(), di_compile_unit))?;
                 }
                 // FuncDecls are allowed, but we don't need to do anything here.
                 OpType::FuncDecl(_) => (),
@@ -328,35 +350,6 @@ impl<'c, H: HugrView> EmitHugr<'c, H> {
             }
         }
         Ok(self)
-    }
-
-    fn emit_func_impl(
-        mut self,
-        node: FatNode<'c, FuncDefn, H>,
-    ) -> Result<(Self, EmissionSet<'c, H>)> {
-        if !self.emitted.insert(node) {
-            return Ok((self, EmissionSet::default()));
-        }
-        let func = self.module_context.get_func_defn(node)?;
-        let mut func_ctx = EmitFuncContext::new(self.module_context, func)?;
-        let ret_rmb = func_ctx.new_row_mail_box(node.signature.body().output.iter(), "ret")?;
-        ops::emit_dataflow_parent(
-            &mut func_ctx,
-            EmitOpArgs {
-                node,
-                inputs: func.get_params(),
-                outputs: ret_rmb.promise(),
-            },
-        )?;
-        let builder = func_ctx.builder();
-        match &ret_rmb.read::<Vec<_>>(builder, [])?[..] {
-            [] => builder.build_return(None)?,
-            [x] => builder.build_return(Some(x))?,
-            xs => builder.build_aggregate_return(xs)?,
-        };
-        let (mctx, todos) = func_ctx.finish()?;
-        self.module_context = mctx;
-        Ok((self, todos))
     }
 
     /// Consumes the `EmitHugr` and returns the internal [Module].

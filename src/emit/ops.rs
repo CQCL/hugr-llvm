@@ -130,6 +130,9 @@ where
                 let inputs_rmb = self.context.node_ins_rmb(node)?;
                 let inputs = inputs_rmb.read(self.builder(), [])?;
                 let outputs = self.context.node_outs_rmb(node)?.promise();
+
+                self.context.set_debug_location(0,0,None);
+
                 self.emit(EmitOpArgs {
                     node,
                     inputs,

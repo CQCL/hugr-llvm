@@ -7,11 +7,7 @@ use hugr::{
     HugrView, NodeIndex, PortIndex, Wire,
 };
 use inkwell::{
-    basic_block::BasicBlock,
-    builder::Builder,
-    context::Context,
-    types::{BasicType, BasicTypeEnum, FunctionType},
-    values::{FunctionValue, GlobalValue},
+    basic_block::BasicBlock, builder::Builder, context::Context, debug_info::{AsDIScope, DICompileUnit, DIScope, DebugInfoBuilder}, types::{BasicType, BasicTypeEnum, FunctionType}, values::{FunctionValue, GlobalValue}
 };
 use itertools::zip_eq;
 
@@ -21,7 +17,7 @@ use delegate::delegate;
 
 use self::mailbox::ValueMailBox;
 
-use super::{EmissionSet, EmitModuleContext};
+use super::{EmissionSet, EmitModuleContext, EmitOpArgs};
 
 mod mailbox;
 pub use mailbox::{RowMailBox, RowPromise};
@@ -51,6 +47,9 @@ pub struct EmitFuncContext<'c, H> {
     builder: Builder<'c>,
     prologue_bb: BasicBlock<'c>,
     launch_bb: BasicBlock<'c>,
+    scope: DIScope<'c>,
+    di_builder: Rc<DebugInfoBuilder<'c>>,
+
 }
 
 impl<'c, H: HugrView> EmitFuncContext<'c, H> {
@@ -99,10 +98,15 @@ impl<'c, H: HugrView> EmitFuncContext<'c, H> {
         }
     }
 
+    pub fn set_debug_location(&self, line: u32, col: u32, scope: Option<DIScope<'c>>) {
+        let location = self.di_builder.create_debug_location(self.iw_context(), line, col, scope.unwrap_or(self.scope), None);
+        self.builder().set_current_debug_location(location);
+    }
+
     /// Used when emitters encounter a scoped definition. `node` will be
     /// returned from [EmitFuncContext::finish].
     pub fn push_todo_func(&mut self, node: FatNode<'c, FuncDefn, H>) {
-        self.todo.insert(node);
+        self.todo.insert(node, self.scope);
     }
 
     // TODO likely we don't need this
@@ -148,6 +152,8 @@ impl<'c, H: HugrView> EmitFuncContext<'c, H> {
     pub fn new(
         emit_context: EmitModuleContext<'c, H>,
         func: FunctionValue<'c>,
+        di_builder: Rc<DebugInfoBuilder<'c>>,
+        scope: DIScope<'c>,
     ) -> Result<EmitFuncContext<'c, H>> {
         if func.get_first_basic_block().is_some() {
             Err(anyhow!(
@@ -155,6 +161,7 @@ impl<'c, H: HugrView> EmitFuncContext<'c, H> {
                 func.get_name()
             ))?;
         }
+
         let prologue_bb = emit_context
             .iw_context()
             .append_basic_block(func, "alloca_block");
@@ -171,6 +178,8 @@ impl<'c, H: HugrView> EmitFuncContext<'c, H> {
             builder,
             prologue_bb,
             launch_bb,
+            scope,
+            di_builder
         })
     }
 
@@ -286,6 +295,51 @@ impl<'c, H: HugrView> EmitFuncContext<'c, H> {
     pub fn finish(self) -> Result<(EmitModuleContext<'c, H>, EmissionSet<'c, H>)> {
         self.builder.position_at_end(self.prologue_bb);
         self.builder.build_unconditional_branch(self.launch_bb)?;
+        self.di_builder.finalize();
         Ok((self.emit_context, self.todo))
     }
+}
+
+pub fn emit_func<'c,H: HugrView>(
+    emit_context: EmitModuleContext<'c, H>,
+    node: FatNode<'c, FuncDefn, H>,
+    di_builder: Rc<DebugInfoBuilder<'c>>,
+    scope: DIScope<'c>,
+) -> Result<(EmitModuleContext<'c, H>, EmissionSet<'c, H>)> {
+    let func = emit_context.get_func_defn(node)?;
+    let di_file =
+        di_builder.create_file("fn", "dir");
+    let di_subroutine_type = di_builder.create_subroutine_type(di_file, None, &[], 0);
+    let di_subprogram = di_builder.create_function(
+        scope,
+        &node.name,
+        None,
+        di_file,
+        0,
+        di_subroutine_type,
+        true,
+        false,
+        0,
+        0, // DIFLAGS
+        false);
+
+    func.set_subprogram(di_subprogram);
+
+    let mut func_ctx = EmitFuncContext::new(emit_context, func, di_builder, di_subprogram.as_debug_info_scope())?;
+    let ret_rmb = func_ctx.new_row_mail_box(node.signature.body().output.iter(), "ret")?;
+    super::ops::emit_dataflow_parent(
+        &mut func_ctx,
+        EmitOpArgs {
+            node,
+            inputs: func.get_params(),
+            outputs: ret_rmb.promise(),
+        },
+    )?;
+    let builder = func_ctx.builder();
+    match &ret_rmb.read::<Vec<_>>(builder, [])?[..] {
+        [] => builder.build_return(None)?,
+        [x] => builder.build_return(Some(x))?,
+        xs => builder.build_aggregate_return(xs)?,
+    };
+    func_ctx.finish()
 }
