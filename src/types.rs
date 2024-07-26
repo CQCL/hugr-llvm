@@ -184,7 +184,7 @@ impl<'c> LLVMSumType<'c> {
             .collect_vec();
         Ok(Self(
             session.iw_context().struct_type(&types, false),
-            sum_type,
+            sum_type.clone(),
         ))
     }
 
@@ -309,9 +309,10 @@ impl<'c> LLVMSumType<'c> {
         tag + (if self.has_tag_field() { 1 } else { 0 })
     }
 
-    fn get_variant_typerow_st(st: &HugrSumType, tag: u32) -> Result<TypeRow> {
-        st.get_variant(tag as usize)
-            .ok_or(anyhow!("Bad variant index {tag} in {st}"))
+    fn get_variant_typerow_st(sum_type: &HugrSumType, tag: u32) -> Result<TypeRow> {
+        sum_type
+            .get_variant(tag as usize)
+            .ok_or(anyhow!("Bad variant index {tag} in {sum_type}"))
             .and_then(|tr| Ok(TypeRow::try_from(tr.clone())?))
     }
 
