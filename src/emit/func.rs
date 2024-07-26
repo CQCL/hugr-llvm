@@ -2,7 +2,7 @@ use std::{collections::HashMap, rc::Rc};
 
 use anyhow::{anyhow, Result};
 use hugr::{
-    ops::{FuncDecl, FuncDefn},
+    ops::{FuncDecl, FuncDefn, OpType},
     types::Type,
     HugrView, NodeIndex, PortIndex, Wire,
 };
@@ -11,7 +11,7 @@ use inkwell::{
 };
 use itertools::zip_eq;
 
-use crate::types::{HugrFuncType, HugrSumType, HugrType, TypingSession};
+use crate::{debuginfo::{func_debug_info, op_debug_location}, types::{HugrFuncType, HugrSumType, HugrType, TypingSession}};
 use crate::{custom::CodegenExtsMap, fat::FatNode, types::LLVMSumType};
 use delegate::delegate;
 
@@ -98,8 +98,12 @@ impl<'c, H: HugrView> EmitFuncContext<'c, H> {
         }
     }
 
-    pub fn set_debug_location(&self, line: u32, col: u32, scope: Option<DIScope<'c>>) {
-        let location = self.di_builder.create_debug_location(self.iw_context(), line, col, scope.unwrap_or(self.scope), None);
+    pub fn clear_debug_location(&self) {
+        self.builder().unset_current_debug_location();
+    }
+
+    pub fn set_debug_location(&self, node: FatNode<'c, OpType, H>, scope: Option<DIScope<'c>>) {
+        let location = op_debug_location(self.iw_context(), &self.di_builder, scope.unwrap_or(self.scope), node);
         self.builder().set_current_debug_location(location);
     }
 
@@ -307,22 +311,7 @@ pub fn emit_func<'c,H: HugrView>(
     scope: DIScope<'c>,
 ) -> Result<(EmitModuleContext<'c, H>, EmissionSet<'c, H>)> {
     let func = emit_context.get_func_defn(node)?;
-    let di_file =
-        di_builder.create_file("fn", "dir");
-    let di_subroutine_type = di_builder.create_subroutine_type(di_file, None, &[], 0);
-    let di_subprogram = di_builder.create_function(
-        scope,
-        &node.name,
-        None,
-        di_file,
-        0,
-        di_subroutine_type,
-        true,
-        false,
-        0,
-        0, // DIFLAGS
-        false);
-
+    let di_subprogram = func_debug_info(&di_builder, &emit_context.namer, scope, node);
     func.set_subprogram(di_subprogram);
 
     let mut func_ctx = EmitFuncContext::new(emit_context, func, di_builder, di_subprogram.as_debug_info_scope())?;

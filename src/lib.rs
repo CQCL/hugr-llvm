@@ -65,6 +65,7 @@ pub mod custom;
 pub mod emit;
 pub mod fat;
 pub mod types;
+pub mod debuginfo;
 
 #[allow(unreachable_code)]
 pub fn llvm_version() -> &'static str {

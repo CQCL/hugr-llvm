@@ -12,7 +12,7 @@ use inkwell::{builder::Builder, types::BasicType, values::BasicValueEnum};
 use itertools::Itertools;
 use petgraph::visit::Walker;
 
-use crate::fat::FatExt as _;
+use crate::{debuginfo::op_debug_location, fat::FatExt as _};
 use crate::{fat::FatNode, types::LLVMSumType};
 
 use super::{
@@ -131,13 +131,14 @@ where
                 let inputs = inputs_rmb.read(self.builder(), [])?;
                 let outputs = self.context.node_outs_rmb(node)?.promise();
 
-                self.context.set_debug_location(0,0,None);
-
-                self.emit(EmitOpArgs {
+                self.context.set_debug_location(node,None);
+                let r = self.emit(EmitOpArgs {
                     node,
                     inputs,
                     outputs,
-                })
+                });
+                self.context.clear_debug_location();
+                r
             })
     }
 }

@@ -8,9 +8,9 @@ use hugr::{
 use inkwell::{
     builder::Builder, context::Context, debug_info::{AsDIScope, DICompileUnit, DIScope, DebugInfoBuilder}, module::{Linkage, Module}, types::{AnyType, BasicType, BasicTypeEnum, FunctionType}, values::{BasicValueEnum, CallSiteValue, FunctionValue, GlobalValue}
 };
-use std::{collections::{HashMap, HashSet}, rc::Rc};
+use std::{collections::HashMap, rc::Rc};
 
-use crate::types::{HugrFuncType, HugrSumType, HugrType, TypingSession};
+use crate::{debuginfo::module_debug_info, types::{HugrFuncType, HugrSumType, HugrType, TypingSession}};
 
 use crate::{
     custom::CodegenExtsMap,
@@ -318,22 +318,7 @@ impl<'c, H: HugrView> EmitHugr<'c, H> {
     /// emission of ops with static edges from them. So [FuncDefn] are the only
     /// interesting children.
     pub fn emit_module(mut self, node: FatNode<'c, hugr::ops::Module, H>) -> Result<Self> {
-        let (di_builder, di_compile_unit) = self.module().create_debug_info_builder(
-            true, // allow_unresolved
-            inkwell::debug_info::DWARFSourceLanguage::C, // language
-            "filename", // filename
-            "directory", // directory
-            "producer", // produer
-            false, // is_optimised
-            "", //flags
-            0, // runtime_ver
-            "", //split_name
-            inkwell::debug_info::DWARFEmissionKind::Full,
-            0, // dwo_id
-            false, // split_debug_inlining
-            false, //debug_info_for_profiling
-            "", // sysroot
-            ""); // sdk
+        let (di_builder, di_compile_unit) = module_debug_info(node, self.module());
         let di_builder = Rc::new(di_builder);
         for c in node.children() {
             match c.as_ref() {
