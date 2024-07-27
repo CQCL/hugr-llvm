@@ -24,6 +24,8 @@ use super::emit::EmitOp;
 pub mod float;
 pub mod int;
 pub mod prelude;
+#[cfg(feature="tket2")]
+pub mod tket2_qir;
 
 /// The extension point for lowering HUGR Extensions to LLVM.
 pub trait CodegenExtension<'c, H> {

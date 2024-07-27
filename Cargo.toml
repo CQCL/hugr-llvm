@@ -18,6 +18,7 @@ categories = ["compilers"]
 [features]
 default = ["llvm14-0"]
 llvm14-0 = ["dep:llvm-sys-140", "inkwell/llvm14-0"]
+tket2 = ["dep:tket2"]
 
 [dependencies]
 inkwell = { version = "0.4.0", default-features=false }
@@ -31,6 +32,7 @@ lazy_static = "1.4.0"
 downcast-rs= "1.2.1"
 serde = "1.0"
 serde_json = "1.0"
+tket2 = { git = "https://github.com/CQCL/tket2.git", optional = true }
 
 [dev-dependencies]
 insta = "1.39.0"
@@ -43,3 +45,5 @@ serde_json = "1.0.117"
 insta.opt-level = 3
 similar.opt-level = 3
 
+[workspace]
+members = ["hugr-llvm-exec"]

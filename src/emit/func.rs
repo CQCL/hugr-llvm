@@ -7,9 +7,9 @@ use hugr::{
     HugrView, NodeIndex, PortIndex, Wire,
 };
 use inkwell::{
-    basic_block::BasicBlock, builder::Builder, context::Context, debug_info::{AsDIScope, DICompileUnit, DIScope, DebugInfoBuilder}, types::{BasicType, BasicTypeEnum, FunctionType}, values::{FunctionValue, GlobalValue}
+    basic_block::BasicBlock, builder::Builder, context::Context, debug_info::{AsDIScope, DIScope, DebugInfoBuilder}, types::{BasicType, BasicTypeEnum, FunctionType}, values::{FunctionValue, GlobalValue}
 };
-use itertools::zip_eq;
+use itertools::{zip_eq, Itertools as _};
 
 use crate::{debuginfo::{func_debug_info, op_debug_location}, types::{HugrFuncType, HugrSumType, HugrType, TypingSession}};
 use crate::{custom::CodegenExtsMap, fat::FatNode, types::LLVMSumType};
@@ -270,6 +270,12 @@ impl<'c, H: HugrView> EmitFuncContext<'c, H> {
             .out_value_types()
             .map(|(port, hugr_type)| self.map_wire(node, port, &hugr_type))
             .collect::<Result<RowMailBox>>()?;
+        #[cfg(debug_assertions)]
+        {
+            let ts1 = node.out_value_types().map(|x| self.llvm_type(&x.1).unwrap()).collect_vec();
+            let ts2 = r.get_types().collect_vec();
+            debug_assert_eq!(ts1,ts2);
+        }
         debug_assert!(zip_eq(node.out_value_types(), r.get_types())
             .all(|((_, t), lt)| self.llvm_type(&t).unwrap() == lt));
         Ok(r)

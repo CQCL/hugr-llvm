@@ -12,7 +12,7 @@ use inkwell::{builder::Builder, types::BasicType, values::BasicValueEnum};
 use itertools::Itertools;
 use petgraph::visit::Walker;
 
-use crate::{debuginfo::op_debug_location, fat::FatExt as _};
+use crate::fat::FatExt as _;
 use crate::{fat::FatNode, types::LLVMSumType};
 
 use super::{
