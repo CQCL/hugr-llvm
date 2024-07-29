@@ -174,7 +174,7 @@ impl<'c, H: HugrView> EmitOp<'c, Conditional, H> for ConditionalEmitter<'c, '_, 
     ) -> Result<()> {
         let context = &mut self.0;
         let exit_rmb = context
-            .new_row_mail_box(node.dataflow_signature().unwrap().output.iter(), "exit_rmb")?;
+            .new_anon_row_mail_box(node.dataflow_signature().unwrap().output.iter(), "exit_rmb")?;
         let exit_block = context.build_positioned_new_block(
             format!("cond_exit_{}", node.node().index()),
             None,
@@ -192,7 +192,7 @@ impl<'c, H: HugrView> EmitOp<'c, Conditional, H> for ConditionalEmitter<'c, '_, 
                 let label = format!("cond_{}_case_{}", node.node().index(), i);
                 let node = n.try_into_ot::<Case>().ok_or(anyhow!("not a case node"))?;
                 let rmb =
-                    context.new_row_mail_box(node.get_io().unwrap().0.types.iter(), &label)?;
+                    context.new_anon_row_mail_box(node.get_io().unwrap().0.types.iter(), &label)?;
                 context.build_positioned_new_block(&label, Some(exit_block), |context, bb| {
                     let inputs = rmb.read_vec(context.builder(), [])?;
                     emit_dataflow_parent(

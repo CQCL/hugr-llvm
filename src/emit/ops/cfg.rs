@@ -50,7 +50,7 @@ impl<'c, 'd, H: HugrView> CfgEmitter<'c, 'd, H> {
             if child.is_exit_block() {
                 let output_row = {
                     let out_types = node.out_value_types().map(|x| x.1).collect_vec();
-                    context.new_row_mail_box(out_types.iter(), "")?
+                    context.new_anon_row_mail_box(out_types.iter(), "")?
                 };
                 bbs.insert(child, (exit_block, output_row));
             } else if child.is_dataflow_block() {

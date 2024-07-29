@@ -339,7 +339,7 @@ impl<'c, H: HugrView> EmitHugr<'c, H> {
         }
         let func = self.module_context.get_func_defn(node)?;
         let mut func_ctx = EmitFuncContext::new(self.module_context, func)?;
-        let ret_rmb = func_ctx.new_row_mail_box(node.signature.body().output.iter(), "ret")?;
+        let ret_rmb = func_ctx.new_anon_row_mail_box(node.signature.body().output.iter(), "ret")?;
         ops::emit_dataflow_parent(
             &mut func_ctx,
             EmitOpArgs {

@@ -9,11 +9,14 @@ use inkwell::{
 };
 use itertools::{zip_eq, Itertools as _};
 
-#[derive(Eq, PartialEq, Clone)]
+pub type MailBoxDefHook<'c> = Rc<dyn Fn(&Builder<'c>, BasicValueEnum<'c>) -> Result<BasicValueEnum<'c>>>;
+
+#[derive(Clone)]
 pub struct ValueMailBox<'c> {
     typ: BasicTypeEnum<'c>,
     ptr: PointerValue<'c>,
     name: Cow<'static, str>,
+    def_hook: Option<MailBoxDefHook<'c>>,
 }
 
 fn join_names<'a>(names: impl IntoIterator<Item = &'a str>) -> String {
@@ -29,11 +32,13 @@ impl<'c> ValueMailBox<'c> {
         typ: impl BasicType<'c>,
         ptr: PointerValue<'c>,
         name: Option<String>,
+        def_hook: Option<MailBoxDefHook<'c>>
     ) -> Self {
         Self {
             typ: typ.as_basic_type_enum(),
             ptr,
             name: name.map_or(Cow::Borrowed(""), Cow::Owned),
+            def_hook,
         }
     }
     pub fn get_type(&self) -> BasicTypeEnum<'c> {
@@ -66,6 +71,10 @@ impl<'c> ValueMailBox<'c> {
     }
 
     fn write(&self, builder: &Builder<'c>, v: impl BasicValue<'c>) -> Result<()> {
+        let mut v = v.as_basic_value_enum();
+        if let Some(hook) = self.def_hook.as_ref() {
+            v = hook(builder, v)?;
+        }
         builder.build_store(self.ptr, v)?;
         Ok(())
     }
@@ -88,7 +97,7 @@ impl<'c> ValuePromise<'c> {
 
 /// Holds a vector of [PointerValue]s pointing to `alloca`s in the first block
 /// of a function.
-#[derive(Eq, PartialEq, Clone)]
+#[derive(Clone)]
 #[allow(clippy::len_without_is_empty)]
 pub struct RowMailBox<'c>(Rc<Vec<ValueMailBox<'c>>>, Cow<'static, str>);
 

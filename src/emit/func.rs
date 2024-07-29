@@ -14,6 +14,7 @@ use inkwell::{
     values::{FunctionValue, GlobalValue},
 };
 use itertools::zip_eq;
+use mailbox::MailBoxDefHook;
 
 use crate::types::{HugrFuncType, HugrSumType, HugrType, TypingSession};
 use crate::{custom::CodegenExtsMap, fat::FatNode, types::LLVMSumType};
@@ -51,6 +52,7 @@ pub struct EmitFuncContext<'c, H> {
     builder: Builder<'c>,
     prologue_bb: BasicBlock<'c>,
     launch_bb: BasicBlock<'c>,
+    def_hooks: HashMap<Wire, mailbox::MailBoxDefHook<'c>>,
 }
 
 impl<'c, H: HugrView> EmitFuncContext<'c, H> {
@@ -171,19 +173,24 @@ impl<'c, H: HugrView> EmitFuncContext<'c, H> {
             builder,
             prologue_bb,
             launch_bb,
+            def_hooks: Default::default(),
         })
     }
 
-    fn new_value_mail_box(&mut self, t: &Type, name: impl AsRef<str>) -> Result<ValueMailBox<'c>> {
+    fn new_anon_mail_box(&mut self, t: &Type, name: impl AsRef<str>) -> Result<ValueMailBox<'c>> {
+        self.new_mail_box(t, name, None)
+    }
+
+    fn new_mail_box(&mut self, t: &Type, name: impl AsRef<str>, def_hook: Option<MailBoxDefHook<'c>>) -> Result<ValueMailBox<'c>> {
         let bte = self.llvm_type(t)?;
         let ptr = self.build_prologue(|builder| builder.build_alloca(bte, name.as_ref()))?;
-        Ok(ValueMailBox::new(bte, ptr, Some(name.as_ref().into())))
+        Ok(ValueMailBox::new(bte, ptr, Some(name.as_ref().into()), def_hook))
     }
 
     /// Create a new anonymous [RowMailBox]. This mailbox is not mapped to any
     /// [Wire]s, and so will not interact with any mailboxes returned from
     /// [EmitFuncContext::node_ins_rmb] or [EmitFuncContext::node_outs_rmb].
-    pub fn new_row_mail_box<'a>(
+    pub fn new_anon_row_mail_box<'a>(
         &mut self,
         ts: impl IntoIterator<Item = &'a Type>,
         name: impl AsRef<str>,
@@ -191,7 +198,7 @@ impl<'c, H: HugrView> EmitFuncContext<'c, H> {
         Ok(RowMailBox::new(
             ts.into_iter()
                 .enumerate()
-                .map(|(i, t)| self.new_value_mail_box(t, format!("{i}")))
+                .map(|(i, t)| self.new_anon_mail_box(t, format!("{i}")))
                 .collect::<Result<Vec<_>>>()?,
             Some(name.as_ref().into()),
         ))
@@ -273,9 +280,10 @@ impl<'c, H: HugrView> EmitFuncContext<'c, H> {
             debug_assert_eq!(self.llvm_type(hugr_type).unwrap(), mb.get_type());
             return Ok(mb.clone());
         }
-        let mb = self.new_value_mail_box(
+        let mb = self.new_mail_box(
             hugr_type,
             format!("{}_{}", node.node().index(), port.index()),
+            self.def_hooks.get(&wire).cloned()
         )?;
         self.env.insert(wire, mb.clone());
         Ok(mb)
@@ -289,3 +297,15 @@ impl<'c, H: HugrView> EmitFuncContext<'c, H> {
         Ok((self.emit_context, self.todo))
     }
 }
+
+// pub struct EmitFuncContextBuilder<'c,H> {
+//     module_context: EmitModuleContext<'c,H>
+// }
+
+// impl<'c,H: HugrView> EmitFuncContextBuilder<'c,H> {
+//     pub fn new(module_context: EmitModuleContext<'c,H>) -> Self {
+//         Self {
+//             module_context
+//         }
+//     }
+// }
