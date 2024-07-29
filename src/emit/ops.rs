@@ -129,11 +129,15 @@ where
                 let inputs_rmb = self.context.node_ins_rmb(node)?;
                 let inputs = inputs_rmb.read(self.builder(), [])?;
                 let outputs = self.context.node_outs_rmb(node)?.promise();
-                self.emit(EmitOpArgs {
+
+                self.context.set_debug_location(node,None);
+                let r = self.emit(EmitOpArgs {
                     node,
                     inputs,
                     outputs,
-                })
+                });
+                self.context.clear_debug_location();
+                r
             })
     }
 }

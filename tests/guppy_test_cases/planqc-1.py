@@ -3,7 +3,7 @@ from guppylang.module import GuppyModule
 from guppylang.prelude import quantum
 from guppylang.prelude.quantum import measure, qubit, h, rz
 
-mod = GuppyModule("main")
+mod = GuppyModule("main", file = __file__)
 mod.load(quantum)
 
 @guppy(mod)

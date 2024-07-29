@@ -1,0 +1,17 @@
+[package]
+name = "hugr-llvm-exec"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+qir-backend = { git = "https://github.com/qir-alliance/qir-runner" }
+clap = {version = "4.5", features = ["derive"] }
+pathsearch = "*"
+anyhow = "*"
+hugr = "*"
+hugr-llvm = { path = "../.", features = ["tket2"] }
+tket2 = { git = "https://github.com/CQCL/tket2.git" }
+serde_json = "*"
+lazy_static = "*"
+inkwell = { version = "0.4" }
+dlopen2 = { version = "0.7"  }

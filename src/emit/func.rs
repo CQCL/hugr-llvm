@@ -2,26 +2,22 @@ use std::{collections::HashMap, rc::Rc};
 
 use anyhow::{anyhow, Result};
 use hugr::{
-    ops::{FuncDecl, FuncDefn},
+    ops::{FuncDecl, FuncDefn, OpType},
     types::Type,
     HugrView, NodeIndex, PortIndex, Wire,
 };
 use inkwell::{
-    basic_block::BasicBlock,
-    builder::Builder,
-    context::Context,
-    types::{BasicType, BasicTypeEnum, FunctionType},
-    values::{FunctionValue, GlobalValue},
+    basic_block::BasicBlock, builder::Builder, context::Context, debug_info::{AsDIScope, DIScope, DebugInfoBuilder}, types::{BasicType, BasicTypeEnum, FunctionType}, values::{FunctionValue, GlobalValue}
 };
-use itertools::zip_eq;
+use itertools::{zip_eq, Itertools as _};
 
-use crate::types::{HugrFuncType, HugrSumType, HugrType, TypingSession};
+use crate::{debuginfo::{func_debug_info, op_debug_location}, types::{HugrFuncType, HugrSumType, HugrType, TypingSession}};
 use crate::{custom::CodegenExtsMap, fat::FatNode, types::LLVMSumType};
 use delegate::delegate;
 
 use self::mailbox::ValueMailBox;
 
-use super::{EmissionSet, EmitModuleContext};
+use super::{EmissionSet, EmitModuleContext, EmitOpArgs};
 
 mod mailbox;
 pub use mailbox::{RowMailBox, RowPromise};
@@ -51,6 +47,9 @@ pub struct EmitFuncContext<'c, H> {
     builder: Builder<'c>,
     prologue_bb: BasicBlock<'c>,
     launch_bb: BasicBlock<'c>,
+    scope: DIScope<'c>,
+    di_builder: Rc<DebugInfoBuilder<'c>>,
+
 }
 
 impl<'c, H: HugrView> EmitFuncContext<'c, H> {
@@ -99,10 +98,19 @@ impl<'c, H: HugrView> EmitFuncContext<'c, H> {
         }
     }
 
+    pub fn clear_debug_location(&self) {
+        self.builder().unset_current_debug_location();
+    }
+
+    pub fn set_debug_location(&self, node: FatNode<'c, OpType, H>, scope: Option<DIScope<'c>>) {
+        let location = op_debug_location(self.iw_context(), &self.di_builder, scope.unwrap_or(self.scope), node);
+        self.builder().set_current_debug_location(location);
+    }
+
     /// Used when emitters encounter a scoped definition. `node` will be
     /// returned from [EmitFuncContext::finish].
     pub fn push_todo_func(&mut self, node: FatNode<'c, FuncDefn, H>) {
-        self.todo.insert(node);
+        self.todo.insert(node, self.scope);
     }
 
     // TODO likely we don't need this
@@ -148,6 +156,8 @@ impl<'c, H: HugrView> EmitFuncContext<'c, H> {
     pub fn new(
         emit_context: EmitModuleContext<'c, H>,
         func: FunctionValue<'c>,
+        di_builder: Rc<DebugInfoBuilder<'c>>,
+        scope: DIScope<'c>,
     ) -> Result<EmitFuncContext<'c, H>> {
         if func.get_first_basic_block().is_some() {
             Err(anyhow!(
@@ -155,6 +165,7 @@ impl<'c, H: HugrView> EmitFuncContext<'c, H> {
                 func.get_name()
             ))?;
         }
+
         let prologue_bb = emit_context
             .iw_context()
             .append_basic_block(func, "alloca_block");
@@ -171,6 +182,8 @@ impl<'c, H: HugrView> EmitFuncContext<'c, H> {
             builder,
             prologue_bb,
             launch_bb,
+            scope,
+            di_builder
         })
     }
 
@@ -257,6 +270,12 @@ impl<'c, H: HugrView> EmitFuncContext<'c, H> {
             .out_value_types()
             .map(|(port, hugr_type)| self.map_wire(node, port, &hugr_type))
             .collect::<Result<RowMailBox>>()?;
+        #[cfg(debug_assertions)]
+        {
+            let ts1 = node.out_value_types().map(|x| self.llvm_type(&x.1).unwrap()).collect_vec();
+            let ts2 = r.get_types().collect_vec();
+            debug_assert_eq!(ts1,ts2);
+        }
         debug_assert!(zip_eq(node.out_value_types(), r.get_types())
             .all(|((_, t), lt)| self.llvm_type(&t).unwrap() == lt));
         Ok(r)
@@ -286,6 +305,36 @@ impl<'c, H: HugrView> EmitFuncContext<'c, H> {
     pub fn finish(self) -> Result<(EmitModuleContext<'c, H>, EmissionSet<'c, H>)> {
         self.builder.position_at_end(self.prologue_bb);
         self.builder.build_unconditional_branch(self.launch_bb)?;
+        self.di_builder.finalize();
         Ok((self.emit_context, self.todo))
     }
+}
+
+pub fn emit_func<'c,H: HugrView>(
+    emit_context: EmitModuleContext<'c, H>,
+    node: FatNode<'c, FuncDefn, H>,
+    di_builder: Rc<DebugInfoBuilder<'c>>,
+    scope: DIScope<'c>,
+) -> Result<(EmitModuleContext<'c, H>, EmissionSet<'c, H>)> {
+    let func = emit_context.get_func_defn(node)?;
+    let di_subprogram = func_debug_info(&di_builder, &emit_context.namer, scope, node);
+    func.set_subprogram(di_subprogram);
+
+    let mut func_ctx = EmitFuncContext::new(emit_context, func, di_builder, di_subprogram.as_debug_info_scope())?;
+    let ret_rmb = func_ctx.new_row_mail_box(node.signature.body().output.iter(), "ret")?;
+    super::ops::emit_dataflow_parent(
+        &mut func_ctx,
+        EmitOpArgs {
+            node,
+            inputs: func.get_params(),
+            outputs: ret_rmb.promise(),
+        },
+    )?;
+    let builder = func_ctx.builder();
+    match &ret_rmb.read::<Vec<_>>(builder, [])?[..] {
+        [] => builder.build_return(None)?,
+        [x] => builder.build_return(Some(x))?,
+        xs => builder.build_aggregate_return(xs)?,
+    };
+    func_ctx.finish()
 }
