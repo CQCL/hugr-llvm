@@ -14,7 +14,6 @@ use inkwell::{
     values::{FunctionValue, GlobalValue},
 };
 use itertools::zip_eq;
-use mailbox::MailBoxDefHook;
 
 use crate::types::{HugrFuncType, HugrSumType, HugrType, TypingSession};
 use crate::{custom::CodegenExtsMap, fat::FatNode, types::LLVMSumType};
@@ -25,7 +24,7 @@ use self::mailbox::ValueMailBox;
 use super::{EmissionSet, EmitModuleContext};
 
 mod mailbox;
-pub use mailbox::{RowMailBox, RowPromise};
+pub use mailbox::{RowMailBox, RowPromise, MailBoxDefHook};
 
 /// A context for emitting an LLVM function.
 ///
