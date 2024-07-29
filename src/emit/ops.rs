@@ -65,9 +65,7 @@ impl<'c, H: HugrView> EmitOp<'c, Tag, H> for SumOpEmitter<'c, '_, H> {
         let builder = self.0.builder();
         args.outputs.finish(
             builder,
-            [self
-                .1
-                .build_tag(builder, args.node.tag as u32, args.inputs)?],
+            [self.1.build_tag(builder, args.node.tag, args.inputs)?],
         )
     }
 }
@@ -258,7 +256,7 @@ pub fn emit_value<'c, H: HugrView>(
                 .iter()
                 .map(|x| emit_value(context, x))
                 .collect::<Result<Vec<_>>>()?;
-            llvm_st.build_tag(context.builder(), *tag as u32, vs)
+            llvm_st.build_tag(context.builder(), *tag, vs)
         }
     }
 }

@@ -21,7 +21,7 @@ fn sum_type_has_tag_field(st: &HugrSumType) -> bool {
     st.num_variants() >= 2
 }
 
-/// The opaque representation of a hugr [SumType].
+/// The opaque representation of a [HugrSumType].
 ///
 /// Using the public methods of this type one emit "tag"s,"untag"s, and
 /// "get_tag"s while not exposing the underlying LLVM representation.
@@ -72,7 +72,7 @@ impl<'c> LLVMSumType<'c> {
     pub fn build_tag(
         &self,
         builder: &Builder<'c>,
-        tag: u32,
+        tag: usize,
         vs: Vec<BasicValueEnum<'c>>,
     ) -> Result<BasicValueEnum<'c>> {
         let expected_num_fields = self.variant_num_fields(tag as usize)?;
@@ -143,7 +143,7 @@ impl<'c> LLVMSumType<'c> {
 
     delegate! {
         to self.1 {
-            pub fn num_variants(&self) -> usize;
+            pub(self) fn num_variants(&self) -> usize;
         }
     }
 }
@@ -170,6 +170,8 @@ unsafe impl<'c> AnyType<'c> for LLVMSumType<'c> {}
 
 unsafe impl<'c> BasicType<'c> for LLVMSumType<'c> {}
 
+/// A Value equivalent of [LLVMSumType]. Represents a [HugrSumType] Value on the
+/// wire, offering functions for deconstructing such Values.
 #[derive(Debug)]
 pub struct LLVMSumValue<'c>(StructValue<'c>, LLVMSumType<'c>);
 
@@ -205,13 +207,6 @@ impl<'c> LLVMSumValue<'c> {
             ))?
         }
         Ok(Self(value, sum_type))
-    }
-
-    delegate! {
-        to self.1 {
-            /// Get the type of the value that would be returned by `build_get_tag`.
-            pub fn get_tag_type(&self) -> IntType<'c>;
-        }
     }
 
     /// Emit instructions to read the tag of a value of type `LLVMSumType`.
@@ -275,5 +270,12 @@ impl<'c> LLVMSumValue<'c> {
         builder.build_switch(tag, cases[0].1, &cases[1..])?;
 
         Ok(())
+    }
+
+    delegate! {
+        to self.1 {
+            /// Get the type of the value that would be returned by `build_get_tag`.
+            pub fn get_tag_type(&self) -> IntType<'c>;
+        }
     }
 }

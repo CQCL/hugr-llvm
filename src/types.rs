@@ -15,7 +15,7 @@ pub use crate::sum::LLVMSumType;
 use super::custom::CodegenExtsMap;
 
 /// A type alias for a hugr function type. We use this to disambiguate from
-/// the LLVM [iw::FunctionType].
+/// the LLVM [FunctionType].
 pub type HugrFuncType = hugr::types::Signature;
 
 /// A type alias for a hugr type. We use this to disambiguate from LLVM types.
@@ -71,7 +71,7 @@ impl<'c, H> TypingSession<'c, H> {
         }
     }
 
-    /// Convert a [HugrFuncType] into an LLVM [iw::FunctionType].
+    /// Convert a [HugrFuncType] into an LLVM [FunctionType].
     pub fn llvm_func_type(
         &self,
         hugr_type: &HugrFuncType,
@@ -128,7 +128,7 @@ impl<'c> TypeConverter<'c> {
         self.session(extensions).llvm_type(hugr_type)
     }
 
-    /// Convert a [HugrFuncType] into an LLVM [iw::FunctionType].
+    /// Convert a [HugrFuncType] into an LLVM [FunctionType].
     pub fn llvm_func_type<H>(
         self: Rc<Self>,
         extensions: Rc<CodegenExtsMap<'c, H>>,
