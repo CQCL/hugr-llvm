@@ -1,14 +1,14 @@
 use crate::types::{HugrSumType, TypingSession};
 
 use anyhow::{anyhow, Result};
+use delegate::delegate;
 use hugr::types::TypeRow;
 use inkwell::{
     builder::Builder,
     types::{AnyType, AsTypeRef, BasicType, BasicTypeEnum, IntType, StructType},
-    values::{BasicValue, BasicValueEnum, IntValue, StructValue},
+    values::{AnyValue, AsValueRef, BasicValue, BasicValueEnum, IntValue, StructValue},
 };
 use itertools::{zip_eq, Itertools};
-use llvm_sys_140::prelude::LLVMTypeRef;
 
 /// The opaque representation of a hugr [SumType].
 ///
@@ -16,7 +16,7 @@ use llvm_sys_140::prelude::LLVMTypeRef;
 /// "get_tag"s while not exposing the underlying LLVM representation.
 ///
 /// We offer impls of [BasicType] and parent traits.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct LLVMSumType<'c>(StructType<'c>, HugrSumType);
 
 impl<'c> LLVMSumType<'c> {
@@ -55,54 +55,6 @@ impl<'c> LLVMSumType<'c> {
     /// Returns an LLVM constant value of `poison`.
     pub fn get_poison(&self) -> impl BasicValue<'c> {
         self.0.get_poison()
-    }
-
-    /// Emit instructions to read the tag of a value of type `LLVMSumType`.
-    ///
-    /// The type of the value is that returned by [LLVMSumType::get_tag_type].
-    pub fn build_get_tag(
-        &self,
-        builder: &Builder<'c>,
-        v: impl BasicValue<'c>,
-    ) -> Result<IntValue<'c>> {
-        let struct_value: StructValue<'c> = v
-            .as_basic_value_enum()
-            .try_into()
-            .map_err(|_| anyhow!("Not a struct type"))?;
-        if self.has_tag_field() {
-            Ok(builder
-                .build_extract_value(struct_value, 0, "")?
-                .into_int_value())
-        } else {
-            Ok(self.get_tag_type().const_int(0, false))
-        }
-    }
-
-    /// Emit instructions to read the inner values of a value of type
-    /// `LLVMSumType`, on the assumption that it's tag is `tag`.
-    ///
-    /// If it's tag is not `tag`, the returned values will be poison.
-    pub fn build_untag(
-        &self,
-        builder: &Builder<'c>,
-        tag: u32,
-        v: impl BasicValue<'c>,
-    ) -> Result<Vec<BasicValueEnum<'c>>> {
-        debug_assert!((tag as usize) < self.1.num_variants());
-        debug_assert!(v.as_basic_value_enum().get_type() == self.0.as_basic_type_enum());
-
-        let v: StructValue<'c> = builder
-            .build_extract_value(
-                v.as_basic_value_enum().into_struct_value(),
-                self.get_variant_index(tag),
-                "",
-            )?
-            .into_struct_value();
-        let r = (0..v.get_type().count_fields())
-            .map(|i| Ok(builder.build_extract_value(v, i, "")?.as_basic_value_enum()))
-            .collect::<Result<Vec<_>>>()?;
-        debug_assert_eq!(r.len(), self.num_fields(tag).unwrap());
-        Ok(r)
     }
 
     /// Emit instructions to build a value of type `LLVMSumType`, being of variant `tag`.
@@ -183,6 +135,12 @@ impl<'c> LLVMSumType<'c> {
         let tr = self.get_variant_typerow(tag)?;
         Ok(tr.len())
     }
+
+    delegate! {
+        to self.1 {
+            pub fn num_variants(&self) -> usize;
+        }
+    }
 }
 
 impl<'c> From<LLVMSumType<'c>> for BasicTypeEnum<'c> {
@@ -198,7 +156,7 @@ impl<'c> std::fmt::Display for LLVMSumType<'c> {
 }
 
 unsafe impl<'c> AsTypeRef for LLVMSumType<'c> {
-    fn as_type_ref(&self) -> LLVMTypeRef {
+    fn as_type_ref(&self) -> inkwell::llvm_sys::prelude::LLVMTypeRef {
         self.0.as_type_ref()
     }
 }
@@ -206,3 +164,107 @@ unsafe impl<'c> AsTypeRef for LLVMSumType<'c> {
 unsafe impl<'c> AnyType<'c> for LLVMSumType<'c> {}
 
 unsafe impl<'c> BasicType<'c> for LLVMSumType<'c> {}
+
+#[derive(Debug)]
+pub struct LLVMSumValue<'c>(StructValue<'c>, LLVMSumType<'c>);
+
+impl<'c> From<LLVMSumValue<'c>> for BasicValueEnum<'c> {
+    fn from(value: LLVMSumValue<'c>) -> Self {
+        value.0.as_basic_value_enum()
+    }
+}
+
+unsafe impl<'c> AsValueRef for LLVMSumValue<'c> {
+    fn as_value_ref(&self) -> inkwell::llvm_sys::prelude::LLVMValueRef {
+        self.0.as_value_ref()
+    }
+}
+
+unsafe impl<'c> AnyValue<'c> for LLVMSumValue<'c> {}
+
+unsafe impl<'c> BasicValue<'c> for LLVMSumValue<'c> {}
+
+impl<'c> LLVMSumValue<'c> {
+    pub fn try_new(value: impl BasicValue<'c>, sum_type: LLVMSumType<'c>) -> Result<Self> {
+        let value: StructValue<'c> = value
+            .as_basic_value_enum()
+            .try_into()
+            .map_err(|_| anyhow!("Not a StructValue"))?;
+        let (v_t, st_t) = (
+            value.get_type().as_basic_type_enum(),
+            sum_type.as_basic_type_enum(),
+        );
+        if v_t != st_t {
+            Err(anyhow!(
+                "LLVMSumValue::new: type of value does not match sum_type: {v_t} != {st_t}"
+            ))?
+        }
+        Ok(Self(value, sum_type))
+    }
+
+    delegate! {
+        to self.1 {
+            /// Get the type of the value that would be returned by `build_get_tag`.
+            pub fn get_tag_type(&self) -> IntType<'c>;
+        }
+    }
+
+    /// Emit instructions to read the tag of a value of type `LLVMSumType`.
+    ///
+    /// The type of the value is that returned by [LLVMSumType::get_tag_type].
+    pub fn build_get_tag(&self, builder: &Builder<'c>) -> Result<IntValue<'c>> {
+        if self.1.has_tag_field() {
+            Ok(builder.build_extract_value(self.0, 0, "")?.into_int_value())
+        } else {
+            Ok(self.1.get_tag_type().const_int(0, false))
+        }
+    }
+
+    /// Emit instructions to read the inner values of a value of type
+    /// `LLVMSumType`, on the assumption that it's tag is `tag`.
+    ///
+    /// If it's tag is not `tag`, the returned values will be poison.
+    pub fn build_untag(&self, builder: &Builder<'c>, tag: u32) -> Result<Vec<BasicValueEnum<'c>>> {
+        debug_assert!((tag as usize) < self.1 .1.num_variants());
+
+        let v = builder
+            .build_extract_value(self.0, self.1.get_variant_index(tag), "")?
+            .into_struct_value();
+        let r = (0..v.get_type().count_fields())
+            .map(|i| Ok(builder.build_extract_value(v, i, "")?))
+            .collect::<Result<Vec<_>>>()?;
+        debug_assert_eq!(r.len(), self.1.num_fields(tag).unwrap());
+        Ok(r)
+    }
+
+    pub fn build_destructure(
+        &self,
+        builder: &Builder<'c>,
+        handler: impl Fn(&Builder<'c>, usize, Vec<BasicValueEnum<'c>>) -> Result<()>,
+    ) -> Result<()> {
+        let orig_bb = builder
+            .get_insert_block()
+            .ok_or(anyhow!("No current insertion point"))?;
+        let context = orig_bb.get_context();
+        let mut last_bb = orig_bb;
+        let tag_ty = self.1.get_tag_type();
+
+        let mut cases = vec![];
+
+        for var_i in 0..self.1.num_variants() {
+            let bb = context.insert_basic_block_after(last_bb, "");
+            last_bb = bb;
+            cases.push((tag_ty.const_int(var_i as u64, false), bb));
+
+            builder.position_at_end(bb);
+            let inputs = self.build_untag(builder, var_i as u32)?;
+            handler(builder, var_i, inputs)?;
+        }
+
+        builder.position_at_end(orig_bb);
+        let tag = self.build_get_tag(builder)?;
+        builder.build_switch(tag, cases[0].1, &cases[1..])?;
+
+        Ok(())
+    }
+}

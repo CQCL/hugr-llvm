@@ -212,7 +212,7 @@ impl<'c, H> EmitModuleContext<'c, H> {
                 use inkwell::types::AnyTypeEnum;
                 use inkwell::values::AsValueRef;
                 unsafe {
-                    AnyTypeEnum::new(llvm_sys_140::core::LLVMGlobalGetValueType(
+                    AnyTypeEnum::new(inkwell::llvm_sys::core::LLVMGlobalGetValueType(
                         global.as_value_ref(),
                     ))
                 }
