@@ -10,6 +10,18 @@ use inkwell::{
 };
 use itertools::{zip_eq, Itertools};
 
+
+fn get_variant_typerow(sum_type: &HugrSumType, tag: u32) -> Result<TypeRow> {
+    sum_type
+        .get_variant(tag as usize)
+        .ok_or(anyhow!("Bad variant index {tag} in {sum_type}"))
+        .and_then(|tr| Ok(TypeRow::try_from(tr.clone())?))
+}
+
+fn sum_type_has_tag_field(st: &HugrSumType) -> bool {
+    st.num_variants() >= 2
+}
+
 /// The opaque representation of a hugr [SumType].
 ///
 /// Using the public methods of this type one emit "tag"s,"untag"s, and
@@ -25,13 +37,13 @@ impl<'c> LLVMSumType<'c> {
         assert!(sum_type.num_variants() < u32::MAX as usize);
         let variants = (0..sum_type.num_variants())
             .map(|i| {
-                let tr = Self::get_variant_typerow_st(&sum_type, i as u32)?;
+                let tr = get_variant_typerow(&sum_type, i as u32)?;
                 tr.iter()
                     .map(|t| session.llvm_type(t))
                     .collect::<Result<Vec<_>>>()
             })
             .collect::<Result<Vec<_>>>()?;
-        let has_tag_field = Self::sum_type_has_tag_field(&sum_type);
+        let has_tag_field = sum_type_has_tag_field(&sum_type);
         let types = has_tag_field
             .then_some(session.iw_context().i32_type().as_basic_type_enum())
             .into_iter()
@@ -64,14 +76,14 @@ impl<'c> LLVMSumType<'c> {
         tag: u32,
         vs: Vec<BasicValueEnum<'c>>,
     ) -> Result<BasicValueEnum<'c>> {
-        let expected_num_fields = self.num_fields(tag)?;
+        let expected_num_fields = self.variant_num_fields(tag as usize)?;
         if expected_num_fields != vs.len() {
             Err(anyhow!("LLVMSumType::build: wrong number of fields: expected: {expected_num_fields} actual: {}", vs.len()))?
         }
-        let variant_index = self.get_variant_index(tag);
+        let variant_field_index = self.get_variant_field_index(tag as usize);
         let row_t = self
             .0
-            .get_field_type_at_index(variant_index)
+            .get_field_type_at_index(variant_field_index as u32)
             .ok_or(anyhow!("LLVMSumType::build: no field type at index"))
             .and_then(|row_t| {
                 if !row_t.is_struct_type() {
@@ -99,7 +111,7 @@ impl<'c> LLVMSumType<'c> {
                 .into_struct_value();
         }
         Ok(builder
-            .build_insert_value(sum_v, row_v, variant_index, "")?
+            .build_insert_value(sum_v, row_v, variant_field_index as u32, "")?
             .as_basic_value_enum())
     }
 
@@ -108,32 +120,21 @@ impl<'c> LLVMSumType<'c> {
         self.0.get_context().i32_type()
     }
 
-    fn sum_type_has_tag_field(st: &HugrSumType) -> bool {
-        st.num_variants() >= 2
-    }
-
     fn has_tag_field(&self) -> bool {
-        Self::sum_type_has_tag_field(&self.1)
+        sum_type_has_tag_field(&self.1)
     }
 
-    fn get_variant_index(&self, tag: u32) -> u32 {
+    fn get_variant_field_index(&self, tag: usize) -> usize {
         tag + (if self.has_tag_field() { 1 } else { 0 })
     }
 
-    fn get_variant_typerow_st(sum_type: &HugrSumType, tag: u32) -> Result<TypeRow> {
-        sum_type
-            .get_variant(tag as usize)
-            .ok_or(anyhow!("Bad variant index {tag} in {sum_type}"))
-            .and_then(|tr| Ok(TypeRow::try_from(tr.clone())?))
+    fn variant_num_fields(&self, tag: usize) -> Result<usize> {
+        self.get_variant(tag).map(|x| x.len())
     }
 
-    fn get_variant_typerow(&self, tag: u32) -> Result<TypeRow> {
-        Self::get_variant_typerow_st(&self.1, tag)
-    }
-
-    fn num_fields(&self, tag: u32) -> Result<usize> {
-        let tr = self.get_variant_typerow(tag)?;
-        Ok(tr.len())
+    pub fn get_variant(&self, tag: usize) -> Result<TypeRow> {
+        let tr = self.1.get_variant(tag).ok_or(anyhow!("Bad variant index {tag} in {}", self.1))?.to_owned();
+        tr.try_into().map_err(|rv| anyhow!("Row variable in {}: {rv}", self.1))
     }
 
     delegate! {
@@ -224,16 +225,16 @@ impl<'c> LLVMSumValue<'c> {
     /// `LLVMSumType`, on the assumption that it's tag is `tag`.
     ///
     /// If it's tag is not `tag`, the returned values will be poison.
-    pub fn build_untag(&self, builder: &Builder<'c>, tag: u32) -> Result<Vec<BasicValueEnum<'c>>> {
+    pub fn build_untag(&self, builder: &Builder<'c>, tag: usize) -> Result<Vec<BasicValueEnum<'c>>> {
         debug_assert!((tag as usize) < self.1 .1.num_variants());
 
         let v = builder
-            .build_extract_value(self.0, self.1.get_variant_index(tag), "")?
+            .build_extract_value(self.0, self.1.get_variant_field_index(tag) as u32, "")?
             .into_struct_value();
         let r = (0..v.get_type().count_fields())
             .map(|i| Ok(builder.build_extract_value(v, i, "")?))
             .collect::<Result<Vec<_>>>()?;
-        debug_assert_eq!(r.len(), self.1.num_fields(tag).unwrap());
+        debug_assert_eq!(r.len(), self.1.variant_num_fields(tag as usize).unwrap());
         Ok(r)
     }
 
@@ -257,7 +258,7 @@ impl<'c> LLVMSumValue<'c> {
             cases.push((tag_ty.const_int(var_i as u64, false), bb));
 
             builder.position_at_end(bb);
-            let inputs = self.build_untag(builder, var_i as u32)?;
+            let inputs = self.build_untag(builder, var_i)?;
             handler(builder, var_i, inputs)?;
         }
 
