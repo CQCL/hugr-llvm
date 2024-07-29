@@ -10,7 +10,6 @@ use inkwell::{
 };
 use itertools::{zip_eq, Itertools};
 
-
 fn get_variant_typerow(sum_type: &HugrSumType, tag: u32) -> Result<TypeRow> {
     sum_type
         .get_variant(tag as usize)
@@ -133,8 +132,13 @@ impl<'c> LLVMSumType<'c> {
     }
 
     pub fn get_variant(&self, tag: usize) -> Result<TypeRow> {
-        let tr = self.1.get_variant(tag).ok_or(anyhow!("Bad variant index {tag} in {}", self.1))?.to_owned();
-        tr.try_into().map_err(|rv| anyhow!("Row variable in {}: {rv}", self.1))
+        let tr = self
+            .1
+            .get_variant(tag)
+            .ok_or(anyhow!("Bad variant index {tag} in {}", self.1))?
+            .to_owned();
+        tr.try_into()
+            .map_err(|rv| anyhow!("Row variable in {}: {rv}", self.1))
     }
 
     delegate! {
@@ -225,7 +229,11 @@ impl<'c> LLVMSumValue<'c> {
     /// `LLVMSumType`, on the assumption that it's tag is `tag`.
     ///
     /// If it's tag is not `tag`, the returned values will be poison.
-    pub fn build_untag(&self, builder: &Builder<'c>, tag: usize) -> Result<Vec<BasicValueEnum<'c>>> {
+    pub fn build_untag(
+        &self,
+        builder: &Builder<'c>,
+        tag: usize,
+    ) -> Result<Vec<BasicValueEnum<'c>>> {
         debug_assert!((tag as usize) < self.1 .1.num_variants());
 
         let v = builder
