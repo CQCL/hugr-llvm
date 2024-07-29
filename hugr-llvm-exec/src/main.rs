@@ -2,11 +2,9 @@ use std::{error::Error, fs::File, path::{Path, PathBuf}, process::{Command, Stdi
 use anyhow::{anyhow, Result};
 
 use clap::Parser;
-use findshlibs::{Segment, SharedLibrary, TargetSharedLibrary};
-use hugr::{extension::ExtensionRegistry, Hugr, extension::prelude,
-           std_extensions::arithmetic::{float_types, int_ops, int_types}};
-use hugr_llvm::{custom::CodegenExtsMap, emit::{EmitHugr, Namer}, fat::FatExt as _};
-use inkwell::{module::{Linkage, Module}, targets::{Target, TargetMachine}};
+use hugr::{extension::{prelude, ExtensionRegistry}, std_extensions::arithmetic::{float_types, int_ops, int_types}, Hugr, HugrView};
+use hugr_llvm::{custom::{tket2_qir::QirFunc, CodegenExtsMap}, emit::{EmitHugr, Namer}, fat::FatExt as _};
+use inkwell::{context::Context, execution_engine, intrinsics::Intrinsic, module::{Linkage, Module}, targets::{Target, TargetMachine}, values::FunctionValue};
 use tket2::extension::TKET2_EXTENSION;
 use lazy_static::lazy_static;
 
@@ -38,6 +36,54 @@ fn guppy(python_bin: impl AsRef<Path>, file: impl AsRef<Path>) -> Result<Hugr> {
     }
     hugr.update_validate(&EXTENSION_REGISTRY).unwrap();
     Ok(hugr)
+}
+
+fn hugr_to_module<'c>(context: &'c Context, hugr: &'c impl HugrView) -> Result<(FunctionValue<'c>,Module<'c>)> {
+    let module = context.create_module("hugr_llvm_exec");
+    let namer = Namer::new("_hugr_llvm_exec_.", false);
+    let exts = CodegenExtsMap::default()
+        .add_int_extensions()
+        .add_float_extensions()
+        .add_tket2_qir_exts();
+    let root = hugr.fat_root().unwrap();
+    let module = EmitHugr::new(&context, module, namer.into(), exts.into())
+        .emit_module(root)?
+        .finish();
+    let entry = {
+        let guppy_entry = module.get_function("_hugr_llvm_exec_.main").ok_or(anyhow!("No main function"))?;
+        let entry = module.add_function("main", context.void_type().fn_type(&[], false), Some(Linkage::External));
+        let entry_block = context.append_basic_block(entry, "entry");
+        let builder = context.create_builder();
+        builder.position_at_end(entry_block);
+        let debugtrap = Intrinsic::find("llvm.debugtrap").ok_or(anyhow!("Failed to find llvm.debugtrap"))?;
+        let debugtrap = debugtrap.get_declaration(&module, &[]).ok_or(anyhow!("Failed to get declaration for llvm.debugtrap"))?;
+        builder.build_call(debugtrap, &[], "")?;
+        builder.build_call(guppy_entry, &[], "")?;
+        builder.build_return(None)?;
+        entry
+    };
+    Ok((entry, module))
+}
+
+fn jit_hugr(hugr: &impl HugrView) -> Result<()> {
+    let context = inkwell::context::Context::create();
+    let (entry, module) = hugr_to_module(&context, hugr)?;
+    let engine = module.create_execution_engine().map_err(|e| anyhow!("Failed to create execution engine: {e}"))?;
+    QirFunc::add_all_global_mappings(&engine, &module, |qir_func| {
+        use hugr_llvm_exec::*;
+        match qir_func {
+            QirFunc::H => __quantum__qis__h__body as usize,
+            QirFunc::RZ => __quantum__qis__rz__body as usize,
+            QirFunc::QAlloc => __quantum__rt__qubit_allocate as usize,
+            QirFunc::QFree => __quantum__rt__qubit_release as usize,
+            QirFunc::Measure => __quantum__qis__m__body as usize,
+            QirFunc::ReadResult => __quantum__qis__read_result__body as usize,
+        }}
+    )?;
+
+
+    unsafe { engine.run_function(entry, &[])} ;
+    Ok(())
 }
 
 // drives `hugr-llvm` to produce an LLVM module from a Hugr.
@@ -83,24 +129,6 @@ fn hugr_to_so<'c>(hugr: &'c Hugr) -> Result<()> {
     Ok(())
 }
 
-fn run(lib: impl AsRef<Path>, entry: impl AsRef<str>) -> Result<()> {
-    unsafe {
-        let runtime = libloading::Library::new("libhugr_llvm_exec.so")?;
-        let lib = libloading::Library::new(&format!("./{}", lib.as_ref().to_string_lossy()))?;
-
-        let func: libloading::Symbol<unsafe extern "C" fn()> = lib.get(entry.as_ref().as_bytes())?;
-        TargetSharedLibrary::each(|shlib| {
-            println!("{}", shlib.name().to_string_lossy());
-
-            for seg in shlib.segments() {
-                println!("    {}: segment {}",
-                        seg.actual_virtual_memory_address(shlib),
-                        seg.name().to_string());
-            }
-        });
-        Ok(func())
-    }
-}
 
 fn main_impl(args: CliArgs) -> Result<()> {
     let python = pathsearch::find_executable_in_path("python3").ok_or(anyhow!("Failed to find python3 executable"))?;
@@ -108,9 +136,7 @@ fn main_impl(args: CliArgs) -> Result<()> {
         Err(anyhow!("Guppy file does not exist: {:?}", args.guppy_file))?;
     }
     let hugr = guppy(python, args.guppy_file)?;
-    hugr_to_so(&hugr)?;
-    run("hugr_llvm_exec.so", "_hugr_llvm_exec_entry")?;
-    Ok(())
+    jit_hugr(&hugr)
 }
 
 fn main() {

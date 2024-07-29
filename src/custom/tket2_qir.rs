@@ -1,7 +1,9 @@
 use hugr::{extension::simple_op::MakeExtensionOp, ops::{CustomOp, NamedOp, Value}, HugrView};
-use inkwell::{builder::Builder, context::Context, types::BasicType, values::FunctionValue, AddressSpace};
+use inkwell::{builder::Builder, context::Context, execution_engine::ExecutionEngine, module::Module, types::{BasicType, FunctionType}, values::FunctionValue, AddressSpace};
 use anyhow::{anyhow,Result};
 use tket2::Tk2Op;
+use strum_macros::EnumIter;
+use strum::IntoEnumIterator;
 
 use crate::{emit::{emit_value, EmitFuncContext, EmitOp, EmitOpArgs}, types::TypingSession};
 
@@ -56,6 +58,80 @@ pub struct Tket2QIREmitter<'c,'d,H: HugrView> (
      &'d mut EmitFuncContext<'c, H>,
 );
 
+#[derive(Copy,Clone,PartialEq, Eq, EnumIter)]
+pub enum QirFunc {
+    H,
+    RZ,
+    QAlloc,
+    QFree,
+    Measure,
+    ReadResult,
+}
+
+impl QirFunc {
+    pub fn symbol(self) -> &'static str {
+        match self {
+            QirFunc::H => "__quantum__qis__h__body",
+            QirFunc::RZ => "__quantum__qis__rz__body",
+            QirFunc::QAlloc => "__quantum__rt__qubit_allocate",
+            QirFunc::QFree => "__quantum__rt__qubit_release",
+            QirFunc::Measure => "__quantum__qis__m__body",
+            QirFunc::ReadResult => "__quantum__qis__read_result__body",
+        }
+    }
+
+    pub fn func_type<'c>(self, context: &'c Context) -> FunctionType<'c> {
+        match self {
+            QirFunc::H =>
+            context.void_type().fn_type(
+                &[context.f64_type().into(), qubit_t(context).as_basic_type_enum().into()],
+                false,
+            ),
+            QirFunc::RZ => context.void_type().fn_type(
+                &[context.f64_type().into(), qubit_t(context).as_basic_type_enum().into()],
+                false,
+            ),
+            QirFunc::QAlloc => qubit_t(context).fn_type(
+                &[],
+                false,
+            ),
+            QirFunc::QFree => context.void_type().fn_type(
+                &[qubit_t(context).as_basic_type_enum().into()],
+                false,
+            ),
+            QirFunc::Measure => result_t(context).fn_type(
+                &[qubit_t(context).as_basic_type_enum().into()],
+                false,
+            ),
+            QirFunc::ReadResult => context.bool_type().fn_type(
+                &[result_t(context).as_basic_type_enum().into()],
+                false,
+            ),
+        }
+    }
+
+    pub fn add_global_mapping<'c>(self, engine: &ExecutionEngine<'c>, module: &Module<'c>, addr: usize) -> Result<()>{
+        let Some(func) = module.get_function(self.symbol()) else {
+            return Ok(());
+        };
+
+        engine.add_global_mapping(&func, addr);
+        Ok(())
+    }
+
+    pub fn add_all_global_mappings<'c>(engine: &ExecutionEngine<'c>, module: &Module<'c>, get_addr: impl Fn(Self) -> usize) -> Result<()> {
+        for x in Self::iter() {
+            x.add_global_mapping(engine, module, get_addr(x))?;
+        }
+        Ok(())
+
+    }
+
+    fn get_func<'c,H: HugrView>(self, context: & EmitFuncContext<'c, H>) -> Result<FunctionValue<'c>> {
+        context.get_extern_func(self.symbol(), self.func_type(context.iw_context()))
+    }
+}
+
 impl<'c, 'd, H: HugrView> Tket2QIREmitter<'c, 'd, H> {
     fn new(context: &'d mut EmitFuncContext<'c,H>) -> Self { Self(context) }
     fn iw_context(&self) -> &'c Context {
@@ -66,114 +142,9 @@ impl<'c, 'd, H: HugrView> Tket2QIREmitter<'c, 'd, H> {
         self.0.builder()
     }
 
-    fn get_func_h(&self) -> Result<FunctionValue<'c>> {
-        self.0.get_extern_func(
-            "__quantum__qis__h__body",
-            self.iw_context().void_type().fn_type(
-                &[qubit_t(self.iw_context()).as_basic_type_enum().into()],
-                false,
-            ),
-        )
+    fn get_func(&self, func:QirFunc) -> Result<FunctionValue<'c>> {
+        func.get_func(self.0)
     }
-
-    fn get_func_rz(&self) -> Result<FunctionValue<'c>> {
-        self.0.get_extern_func(
-            "__quantum__qis__rz__body",
-            self.iw_context().void_type().fn_type(
-                &[self.iw_context().f64_type().into(), qubit_t(self.iw_context()).as_basic_type_enum().into()],
-                false,
-            ),
-        )
-    }
-
-    fn get_func_qalloc(&self) -> Result<FunctionValue<'c>> {
-        self.0.get_extern_func(
-            "__quantum__rt__qubit_allocate",
-            qubit_t(self.iw_context()).fn_type(
-                &[],
-                false,
-            ),
-        )
-    }
-
-    fn get_func_qfree(&self) -> Result<FunctionValue<'c>> {
-        self.0.get_extern_func(
-            "__quantum__rt__qubit_release",
-            self.iw_context().void_type().fn_type(
-                &[qubit_t(self.iw_context()).as_basic_type_enum().into()],
-                false,
-            ),
-        )
-    }
-
-    fn get_func_measure(&self) -> Result<FunctionValue<'c>> {
-        self.0.get_extern_func(
-            "__quantum__qis__m__body",
-            result_t(self.iw_context()).fn_type(
-                &[qubit_t(self.iw_context()).as_basic_type_enum().into()],
-                false,
-            ),
-        )
-    }
-
-    fn get_func_read_result(&self) -> Result<FunctionValue<'c>> {
-        self.0.get_extern_func(
-            "__quantum__qis__read_result__body",
-            self.iw_context().bool_type().fn_type(
-                &[result_t(self.iw_context()).as_basic_type_enum().into()],
-                false,
-            ),
-        )
-    }
-    // fn get_func_zz(&mut self) -> Result<inkwell::values::FunctionValue<'c>> {
-    //     self.0.get_or_insert_function(
-    //         "tket2_zz",
-    //         self.0.iw_context().void_type().fn_type(
-    //             &[
-    //                 self.0.iw_context().i64_type().ptr_type(AddressSpace::Generic),
-    //                 self.0.iw_context().i64_type().ptr_type(AddressSpace::Generic),
-    //             ],
-    //             false,
-    //         ),
-    //     )
-    // }
-
-    // fn get_func_rzz(&mut self) -> Result<inkwell::values::FunctionValue<'c>> {
-    //     self.0.get_or_insert_function(
-    //         "tket2_rzz",
-    //         self.0.iw_context().void_type().fn_type(
-    //             &[
-    //                 self.0.iw_context().i64_type().ptr_type(AddressSpace::Generic),
-    //                 self.0.iw_context().i64_type().ptr_type(AddressSpace::Generic),
-    //                 self.0.iw_context().f64_type(),
-    //             ],
-    //             false,
-    //         ),
-    //     )
-    // }
-
-    // fn get_func_rxy(&mut self) -> Result<inkwell::values::FunctionValue<'c>> {
-    //     self.0.get_or_insert_function(
-    //         "tket2_rxy",
-    //         self.0.iw_context().void_type().fn_type(
-    //             &[
-    //                 self.0.iw_context().i64_type().ptr_type(AddressSpace::Generic),
-    //                 self.0.iw_context().f64_type(),
-    //                 self.0.iw_context().f64_type(),
-    //             ],
-    //             false,
-    //         ),
-    //     )
-    // }
-
-    // fn get_func_qalloc(&mut self) -> Result<inkwell::values::FunctionValue<'c>> {
-    //     self.0.get_or_insert_function(
-    //         "tket2_qalloc",
-    //         self.0.iw_context().i64_type().fn_type(&[], false),
-    //     )
-    // }
-
-
 }
 
 impl<'c, H: HugrView> EmitOp<'c, CustomOp, H> for Tket2QIREmitter<'c, '_, H> {
@@ -190,7 +161,7 @@ impl<'c, H: HugrView> EmitOp<'c, CustomOp, H> for Tket2QIREmitter<'c, '_, H> {
                     .inputs
                     .try_into()
                     .map_err(|_| anyhow!("H expects one inputs"))?;
-                let func = self.get_func_h()?;
+                let func = self.get_func(QirFunc::H)?;
                 self.builder()
                     .build_call(func, &[qb.into()],"")?;
                 args.outputs.finish(self.builder(), [qb])
@@ -200,7 +171,7 @@ impl<'c, H: HugrView> EmitOp<'c, CustomOp, H> for Tket2QIREmitter<'c, '_, H> {
                     .inputs
                     .try_into()
                     .map_err(|_| anyhow!("RzF64 expects two inputs"))?;
-                let func = self.get_func_rz()?;
+                let func = self.get_func(QirFunc::RZ)?;
                 self.builder()
                     .build_call(func, &[angle.into(), qb.into()],"")?;
                 args.outputs.finish(self.builder(), [qb])
@@ -240,7 +211,7 @@ impl<'c, H: HugrView> EmitOp<'c, CustomOp, H> for Tket2QIREmitter<'c, '_, H> {
                     .inputs
                     .try_into()
                     .map_err(|_| anyhow!("QAlloc expects no inputs"))?;
-                let qalloc = self.get_func_qalloc()?;
+                let qalloc = self.get_func(QirFunc::QAlloc)?;
                 let qb = self
                     .builder()
                     .build_call(qalloc, &[], "qalloc")?
@@ -253,7 +224,7 @@ impl<'c, H: HugrView> EmitOp<'c, CustomOp, H> for Tket2QIREmitter<'c, '_, H> {
                     .inputs
                     .try_into()
                     .map_err(|_| anyhow!("QFree expects one inputs"))?;
-                let qfree = self.get_func_qfree()?;
+                let qfree = self.get_func(QirFunc::QFree)?;
                 self.builder().build_call(qfree, &[qb.into()], "qfree")?;
                 args.outputs.finish(self.builder(), [])
             }
@@ -262,13 +233,13 @@ impl<'c, H: HugrView> EmitOp<'c, CustomOp, H> for Tket2QIREmitter<'c, '_, H> {
                     .inputs
                     .try_into()
                     .map_err(|_| anyhow!("Measure expects one inputs"))?;
-                let measure = self.get_func_measure()?;
+                let measure = self.get_func(QirFunc::Measure)?;
                 let result = self
                     .builder()
                     .build_call(measure, &[qb.into()],"")?
                     .try_as_basic_value()
                     .unwrap_left();
-                let read_result = self.get_func_read_result()?;
+                let read_result = self.get_func(QirFunc::ReadResult)?;
                 let result_i1 = self.builder().build_call(read_result, &[result.into()], "")?.try_as_basic_value().unwrap_left();
                 let true_val = emit_value(&mut self.0, &Value::true_val())?;
                 let false_val = emit_value(&mut self.0, &Value::false_val())?;
