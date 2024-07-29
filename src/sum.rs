@@ -75,11 +75,11 @@ impl<'c> LLVMSumType<'c> {
         tag: usize,
         vs: Vec<BasicValueEnum<'c>>,
     ) -> Result<BasicValueEnum<'c>> {
-        let expected_num_fields = self.variant_num_fields(tag as usize)?;
+        let expected_num_fields = self.variant_num_fields(tag)?;
         if expected_num_fields != vs.len() {
             Err(anyhow!("LLVMSumType::build: wrong number of fields: expected: {expected_num_fields} actual: {}", vs.len()))?
         }
-        let variant_field_index = self.get_variant_field_index(tag as usize);
+        let variant_field_index = self.get_variant_field_index(tag);
         let row_t = self
             .0
             .get_field_type_at_index(variant_field_index as u32)
@@ -229,7 +229,7 @@ impl<'c> LLVMSumValue<'c> {
         builder: &Builder<'c>,
         tag: usize,
     ) -> Result<Vec<BasicValueEnum<'c>>> {
-        debug_assert!((tag as usize) < self.1 .1.num_variants());
+        debug_assert!(tag < self.1 .1.num_variants());
 
         let v = builder
             .build_extract_value(self.0, self.1.get_variant_field_index(tag) as u32, "")?
@@ -237,7 +237,7 @@ impl<'c> LLVMSumValue<'c> {
         let r = (0..v.get_type().count_fields())
             .map(|i| Ok(builder.build_extract_value(v, i, "")?))
             .collect::<Result<Vec<_>>>()?;
-        debug_assert_eq!(r.len(), self.1.variant_num_fields(tag as usize).unwrap());
+        debug_assert_eq!(r.len(), self.1.variant_num_fields(tag).unwrap());
         Ok(r)
     }
 
