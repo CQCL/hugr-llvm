@@ -47,7 +47,7 @@ pub struct EmitFuncContext<'c, H> {
     emit_context: EmitModuleContext<'c, H>,
     todo: EmissionSet<'c, H>,
     func: FunctionValue<'c>,
-    env: HashMap<Wire, ValueMailBox<'static, 'c>>,
+    env: HashMap<Wire, ValueMailBox<'c>>,
     builder: Builder<'c>,
     prologue_bb: BasicBlock<'c>,
     launch_bb: BasicBlock<'c>,
@@ -171,7 +171,7 @@ impl<'c, H: HugrView> EmitFuncContext<'c, H> {
         })
     }
 
-    fn new_anon_mail_box<'s>(&'s mut self, t: &Type, name: impl AsRef<str>) -> Result<ValueMailBox<'s, 'c>> {
+    fn new_anon_mail_box<'s>(&'s mut self, t: &Type, name: impl AsRef<str>) -> Result<ValueMailBox<'c>> {
         let bte = self.llvm_type(t)?;
         let ptr = self.build_prologue(|builder| builder.build_alloca(bte, name.as_ref()))?;
         Ok(ValueMailBox::new(bte, ptr, Some(name.as_ref().into())))
@@ -188,11 +188,11 @@ impl<'c, H: HugrView> EmitFuncContext<'c, H> {
     /// Create a new anonymous [RowMailBox]. This mailbox is not mapped to any
     /// [Wire]s, and so will not interact with any mailboxes returned from
     /// [EmitFuncContext::node_ins_rmb] or [EmitFuncContext::node_outs_rmb].
-    pub fn new_anon_row_mail_box<'a, 's>(
-        &'s mut self,
+    pub fn new_anon_row_mail_box<'a>(
+        &mut self,
         ts: impl IntoIterator<Item = &'a Type>,
         name: impl AsRef<str>,
-    ) -> Result<RowMailBox<'s, 'c>> {
+    ) -> Result<RowMailBox<'c>> {
         Ok(RowMailBox::new(
             ts.into_iter()
                 .enumerate()
@@ -283,10 +283,9 @@ impl<'c, H: HugrView> EmitFuncContext<'c, H> {
             hugr_type,
             format!("{}_{}", node.node().index(), port.index()),
         )?;
-        let closure = self.def_hooks.clone();
-        let typing_session = self.typing_session();
-        let hugr_type = hugr_type.clone();
-        mb.def_hooked(self.def_hooks.clone().mailbox_def_hook(self.typing_session(), hugr_type.clone(), wire.node(), wire.source()));
+        if let Some(hook) = self.def_hooks.clone().mailbox_def_hook(&self.typing_session(), hugr_type, wire.node(), wire.source()) {
+            mb.def_hooked(hook);
+        }
         self.env.insert(wire, mb.clone());
         Ok(mb)
     }

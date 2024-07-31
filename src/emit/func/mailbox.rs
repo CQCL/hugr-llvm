@@ -13,11 +13,11 @@ pub trait MailBoxDefHook<'c> : Fn(&Builder<'c>, BasicValueEnum<'c>) -> Result<Ba
 impl<'c, F: Fn(&Builder<'c>, BasicValueEnum<'c>) -> Result<BasicValueEnum<'c>> + ?Sized> MailBoxDefHook<'c> for F {}
 
 #[derive(Clone)]
-pub struct ValueMailBox<'a, 'c> {
+pub struct ValueMailBox<'c> {
     typ: BasicTypeEnum<'c>,
     ptr: PointerValue<'c>,
     name: Cow<'static, str>,
-    def_hook: Option<Rc<dyn MailBoxDefHook<'c> + 'a>>,
+    def_hook: Option<Rc<dyn MailBoxDefHook<'c> + 'c>>,
 }
 
 fn join_names<'a>(names: impl IntoIterator<Item = &'a str>) -> String {
@@ -28,7 +28,7 @@ fn join_names<'a>(names: impl IntoIterator<Item = &'a str>) -> String {
         .to_string()
 }
 
-impl<'a, 'c> ValueMailBox<'a, 'c> {
+impl<'c> ValueMailBox<'c> {
     pub(super) fn new(
         typ: impl BasicType<'c>,
         ptr: PointerValue<'c>,
@@ -42,7 +42,7 @@ impl<'a, 'c> ValueMailBox<'a, 'c> {
         }
     }
 
-    pub fn def_hooked(&'a mut self, def_hook: impl MailBoxDefHook<'c> + 'a) where {
+    pub fn def_hooked(&mut self, def_hook: impl MailBoxDefHook<'c> + 'c) where {
         self.def_hook = Some(Rc::new(def_hook));
     }
 
@@ -58,7 +58,7 @@ impl<'a, 'c> ValueMailBox<'a, 'c> {
         ValuePromise(self.clone())
     }
 
-    pub fn read(
+    pub fn read<'a>(
         &'a self,
         builder: &Builder<'c>,
         labels: impl IntoIterator<Item = &'a str>,
@@ -86,9 +86,9 @@ impl<'a, 'c> ValueMailBox<'a, 'c> {
 }
 
 #[must_use]
-pub struct ValuePromise<'a, 'c>(ValueMailBox<'a, 'c>);
+pub struct ValuePromise<'c>(ValueMailBox<'c>);
 
-impl<'a, 'c> ValuePromise<'a, 'c> {
+impl<'c> ValuePromise<'c> {
     pub fn finish(self, builder: &Builder<'c>, v: impl BasicValue<'c>) -> Result<()> {
         self.0.write(builder, v)
     }
@@ -104,9 +104,9 @@ impl<'a, 'c> ValuePromise<'a, 'c> {
 /// of a function.
 #[derive(Clone)]
 #[allow(clippy::len_without_is_empty)]
-pub struct RowMailBox<'a, 'c>(Rc<Vec<ValueMailBox<'a, 'c>>>, Cow<'static, str>);
+pub struct RowMailBox<'c>(Rc<Vec<ValueMailBox<'c>>>, Cow<'static, str>);
 
-impl<'a, 'c> RowMailBox<'a, 'c> {
+impl<'c> RowMailBox<'c> {
     pub fn new_empty() -> Self {
         Self::new(std::iter::empty(), None)
     }
