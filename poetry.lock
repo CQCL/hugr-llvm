@@ -29,25 +29,21 @@ test = ["coverage", "pytest (>=7,<8.1)", "pytest-cov", "pytest-mock (>=3)"]
 
 [[package]]
 name = "guppylang"
-version = "0.7.0"
+version = "0.8.0"
 description = "Pythonic quantum-classical programming language"
 optional = false
-python-versions = "^3.10"
-files = []
-develop = false
+python-versions = "<4.0,>=3.10"
+files = [
+    {file = "guppylang-0.8.0-py3-none-any.whl", hash = "sha256:1687991d7da986498d9e10a7d8d11f364187c7b9344ae60eedb0c18642fd55a9"},
+    {file = "guppylang-0.8.0.tar.gz", hash = "sha256:0eb36cb528f39b247c19ab1f16b7be09014e552dfb1e9f25416684e9f23d9f89"},
+]
 
 [package.dependencies]
-graphviz = "^0.20.1"
-hugr = "^0.5.0"
-networkx = "^3.2.1"
-pydantic = "^2.7.0b1"
-typing-extensions = "^4.9.0"
-
-[package.source]
-type = "git"
-url = "https://github.com/CQCL/guppylang"
-reference = "doug/hugr-0.10.0"
-resolved_reference = "bb29407e091c6f5e73c675ee9c2e8316f6590e77"
+graphviz = ">=0.20.1,<0.21.0"
+hugr = ">=0.5.0,<0.6.0"
+networkx = ">=3.2.1,<4.0.0"
+pydantic = ">=2.7.0b1,<3.0.0"
+typing-extensions = ">=4.9.0,<5.0.0"
 
 [[package]]
 name = "hugr"
@@ -205,4 +201,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "8cf98c6f6ff44ccbe3a9f1e533b8bc943f9dcbfea4be27fc82eea6ddc21d6bcc"
+content-hash = "e540590a3bfab9a86d033260ed63728dd0d4f7c1cb8e92df65c65e5bdfa46f49"
