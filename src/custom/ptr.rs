@@ -41,10 +41,10 @@ impl<'c,H> CodegenExtension<'c,H> for RefCountedPtrCodegenExtension {
     }
 }
 
-pub fn make_refcounting_def_hooks<'c,H: HugrView>(hugr: &H, context: EmitModuleContext<'c, H>) -> Result<HashMap<Wire, MailBoxDefHook<'c>>> {
-    for (node, out_p, t) in hugr.nodes().flat_map(|n| hugr.out_value_types(n).map(move |(t, p)| (n, p, t))) {
+// pub fn make_refcounting_def_hooks<'c,H: HugrView>(hugr: &H, context: EmitModuleContext<'c, H>) -> Result<HashMap<Wire, MailBoxDefHook<'c>>> {
+//     for (node, out_p, t) in hugr.nodes().flat_map(|n| hugr.out_value_types(n).map(move |(t, p)| (n, p, t))) {
 
 
-    }
-    todo!()
-}
+//     }
+//     todo!()
+// }

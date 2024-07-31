@@ -22,7 +22,7 @@ use super::emit_dataflow_parent;
 
 pub struct CfgEmitter<'c, 'd, H> {
     context: &'d mut EmitFuncContext<'c, H>,
-    bbs: HashMap<FatNode<'c, OpType, H>, (BasicBlock<'c>, RowMailBox<'c>)>,
+    bbs: HashMap<FatNode<'c, OpType, H>, (BasicBlock<'c>, RowMailBox<'d, 'c>)>,
     inputs: Option<Vec<BasicValueEnum<'c>>>,
     outputs: Option<RowPromise<'c>>,
     node: FatNode<'c, CFG, H>,

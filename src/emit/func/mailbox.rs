@@ -9,14 +9,15 @@ use inkwell::{
 };
 use itertools::{zip_eq, Itertools as _};
 
-pub type MailBoxDefHook<'c> = Rc<dyn Fn(&Builder<'c>, BasicValueEnum<'c>) -> Result<BasicValueEnum<'c>>>;
+pub trait MailBoxDefHook<'c> : Fn(&Builder<'c>, BasicValueEnum<'c>) -> Result<BasicValueEnum<'c>> {}
+impl<'c, F: Fn(&Builder<'c>, BasicValueEnum<'c>) -> Result<BasicValueEnum<'c>> + ?Sized> MailBoxDefHook<'c> for F {}
 
 #[derive(Clone)]
-pub struct ValueMailBox<'c> {
+pub struct ValueMailBox<'a, 'c> {
     typ: BasicTypeEnum<'c>,
     ptr: PointerValue<'c>,
     name: Cow<'static, str>,
-    def_hook: Option<MailBoxDefHook<'c>>,
+    def_hook: Option<Rc<dyn MailBoxDefHook<'c> + 'a>>,
 }
 
 fn join_names<'a>(names: impl IntoIterator<Item = &'a str>) -> String {
@@ -27,20 +28,24 @@ fn join_names<'a>(names: impl IntoIterator<Item = &'a str>) -> String {
         .to_string()
 }
 
-impl<'c> ValueMailBox<'c> {
+impl<'a, 'c> ValueMailBox<'a, 'c> {
     pub(super) fn new(
         typ: impl BasicType<'c>,
         ptr: PointerValue<'c>,
         name: Option<String>,
-        def_hook: Option<MailBoxDefHook<'c>>
     ) -> Self {
         Self {
             typ: typ.as_basic_type_enum(),
             ptr,
             name: name.map_or(Cow::Borrowed(""), Cow::Owned),
-            def_hook,
+            def_hook: None,
         }
     }
+
+    pub fn def_hooked(&'a mut self, def_hook: impl MailBoxDefHook<'c> + 'a) where {
+        self.def_hook = Some(Rc::new(def_hook));
+    }
+
     pub fn get_type(&self) -> BasicTypeEnum<'c> {
         self.typ
     }
@@ -53,7 +58,7 @@ impl<'c> ValueMailBox<'c> {
         ValuePromise(self.clone())
     }
 
-    pub fn read<'a>(
+    pub fn read(
         &'a self,
         builder: &Builder<'c>,
         labels: impl IntoIterator<Item = &'a str>,
@@ -81,9 +86,9 @@ impl<'c> ValueMailBox<'c> {
 }
 
 #[must_use]
-pub struct ValuePromise<'c>(ValueMailBox<'c>);
+pub struct ValuePromise<'a, 'c>(ValueMailBox<'a, 'c>);
 
-impl<'c> ValuePromise<'c> {
+impl<'a, 'c> ValuePromise<'a, 'c> {
     pub fn finish(self, builder: &Builder<'c>, v: impl BasicValue<'c>) -> Result<()> {
         self.0.write(builder, v)
     }
@@ -99,9 +104,9 @@ impl<'c> ValuePromise<'c> {
 /// of a function.
 #[derive(Clone)]
 #[allow(clippy::len_without_is_empty)]
-pub struct RowMailBox<'c>(Rc<Vec<ValueMailBox<'c>>>, Cow<'static, str>);
+pub struct RowMailBox<'a, 'c>(Rc<Vec<ValueMailBox<'a, 'c>>>, Cow<'static, str>);
 
-impl<'c> RowMailBox<'c> {
+impl<'a, 'c> RowMailBox<'a, 'c> {
     pub fn new_empty() -> Self {
         Self::new(std::iter::empty(), None)
     }

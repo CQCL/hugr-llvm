@@ -11,11 +11,11 @@ use inkwell::{
     builder::Builder,
     context::Context,
     types::{BasicType, BasicTypeEnum, FunctionType},
-    values::{FunctionValue, GlobalValue},
+    values::{BasicValueEnum, FunctionValue, GlobalValue},
 };
 use itertools::zip_eq;
 
-use crate::types::{HugrFuncType, HugrSumType, HugrType, TypingSession};
+use crate::{def_hooks::DefHookClosure, types::{HugrFuncType, HugrSumType, HugrType, TypingSession}};
 use crate::{custom::CodegenExtsMap, fat::FatNode, types::LLVMSumType};
 use delegate::delegate;
 
@@ -47,11 +47,11 @@ pub struct EmitFuncContext<'c, H> {
     emit_context: EmitModuleContext<'c, H>,
     todo: EmissionSet<'c, H>,
     func: FunctionValue<'c>,
-    env: HashMap<Wire, ValueMailBox<'c>>,
+    env: HashMap<Wire, ValueMailBox<'static, 'c>>,
     builder: Builder<'c>,
     prologue_bb: BasicBlock<'c>,
     launch_bb: BasicBlock<'c>,
-    def_hooks: HashMap<Wire, mailbox::MailBoxDefHook<'c>>,
+    def_hooks: Rc<DefHookClosure<'c>>,
 }
 
 impl<'c, H: HugrView> EmitFuncContext<'c, H> {
@@ -105,11 +105,6 @@ impl<'c, H: HugrView> EmitFuncContext<'c, H> {
     pub fn push_todo_func(&mut self, node: FatNode<'c, FuncDefn, H>) {
         self.todo.insert(node);
     }
-
-    // TODO likely we don't need this
-    // pub fn func(&self) -> &FunctionValue<'c> {
-    //     &self.func
-    // }
 
     /// Returns the internal [Builder]. Callers must ensure that it is
     /// positioned at the end of a basic block. This invariant is not checked(it
@@ -176,24 +171,28 @@ impl<'c, H: HugrView> EmitFuncContext<'c, H> {
         })
     }
 
-    fn new_anon_mail_box(&mut self, t: &Type, name: impl AsRef<str>) -> Result<ValueMailBox<'c>> {
-        self.new_mail_box(t, name, None)
-    }
-
-    fn new_mail_box(&mut self, t: &Type, name: impl AsRef<str>, def_hook: Option<MailBoxDefHook<'c>>) -> Result<ValueMailBox<'c>> {
+    fn new_anon_mail_box<'s>(&'s mut self, t: &Type, name: impl AsRef<str>) -> Result<ValueMailBox<'s, 'c>> {
         let bte = self.llvm_type(t)?;
         let ptr = self.build_prologue(|builder| builder.build_alloca(bte, name.as_ref()))?;
-        Ok(ValueMailBox::new(bte, ptr, Some(name.as_ref().into()), def_hook))
+        Ok(ValueMailBox::new(bte, ptr, Some(name.as_ref().into())))
     }
+
+    // fn new_mail_box<'s>(&'s mut self, t: &Type, name: impl AsRef<str>, def_hook: impl MailBoxDefHook<'c> + 's) -> Result<ValueMailBox<'c>> {
+    //     let bte = self.llvm_type(t)?;
+    //     let ptr = self.build_prologue(|builder| builder.build_alloca(bte, name.as_ref()))?;
+    //     let mut mb = ValueMailBox::new(bte, ptr, Some(name.as_ref().into()));
+    //     mb.def_hooked(def_hook);
+    //     Ok()
+    // }
 
     /// Create a new anonymous [RowMailBox]. This mailbox is not mapped to any
     /// [Wire]s, and so will not interact with any mailboxes returned from
     /// [EmitFuncContext::node_ins_rmb] or [EmitFuncContext::node_outs_rmb].
-    pub fn new_anon_row_mail_box<'a>(
-        &mut self,
+    pub fn new_anon_row_mail_box<'a, 's>(
+        &'s mut self,
         ts: impl IntoIterator<Item = &'a Type>,
         name: impl AsRef<str>,
-    ) -> Result<RowMailBox<'c>> {
+    ) -> Result<RowMailBox<'s, 'c>> {
         Ok(RowMailBox::new(
             ts.into_iter()
                 .enumerate()
@@ -273,17 +272,21 @@ impl<'c, H: HugrView> EmitFuncContext<'c, H> {
         node: FatNode<'c, OT, H>,
         port: hugr::OutgoingPort,
         hugr_type: &Type,
-    ) -> Result<ValueMailBox<'c>> {
+    ) -> Result<ValueMailBox<'c>> where {
         let wire = Wire::new(node.node(), port);
         if let Some(mb) = self.env.get(&wire) {
             debug_assert_eq!(self.llvm_type(hugr_type).unwrap(), mb.get_type());
             return Ok(mb.clone());
         }
-        let mb = self.new_mail_box(
+        // let def_hook = Rc::new(self.def_hooks.mailbox_def_hook(self.typing_session(), hugr_type.clone(), wire.node(), wire.source()));
+        let mut mb = self.new_anon_mail_box(
             hugr_type,
             format!("{}_{}", node.node().index(), port.index()),
-            self.def_hooks.get(&wire).cloned()
         )?;
+        let closure = self.def_hooks.clone();
+        let typing_session = self.typing_session();
+        let hugr_type = hugr_type.clone();
+        mb.def_hooked(self.def_hooks.clone().mailbox_def_hook(self.typing_session(), hugr_type.clone(), wire.node(), wire.source()));
         self.env.insert(wire, mb.clone());
         Ok(mb)
     }
