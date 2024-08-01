@@ -328,7 +328,7 @@ fn emit_call<'c, H: HugrView>(
     args: EmitOpArgs<'c, Call, H>,
 ) -> Result<()> {
     if !args.node.called_function_type().params().is_empty() {
-        todo!("Call of generic function");
+        return Err(anyhow!("Call of generic function"));
     }
     let (func_node, _) = args
         .node
@@ -351,23 +351,22 @@ fn emit_load_function<'c, H: HugrView>(
     args: EmitOpArgs<'c, LoadFunction, H>,
 ) -> Result<()> {
     if !args.node.func_sig.params().is_empty() {
-        todo!("load function not fully implemented");
+        return Err(anyhow!("Load of generic function"));
     }
-    // todo melf
     let (func_node, _) = args
         .node
-        .single_linked_output(args.node.func_sig)
+        .single_linked_output(args.node.function_port())
         .unwrap();
+
     let func = match func_node.as_ref() {
         OpType::FuncDecl(_) => context.get_func_decl(func_node.try_into_ot().unwrap()),
         OpType::FuncDefn(_) => context.get_func_defn(func_node.try_into_ot().unwrap()),
         _ => Err(anyhow!("emit_call: Not a Decl or Defn")),
-    };
-    let inputs = args.inputs.into_iter().map_into().collect_vec();
-    let builder = context.builder();
-    let call = builder.build_call(func?, inputs.as_slice(), "")?;
-    let call_results = deaggregate_call_result(builder, call, args.outputs.len())?;
-    args.outputs.finish(builder, call_results)
+    }?;
+    args.outputs.finish(
+        context.builder(),
+        [func.as_global_value().as_pointer_value().into()],
+    )
 }
 
 fn emit_cfg<'c, H: HugrView>(
@@ -396,7 +395,6 @@ fn emit_optype<'c, H: HugrView>(
         OpType::LoadConstant(ref lc) => emit_load_constant(context, args.into_ot(lc)),
         OpType::Call(ref cl) => emit_call(context, args.into_ot(cl)),
         OpType::LoadFunction(ref lf) => emit_load_function(context, args.into_ot(lf)),
-        // todo melf
         OpType::Conditional(ref co) => emit_conditional(context, args.into_ot(co)),
         OpType::CFG(ref cfg) => emit_cfg(context, args.into_ot(cfg)),
         // Const is allowed, but requires no work here. FuncDecl is technically
