@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
-use std::{collections::HashMap, marker::PhantomData, rc::Rc};
+use std::{marker::PhantomData, rc::Rc};
 
-use hugr::{types::CustomType, HugrView, Wire};
+use hugr::Wire;
 use inkwell::{builder::Builder, context::AsContextRef, values::BasicValue};
 use itertools::{zip_eq, Itertools};
 
@@ -59,7 +59,7 @@ pub struct DefHookInV<'a, 'c, H>(pub TypingSession<'c, H>, pub &'a H, pub Wire);
 
 impl<'a, 'c, H> Clone for DefHookInV<'a, 'c, H> {
     fn clone(&self) -> Self {
-        Self(self.0.clone(), self.1.clone(), self.2.clone())
+        Self(self.0.clone(), self.1, self.2.clone())
     }
 }
 
@@ -138,15 +138,15 @@ impl<'a, 'c, H> TypeMappable<'a> for DefHookTypeMapping<'a, 'c, H> {
 #[cfg(test)]
 mod test {
     use hugr::{
-        builder::{DFGBuilder, Dataflow, DataflowHugr, ModuleBuilder},
-        std_extensions::ptr::{self, ptr_custom_type, ptr_type, PTR_REG},
+        builder::{DFGBuilder, Dataflow, DataflowHugr},
+        std_extensions::ptr::{ptr_custom_type, PTR_REG},
         types::{Signature, Type},
         HugrView,
     };
     use inkwell::{
         builder::Builder,
         types::BasicType,
-        values::{BasicValue, CallableValue, PointerValue},
+        values::CallableValue,
     };
     use rstest::rstest;
 

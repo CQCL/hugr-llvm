@@ -1,22 +1,13 @@
-use std::{borrow::Borrow, cell::RefCell, collections::HashMap, rc::Rc};
+use std::{collections::HashMap, rc::Rc};
 
 use anyhow::{anyhow, Result};
 use hugr::{
     extension::ExtensionId,
     types::{CustomType, TypeEnum, TypeName, TypeRow},
-    HugrView, Node, OutgoingPort,
 };
-use inkwell::{
-    builder::Builder,
-    values::{BasicValue, BasicValueEnum},
-};
-use itertools::{zip_eq, Either, Itertools};
+use itertools::Either;
 
-use crate::{
-    emit::func::MailBoxDefHook,
-    sum::{LLVMSumType, LLVMSumValue},
-    types::{HugrSumType, HugrType, TypingSession},
-};
+use crate::types::{HugrSumType, HugrType};
 
 pub mod def_hook;
 

@@ -13,7 +13,7 @@ use inkwell::{
     types::{AnyType, BasicType, BasicTypeEnum, FunctionType},
     values::{BasicValueEnum, CallSiteValue, FunctionValue, GlobalValue},
 };
-use std::{borrow::BorrowMut, collections::HashSet, rc::Rc};
+use std::{collections::HashSet, rc::Rc};
 
 use crate::{
     type_map::{

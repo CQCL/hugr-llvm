@@ -11,13 +11,13 @@ use inkwell::{
     builder::Builder,
     context::Context,
     types::{BasicType, BasicTypeEnum, FunctionType},
-    values::{BasicValueEnum, FunctionValue, GlobalValue},
+    values::{FunctionValue, GlobalValue},
 };
 use itertools::zip_eq;
 
 use crate::{custom::CodegenExtsMap, fat::FatNode, types::LLVMSumType};
 use crate::{
-    type_map::{def_hook::DefHookTypeMap, TypeMap},
+    type_map::def_hook::DefHookTypeMap,
     types::{HugrFuncType, HugrSumType, HugrType, TypingSession},
 };
 use delegate::delegate;

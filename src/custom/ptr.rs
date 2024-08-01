@@ -1,11 +1,11 @@
-use std::{collections::HashMap, rc::Rc};
+use std::rc::Rc;
 
 use anyhow::{anyhow, Result};
 use hugr::{
     extension::ExtensionId,
     std_extensions::ptr,
     types::{CustomType, TypeArg},
-    HugrView, Wire,
+    HugrView,
 };
 use inkwell::{
     builder::Builder,
@@ -15,11 +15,8 @@ use inkwell::{
 };
 
 use crate::{
-    emit::{func::MailBoxDefHook, EmitModuleContext},
-    type_map::{
-        def_hook::{DefHookInV, DefHookTypeMap, DefHookTypeMapping},
-        TypeMapping,
-    },
+    emit::EmitModuleContext,
+    type_map::def_hook::DefHookInV,
     types::TypingSession,
 };
 
@@ -142,18 +139,17 @@ impl<'c, H: HugrView> EmitModuleContext<'c, H> {
 #[cfg(test)]
 mod test {
     use crate::{
-        check_emission, check_emission_emit_hugr,
-        emit::{EmitHugr, EmitOp},
+        check_emission_emit_hugr,
+        emit::EmitHugr,
         test::{llvm_ctx, THugrView, TestContext},
-        type_map::def_hook::DefHookTypeMap,
         types::HugrType,
     };
     use hugr::{
         builder::{
-            Container, DFGBuilder, Dataflow as _, DataflowHugr as _, DataflowSubContainer,
+            Container, Dataflow as _, DataflowSubContainer,
             HugrBuilder, ModuleBuilder,
         },
-        types::{Signature, Type},
+        types::Signature,
     };
     use inkwell::module::Linkage;
     use ptr::{ptr_custom_type, PTR_REG};
