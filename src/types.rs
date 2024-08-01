@@ -70,6 +70,8 @@ impl<'c, H> TypingSession<'c, H> {
                     .ptr_type(AddressSpace::default()) // Note: deprecated in LLVM >= 15
                     .into())
             }
+            // TypeEnum::LoadFunction()
+            // todo melf
 
             x => Err(anyhow!("Invalid type: {:?}", x)),
         }
