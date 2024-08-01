@@ -7,7 +7,7 @@ use itertools::{zip_eq, Itertools};
 
 use crate::{emit::func::MailBoxDefHook, sum::{LLVMSumType, LLVMSumValue}, types::{HugrSumType, HugrType, TypingSession}};
 
-use super::{TypeMap, TypeMappable, TypeMapping};
+use super::{CustomTypeKey, TypeMap, TypeMappable, TypeMapping};
 
 
 pub struct DefHookTypeMap<'a,'c,H>(TypeMap<'a, DefHookTypeMapping<'a,'c,H>>);
@@ -18,13 +18,29 @@ impl<'a,'c,H> Default for DefHookTypeMap<'a,'c,H> {
     }
 }
 
-impl<'a,'c,H> DefHookTypeMap<'a,'c,H> {
+impl<'a,'c,H> Clone for DefHookTypeMap<'a,'c,H> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+
+impl<'a, 'c,H> DefHookTypeMap<'a, 'c,H> {
+    pub fn new(_: impl AsContextRef<'c>, _: &'a H) -> Self { Self::default() }
+
+    pub fn get_def_hook(&self, hugr_type: &HugrType, typing_session: TypingSession<'c,H>, hugr: &'a H, wire: Wire) -> Result<Option<Rc<dyn MailBoxDefHook<'c> + 'a>>> {
+        self.0.map(hugr_type, DefHookInV(typing_session, hugr, wire))
+    }
+
+    pub fn set_def_hook(&mut self, custom_type: CustomTypeKey, hook: impl TypeMapping<'a, DefHookTypeMapping<'a, 'c, H>> + 'a) {
+        self.0.set_leaf_hook(custom_type, Box::new(hook))
+    }
+
 }
 
 #[derive(Default)]
 pub struct DefHookTypeMapping<'a, 'c,H>(PhantomData<&'a &'c H>);
 
-pub struct DefHookInV<'a, 'c, H>(TypingSession<'c,H>, &'a H, Wire);
+pub struct DefHookInV<'a, 'c, H>(pub TypingSession<'c,H>, pub &'a H, pub Wire);
 
 impl<'a,'c,H> Clone for DefHookInV<'a,'c,H> {
     fn clone(&self) -> Self {
@@ -39,18 +55,6 @@ impl<'a,'c,H> Clone for DefHookInV<'a,'c,H> {
 
 // }
 
-impl<'a, 'c,H> DefHookTypeMap<'a, 'c,H> {
-    pub fn new(_: impl AsContextRef<'c>, _: &'a H) -> Self { Self::default() }
-
-    pub fn get_def_hook(&self, hugr_type: &HugrType, typing_session: TypingSession<'c,H>, hugr: &'a H, wire: Wire) -> Result<Option<Rc<dyn MailBoxDefHook<'c> + 'a>>> {
-        self.0.map(hugr_type, DefHookInV(typing_session, hugr, wire))
-    }
-
-    pub fn set_def_hook(&mut self, custom_type: CustomType, hook: impl TypeMapping<'a, DefHookTypeMapping<'a, 'c, H>> + 'a) {
-        self.0.set_leaf_hook(custom_type, Box::new(hook))
-    }
-
-}
 
 
 impl<'a, 'c,H> TypeMappable<'a> for DefHookTypeMapping<'a, 'c,H>  {
@@ -183,6 +187,6 @@ mod test {
             }
         }
 
-        def_hooks.set_def_hook(ptr_custom_type, move |DefHookInV(_, hugr, wire)|  Ok(Rc::new(mk_def_hook(hugr, wire))));
+        def_hooks.set_def_hook((ptr_custom_type.extension().clone(), ptr_custom_type.name().clone()), move |DefHookInV(_, hugr, wire)|  Ok(Rc::new(mk_def_hook(hugr, wire))));
     }
 }

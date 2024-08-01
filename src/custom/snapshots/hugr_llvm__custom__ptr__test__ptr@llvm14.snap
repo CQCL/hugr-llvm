@@ -1,0 +1,23 @@
+---
+source: src/custom/ptr.rs
+expression: module.to_string()
+---
+; ModuleID = 'test_context'
+source_filename = "test_context"
+
+declare void @inc_count(i8*, i64)
+
+define { { {} }*, { {} }*, { {} }* } @_hl.main.1({ {} }* %0, { {} }* %1, { {} }* %2) {
+alloca_block:
+  br label %entry_block
+
+entry_block:                                      ; preds = %alloca_block
+  %3 = bitcast { {} }* %0 to i8*
+  call void @inc_count(i8* %3, i64 -1)
+  %4 = bitcast { {} }* %2 to i8*
+  call void @inc_count(i8* %4, i64 1)
+  %mrv = insertvalue { { {} }*, { {} }*, { {} }* } undef, { {} }* %1, 0
+  %mrv7 = insertvalue { { {} }*, { {} }*, { {} }* } %mrv, { {} }* %2, 1
+  %mrv8 = insertvalue { { {} }*, { {} }*, { {} }* } %mrv7, { {} }* %2, 2
+  ret { { {} }*, { {} }*, { {} }* } %mrv8
+}

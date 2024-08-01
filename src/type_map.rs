@@ -2,8 +2,7 @@ use std::{borrow::Borrow, cell::RefCell, collections::HashMap, rc::Rc};
 
 use anyhow::{anyhow, Result};
 use hugr::{
-    types::{CustomType, TypeEnum, TypeRow},
-    HugrView, Node, OutgoingPort,
+    extension::ExtensionId, types::{CustomType, TypeEnum, TypeName, TypeRow}, HugrView, Node, OutgoingPort
 };
 use inkwell::{
     builder::Builder,
@@ -25,7 +24,7 @@ impl<'a, TM: TypeMappable<'a>, F: Fn(TM::InV) -> Result<TM::OutV> + ?Sized> Type
 {
 }
 
-trait TypeMappable<'a>
+pub trait TypeMappable<'a>
 where
     // Self::OutV: 'a,
 {
@@ -40,10 +39,18 @@ where
     // fn disaggregate_variants(sum_type: &HugrSumType, v: &Self::InV) -> impl Iterator<Item=Vec<Self::InV>>;
 }
 
+pub type CustomTypeKey = (ExtensionId, TypeName);
+
 pub struct TypeMap<'a, TM: TypeMappable<'a>> {
     // pub typing_session: Rc<TypingSession<'c, H>>,,
-    custom_hooks: HashMap<CustomType, Box<dyn TypeMapping<'a, TM> + 'a>>,
+    custom_hooks: HashMap<CustomTypeKey, Rc<dyn TypeMapping<'a, TM> + 'a>>,
     // marker: std::marker::PhantomData<&'s ()>
+}
+
+impl<'a, TM: TypeMappable<'a>> Clone for TypeMap<'a, TM> {
+    fn clone(&self) -> Self {
+        Self { custom_hooks: self.custom_hooks.clone() }
+    }
 }
 
 impl<'a, TM: TypeMappable<'a>> Default for TypeMap<'a, TM> {
@@ -65,8 +72,8 @@ fn map_either<'a, TM: TypeMappable<'a>>(
 }
 
 impl<'a, TM: TypeMappable<'a>> TypeMap<'a, TM> {
-    pub fn set_leaf_hook(&mut self, hugr_type: CustomType, hook: impl TypeMapping<'a, TM> + 'a) {
-        self.custom_hooks.insert(hugr_type, Box::new(hook));
+    pub fn set_leaf_hook(&mut self, hugr_type: CustomTypeKey, hook: impl TypeMapping<'a, TM> + 'a) {
+        self.custom_hooks.insert(hugr_type, Rc::new(hook));
     }
 
     pub fn map(&self, hugr_type: &HugrType, inv: TM::InV) -> Result<Option<TM::OutV>> {
@@ -78,7 +85,8 @@ impl<'a, TM: TypeMappable<'a>> TypeMap<'a, TM> {
     }
 
     fn custom_type(&self, custom_type: &CustomType, inv: TM::InV) -> Result<Option<TM::OutV>> {
-        let Some(hook) = self.custom_hooks.get(custom_type) else {
+        let key = (custom_type.extension().clone(), custom_type.name().clone());
+        let Some(hook) = self.custom_hooks.get(&key) else {
             return Ok(None);
         };
 

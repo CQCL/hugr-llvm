@@ -141,7 +141,7 @@ impl<'c, H: HugrView> EmitFuncContext<'c, H> {
     /// If `func` has any existing [BasicBlock]s we will fail.
     ///
     /// TODO on failure return `emit_context`
-    pub fn new(
+    fn new(
         emit_context: EmitModuleContext<'c, H>,
         func: FunctionValue<'c>,
     ) -> Result<EmitFuncContext<'c, H>> {
@@ -151,6 +151,7 @@ impl<'c, H: HugrView> EmitFuncContext<'c, H> {
                 func.get_name()
             ))?;
         }
+        let def_hooks = emit_context.get_def_hooks();
         let prologue_bb = emit_context
             .iw_context()
             .append_basic_block(func, "alloca_block");
@@ -167,7 +168,7 @@ impl<'c, H: HugrView> EmitFuncContext<'c, H> {
             builder,
             prologue_bb,
             launch_bb,
-            def_hooks: Default::default(),
+            def_hooks
         })
     }
 
@@ -274,8 +275,8 @@ impl<'c, H: HugrView> EmitFuncContext<'c, H> {
             debug_assert_eq!(self.llvm_type(hugr_type).unwrap(), mb.get_type());
             return Ok(mb.clone());
         }
-        let def_hook = self.def_hooks.get_def_hook(hugr_type, self.typing_session(), node.hugr(), wire)?.map(Into::into);
-        let mut mb = self.new_mail_box(
+        let def_hook = self.def_hooks.get_def_hook(hugr_type, self.typing_session(), node.hugr(), wire)?;
+        let mb = self.new_mail_box(
             hugr_type,
             format!("{}_{}", node.node().index(), port.index()),
             def_hook
@@ -293,14 +294,22 @@ impl<'c, H: HugrView> EmitFuncContext<'c, H> {
     }
 }
 
-// pub struct EmitFuncContextBuilder<'c,H> {
-//     module_context: EmitModuleContext<'c,H>
-// }
+pub struct EmitFuncContextBuilder<'c,H> {
+    module_context: EmitModuleContext<'c,H>,
+    func: FunctionValue<'c>,
+    def_hooks: DefHookTypeMap<'c,'c,H>,
+}
 
-// impl<'c,H: HugrView> EmitFuncContextBuilder<'c,H> {
-//     pub fn new(module_context: EmitModuleContext<'c,H>) -> Self {
-//         Self {
-//             module_context
-//         }
-//     }
-// }
+impl<'c,H: HugrView> EmitFuncContextBuilder<'c,H> {
+    pub fn new(module_context: EmitModuleContext<'c,H>, func: FunctionValue<'c>) -> Self {
+        Self {
+            module_context,
+            func,
+            def_hooks: Default::default()
+        }
+    }
+
+    pub fn finish(self) -> Result<EmitFuncContext<'c, H>> {
+        EmitFuncContext::new(self.module_context, self.func)
+    }
+}

@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Result};
 use delegate::delegate;
+use func::EmitFuncContextBuilder;
 use hugr::{
     ops::{FuncDecl, FuncDefn, OpType},
     types::PolyFuncType,
@@ -12,9 +13,9 @@ use inkwell::{
     types::{AnyType, BasicType, BasicTypeEnum, FunctionType},
     values::{BasicValueEnum, CallSiteValue, FunctionValue, GlobalValue},
 };
-use std::{collections::HashSet, rc::Rc};
+use std::{borrow::BorrowMut, collections::HashSet, rc::Rc};
 
-use crate::types::{HugrFuncType, HugrSumType, HugrType, TypingSession};
+use crate::{type_map::{def_hook::{DefHookTypeMap, DefHookTypeMapping}, CustomTypeKey, TypeMapping}, types::{HugrFuncType, HugrSumType, HugrType, TypingSession}};
 
 use crate::{
     custom::CodegenExtsMap,
@@ -59,6 +60,7 @@ pub struct EmitModuleContext<'c, H> {
     module: Module<'c>,
     extensions: Rc<CodegenExtsMap<'c, H>>,
     typer: Rc<TypeConverter<'c>>,
+    def_hooks: DefHookTypeMap<'c, 'c, H>,
     namer: Rc<Namer>,
 }
 
@@ -96,8 +98,19 @@ impl<'c, H> EmitModuleContext<'c, H> {
             namer,
             extensions,
             typer,
+            def_hooks: Default::default(),
         }
     }
+
+    /// TODO docs
+    pub fn set_def_hook(&mut self, custom_type: CustomTypeKey, hook: impl TypeMapping<'c, DefHookTypeMapping<'c, 'c, H>> + 'c) {
+        self.def_hooks.set_def_hook(custom_type, hook);
+    }
+
+    pub fn get_def_hooks(&self) -> DefHookTypeMap<'c,'c,H> {
+        self.def_hooks.clone()
+    }
+
 
     /// Returns a reference to the inner [Module]. Note that this type has
     /// "interior mutability", and this reference can be used to add functions
@@ -338,7 +351,7 @@ impl<'c, H: HugrView> EmitHugr<'c, H> {
             return Ok((self, EmissionSet::default()));
         }
         let func = self.module_context.get_func_defn(node)?;
-        let mut func_ctx = EmitFuncContext::new(self.module_context, func)?;
+        let mut func_ctx = EmitFuncContextBuilder::new(self.module_context, func).finish()?;
         let ret_rmb = func_ctx.new_anon_row_mail_box(node.signature.body().output.iter(), "ret")?;
         ops::emit_dataflow_parent(
             &mut func_ctx,
@@ -365,9 +378,18 @@ impl<'c, H: HugrView> EmitHugr<'c, H> {
     }
 }
 
+impl<'c,H> From<EmitModuleContext<'c,H>> for EmitHugr<'c,H> {
+    fn from(module_context: EmitModuleContext<'c,H>) -> Self {
+        Self {
+            emitted: Default::default(),
+            module_context,
+        }
+    }
+}
+
 /// Extract all return values from the result of a `call`.
 ///
-/// LLVM only supports functions with exactly zero or one return value.
+/// LLVM only su
 /// For functions with multiple return values, we return a struct containing
 /// all the return values.
 ///

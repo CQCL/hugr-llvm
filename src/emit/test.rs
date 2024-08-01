@@ -80,11 +80,10 @@ impl Default for SimpleHugrConfig {
 }
 
 #[macro_export]
-macro_rules! check_emission {
-    ($hugr: ident, $test_ctx:ident) => {
+macro_rules! check_emission_emit_hugr {
+    ($hugr: ident, $emit_hugr: ident) => {
         let root = $crate::fat::FatExt::fat_root::<hugr::ops::Module>(&$hugr).unwrap();
-        let module = $test_ctx
-            .get_emit_hugr()
+        let module = $emit_hugr
             .emit_module(root)
             .unwrap()
             .finish();
@@ -105,6 +104,14 @@ macro_rules! check_emission {
         pb.run_on(&module);
 
         insta::assert_snapshot!(module.to_string());
+    }
+}
+
+#[macro_export]
+macro_rules! check_emission {
+    ($hugr: ident, $test_ctx:ident) => {
+        let emit_hugr = $test_ctx.get_emit_hugr();
+        crate::check_emission_emit_hugr!($hugr, emit_hugr)
     };
 }
 

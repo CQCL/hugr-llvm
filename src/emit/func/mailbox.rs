@@ -79,7 +79,10 @@ impl<'c> ValueMailBox<'c> {
     fn write(&self, builder: &Builder<'c>, v: impl BasicValue<'c>) -> Result<()> {
         let mut v = v.as_basic_value_enum();
         if let Some(hook) = self.def_hook.as_ref() {
+            println!("def_hook");
             v = hook(builder, v)?;
+        } else {
+            println!("no def_hook");
         }
         builder.build_store(self.ptr, v)?;
         Ok(())
