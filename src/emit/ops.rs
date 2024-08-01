@@ -337,6 +337,30 @@ fn emit_call<'c, H: HugrView>(
     args.outputs.finish(builder, call_results)
 }
 
+fn emit_call_indirect<'c, H: HugrView>(
+    context: &mut EmitFuncContext<'c, H>,
+    args: EmitOpArgs<'c, Call, H>,
+) -> Result<()> {
+    if !args.node.signature.params().is_empty() {
+        return Err(anyhow!("Call of generic function"));
+    }
+    let (func_node, _) = args
+        .node
+        .single_linked_output(args.node.called_function_port())
+        .unwrap();
+    let func = match func_node.as_ref() {
+        OpType::FuncDecl(_) => context.get_func_decl(func_node.try_into_ot().unwrap()),
+        OpType::FuncDefn(_) => context.get_func_defn(func_node.try_into_ot().unwrap()),
+        _ => Err(anyhow!("emit_call: Not a Decl or Defn")),
+    };
+    let inputs = args.inputs.into_iter().map_into().collect_vec();
+    let builder = context.builder();
+    let call = builder.build_call(func?, inputs.as_slice(), "")?;
+    let call_results = deaggregate_call_result(builder, call, args.outputs.len())?;
+    args.outputs.finish(builder, call_results)
+}
+
+
 fn emit_load_function<'c, H: HugrView>(
     context: &mut EmitFuncContext<'c, H>,
     args: EmitOpArgs<'c, LoadFunction, H>,
@@ -385,6 +409,7 @@ fn emit_optype<'c, H: HugrView>(
         }
         OpType::LoadConstant(ref lc) => emit_load_constant(context, args.into_ot(lc)),
         OpType::Call(ref cl) => emit_call(context, args.into_ot(cl)),
+        OpType::CallIndirect(ref cli) => emit_call_indirect(context, args.into_ot(cli)),
         OpType::LoadFunction(ref lf) => emit_load_function(context, args.into_ot(lf)),
         OpType::Conditional(ref co) => emit_conditional(context, args.into_ot(co)),
         OpType::CFG(ref cfg) => emit_cfg(context, args.into_ot(cfg)),
