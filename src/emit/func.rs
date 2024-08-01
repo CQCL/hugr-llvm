@@ -15,7 +15,7 @@ use inkwell::{
 };
 use itertools::zip_eq;
 
-use crate::{def_hooks::DefHookClosure, types::{HugrFuncType, HugrSumType, HugrType, TypingSession}};
+use crate::{type_map::{def_hook::{DefHookTypeMap}, TypeMap}, types::{HugrFuncType, HugrSumType, HugrType, TypingSession}};
 use crate::{custom::CodegenExtsMap, fat::FatNode, types::LLVMSumType};
 use delegate::delegate;
 
@@ -51,7 +51,7 @@ pub struct EmitFuncContext<'c, H> {
     builder: Builder<'c>,
     prologue_bb: BasicBlock<'c>,
     launch_bb: BasicBlock<'c>,
-    def_hooks: Rc<DefHookClosure<'c>>,
+    def_hooks: DefHookTypeMap<'c, 'c, H>,
 }
 
 impl<'c, H: HugrView> EmitFuncContext<'c, H> {
@@ -172,18 +172,14 @@ impl<'c, H: HugrView> EmitFuncContext<'c, H> {
     }
 
     fn new_anon_mail_box<'s>(&'s mut self, t: &Type, name: impl AsRef<str>) -> Result<ValueMailBox<'c>> {
-        let bte = self.llvm_type(t)?;
-        let ptr = self.build_prologue(|builder| builder.build_alloca(bte, name.as_ref()))?;
-        Ok(ValueMailBox::new(bte, ptr, Some(name.as_ref().into())))
+        self.new_mail_box(t,name,None)
     }
 
-    // fn new_mail_box<'s>(&'s mut self, t: &Type, name: impl AsRef<str>, def_hook: impl MailBoxDefHook<'c> + 's) -> Result<ValueMailBox<'c>> {
-    //     let bte = self.llvm_type(t)?;
-    //     let ptr = self.build_prologue(|builder| builder.build_alloca(bte, name.as_ref()))?;
-    //     let mut mb = ValueMailBox::new(bte, ptr, Some(name.as_ref().into()));
-    //     mb.def_hooked(def_hook);
-    //     Ok()
-    // }
+    fn new_mail_box(&mut self, t: &Type, name: impl AsRef<str>, def_hook: Option<Rc<dyn MailBoxDefHook<'c> + 'c>>) -> Result<ValueMailBox<'c>> {
+        let bte = self.llvm_type(t)?;
+        let ptr = self.build_prologue(|builder| builder.build_alloca(bte, name.as_ref()))?;
+        Ok(ValueMailBox::new(bte, ptr, Some(name.as_ref().into()), def_hook))
+    }
 
     /// Create a new anonymous [RowMailBox]. This mailbox is not mapped to any
     /// [Wire]s, and so will not interact with any mailboxes returned from
@@ -278,14 +274,12 @@ impl<'c, H: HugrView> EmitFuncContext<'c, H> {
             debug_assert_eq!(self.llvm_type(hugr_type).unwrap(), mb.get_type());
             return Ok(mb.clone());
         }
-        // let def_hook = Rc::new(self.def_hooks.mailbox_def_hook(self.typing_session(), hugr_type.clone(), wire.node(), wire.source()));
-        let mut mb = self.new_anon_mail_box(
+        let def_hook = self.def_hooks.get_def_hook(hugr_type, self.typing_session(), node.hugr(), wire)?.map(Into::into);
+        let mut mb = self.new_mail_box(
             hugr_type,
             format!("{}_{}", node.node().index(), port.index()),
+            def_hook
         )?;
-        if let Some(hook) = self.def_hooks.clone().mailbox_def_hook(&self.typing_session(), hugr_type, wire.node(), wire.source()) {
-            mb.def_hooked(hook);
-        }
         self.env.insert(wire, mb.clone());
         Ok(mb)
     }

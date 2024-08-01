@@ -33,18 +33,19 @@ impl<'c> ValueMailBox<'c> {
         typ: impl BasicType<'c>,
         ptr: PointerValue<'c>,
         name: Option<String>,
+        def_hook: Option<Rc<dyn MailBoxDefHook<'c> + 'c>>
     ) -> Self {
         Self {
             typ: typ.as_basic_type_enum(),
             ptr,
             name: name.map_or(Cow::Borrowed(""), Cow::Owned),
-            def_hook: None,
+            def_hook,
         }
     }
 
-    pub fn def_hooked(&mut self, def_hook: impl MailBoxDefHook<'c> + 'c) where {
-        self.def_hook = Some(Rc::new(def_hook));
-    }
+    // pub fn def_hooked(&mut self, def_hook: impl MailBoxDefHook<'c> + 'c) where {
+    //     self.def_hook = Some(Rc::new(def_hook));
+    // }
 
     pub fn get_type(&self) -> BasicTypeEnum<'c> {
         self.typ
