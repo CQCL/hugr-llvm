@@ -9,8 +9,14 @@ use inkwell::{
 };
 use itertools::{zip_eq, Itertools as _};
 
-pub trait MailBoxDefHook<'c> : Fn(&Builder<'c>, BasicValueEnum<'c>) -> Result<BasicValueEnum<'c>> {}
-impl<'c, F: Fn(&Builder<'c>, BasicValueEnum<'c>) -> Result<BasicValueEnum<'c>> + ?Sized> MailBoxDefHook<'c> for F {}
+pub trait MailBoxDefHook<'c>:
+    Fn(&Builder<'c>, BasicValueEnum<'c>) -> Result<BasicValueEnum<'c>>
+{
+}
+impl<'c, F: Fn(&Builder<'c>, BasicValueEnum<'c>) -> Result<BasicValueEnum<'c>> + ?Sized>
+    MailBoxDefHook<'c> for F
+{
+}
 
 #[derive(Clone)]
 pub struct ValueMailBox<'c> {
@@ -33,7 +39,7 @@ impl<'c> ValueMailBox<'c> {
         typ: impl BasicType<'c>,
         ptr: PointerValue<'c>,
         name: Option<String>,
-        def_hook: Option<Rc<dyn MailBoxDefHook<'c> + 'c>>
+        def_hook: Option<Rc<dyn MailBoxDefHook<'c> + 'c>>,
     ) -> Self {
         Self {
             typ: typ.as_basic_type_enum(),

@@ -83,10 +83,7 @@ impl Default for SimpleHugrConfig {
 macro_rules! check_emission_emit_hugr {
     ($hugr: ident, $emit_hugr: ident) => {
         let root = $crate::fat::FatExt::fat_root::<hugr::ops::Module>(&$hugr).unwrap();
-        let module = $emit_hugr
-            .emit_module(root)
-            .unwrap()
-            .finish();
+        let module = $emit_hugr.emit_module(root).unwrap().finish();
 
         let mut settings = insta::Settings::clone_current();
         let new_suffix = settings
@@ -104,7 +101,7 @@ macro_rules! check_emission_emit_hugr {
         pb.run_on(&module);
 
         insta::assert_snapshot!(module.to_string());
-    }
+    };
 }
 
 #[macro_export]

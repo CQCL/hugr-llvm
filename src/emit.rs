@@ -15,7 +15,13 @@ use inkwell::{
 };
 use std::{borrow::BorrowMut, collections::HashSet, rc::Rc};
 
-use crate::{type_map::{def_hook::{DefHookTypeMap, DefHookTypeMapping}, CustomTypeKey, TypeMapping}, types::{HugrFuncType, HugrSumType, HugrType, TypingSession}};
+use crate::{
+    type_map::{
+        def_hook::{DefHookTypeMap, DefHookTypeMapping},
+        CustomTypeKey, TypeMapping,
+    },
+    types::{HugrFuncType, HugrSumType, HugrType, TypingSession},
+};
 
 use crate::{
     custom::CodegenExtsMap,
@@ -103,14 +109,17 @@ impl<'c, H> EmitModuleContext<'c, H> {
     }
 
     /// TODO docs
-    pub fn set_def_hook(&mut self, custom_type: CustomTypeKey, hook: impl TypeMapping<'c, DefHookTypeMapping<'c, 'c, H>> + 'c) {
+    pub fn set_def_hook(
+        &mut self,
+        custom_type: CustomTypeKey,
+        hook: impl TypeMapping<'c, DefHookTypeMapping<'c, 'c, H>> + 'c,
+    ) {
         self.def_hooks.set_def_hook(custom_type, hook);
     }
 
-    pub fn get_def_hooks(&self) -> DefHookTypeMap<'c,'c,H> {
+    pub fn get_def_hooks(&self) -> DefHookTypeMap<'c, 'c, H> {
         self.def_hooks.clone()
     }
-
 
     /// Returns a reference to the inner [Module]. Note that this type has
     /// "interior mutability", and this reference can be used to add functions
@@ -378,8 +387,8 @@ impl<'c, H: HugrView> EmitHugr<'c, H> {
     }
 }
 
-impl<'c,H> From<EmitModuleContext<'c,H>> for EmitHugr<'c,H> {
-    fn from(module_context: EmitModuleContext<'c,H>) -> Self {
+impl<'c, H> From<EmitModuleContext<'c, H>> for EmitHugr<'c, H> {
+    fn from(module_context: EmitModuleContext<'c, H>) -> Self {
         Self {
             emitted: Default::default(),
             module_context,

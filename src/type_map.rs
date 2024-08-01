@@ -2,7 +2,9 @@ use std::{borrow::Borrow, cell::RefCell, collections::HashMap, rc::Rc};
 
 use anyhow::{anyhow, Result};
 use hugr::{
-    extension::ExtensionId, types::{CustomType, TypeEnum, TypeName, TypeRow}, HugrView, Node, OutgoingPort
+    extension::ExtensionId,
+    types::{CustomType, TypeEnum, TypeName, TypeRow},
+    HugrView, Node, OutgoingPort,
 };
 use inkwell::{
     builder::Builder,
@@ -24,10 +26,7 @@ impl<'a, TM: TypeMappable<'a>, F: Fn(TM::InV) -> Result<TM::OutV> + ?Sized> Type
 {
 }
 
-pub trait TypeMappable<'a>
-where
-    // Self::OutV: 'a,
-{
+pub trait TypeMappable<'a> {
     type InV: Clone;
     type OutV;
     fn noop(v: &Self::InV) -> Self::OutV;
@@ -49,7 +48,9 @@ pub struct TypeMap<'a, TM: TypeMappable<'a>> {
 
 impl<'a, TM: TypeMappable<'a>> Clone for TypeMap<'a, TM> {
     fn clone(&self) -> Self {
-        Self { custom_hooks: self.custom_hooks.clone() }
+        Self {
+            custom_hooks: self.custom_hooks.clone(),
+        }
     }
 }
 
@@ -108,7 +109,6 @@ impl<'a, TM: TypeMappable<'a>> TypeMap<'a, TM> {
                 .collect::<Result<Vec<_>>>()?,
         ))
     }
-
 
     // pub fn add_composite_hook(&mut self, hugr_type: CustomType, components: HugrType) {}
 }

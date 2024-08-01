@@ -40,7 +40,7 @@ pub struct TypingSession<'c, H> {
     extensions: Rc<CodegenExtsMap<'c, H>>,
 }
 
-impl<'c,H> Clone for TypingSession<'c,H> {
+impl<'c, H> Clone for TypingSession<'c, H> {
     fn clone(&self) -> Self {
         Self {
             tc: self.tc.clone(),
