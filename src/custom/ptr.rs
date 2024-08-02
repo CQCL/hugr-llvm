@@ -2,29 +2,27 @@ use std::rc::Rc;
 
 use anyhow::{anyhow, Result};
 use hugr::{
-    extension::ExtensionId,
-    std_extensions::ptr,
-    types::{CustomType, TypeArg},
-    HugrView,
+    extension::{simple_op::MakeExtensionOp as _, ExtensionId}, ops::CustomOp, std_extensions::ptr::{self, PtrOp}, types::{CustomType, TypeArg}, HugrView
 };
 use inkwell::{
-    builder::Builder,
-    types::{BasicType, BasicTypeEnum, PointerType},
-    values::{BasicValueEnum, FunctionValue, PointerValue},
-    AddressSpace,
+    builder::Builder, module::{Linkage, Module}, types::{BasicType, BasicTypeEnum, PointerType}, values::{BasicValueEnum, FunctionValue, PointerValue}, AddressSpace
 };
+use itertools::Itertools as _;
 
 use crate::{
-    emit::EmitModuleContext,
+    emit::{EmitFuncContext, EmitModuleContext, EmitOp, EmitOpArgs},
     type_map::def_hook::DefHookInV,
     types::TypingSession,
 };
 
 use super::{CodegenExtension, CodegenExtsMap};
 
-struct RefCountedPtrCodegenExtension;
+struct RefCountedPtrCodegenExtension<'c>{
+    inc_count: FunctionValue<'c>,
+    new: FunctionValue<'c>,
+}
 
-impl<'c, H> CodegenExtension<'c, H> for RefCountedPtrCodegenExtension {
+impl<'c, H: HugrView> CodegenExtension<'c, H> for RefCountedPtrCodegenExtension<'c> {
     fn extension(&self) -> ExtensionId {
         ptr::EXTENSION_ID
     }
@@ -49,15 +47,100 @@ impl<'c, H> CodegenExtension<'c, H> for RefCountedPtrCodegenExtension {
 
     fn emitter<'a>(
         &self,
-        context: &'a mut crate::emit::EmitFuncContext<'c, H>,
-    ) -> Box<dyn crate::emit::EmitOp<'c, hugr::ops::CustomOp, H> + 'a> {
-        todo!()
+        context: &'a mut EmitFuncContext<'c, H>,
+    ) -> Box<dyn EmitOp<'c, CustomOp, H> + 'a> {
+        Box::new(RefCountedPtrEmitter{context, build_inc_count: build_call_inc_count(self.inc_count), new: self.new} )
     }
 }
 
-impl<'c, H> CodegenExtsMap<'c, H> {
-    pub fn add_ref_counted_ptr(self) -> Self {
-        self.add_cge(RefCountedPtrCodegenExtension)
+struct RefCountedPtrEmitter<'a, 'c, H, B> {
+    context: &'a mut EmitFuncContext<'c, H>,
+    build_inc_count: B,
+    new: FunctionValue<'c>,
+}
+
+impl<'c,H: HugrView, B: BuildIncCount<'c, 'c>> EmitOp<'c, CustomOp, H> for RefCountedPtrEmitter<'_, 'c, H, B> {
+    fn emit(&mut self, args: EmitOpArgs<'c, CustomOp, H>) -> Result<()> {
+        let Some(ext_op) = args.node.as_extension_op() else {
+            Err(anyhow!("Not an extension op"))?
+        };
+
+        let op = PtrOp::from_extension_op(&ext_op)?;
+        match op.def {
+            ptr::PtrOpDef::New => {
+                let builder = self.context.builder();
+                let [val] = args.inputs.try_into().map_err(|_| anyhow!("PtrOpDef::New expects one input"))?;
+                let val_ptr_type = val.get_type().ptr_type(Default::default());
+                let expected_result_type: PointerType = {
+                    let [t] = args.outputs.get_types().collect_vec().try_into().map_err(|_| anyhow!("PtrOpDef::New expects one output"))?;
+                    t.try_into().map_err(|_| anyhow!("not a pointer type"))?
+                };
+                let size = val.get_type().size_of().ok_or(anyhow!("Could not compute size of type"))?;
+                let destructor: FunctionValue = todo!();
+                let allocation: PointerValue = {
+                    let r = builder.build_call(self.new, &[size.into(), destructor.as_global_value().as_pointer_value().into()], "")?;
+                    r.try_as_basic_value().left().and_then(|x| x.try_into().ok()).ok_or(anyhow!("PtrOpDef::New: new did not return a pointer"))?
+                };
+                if allocation.get_type() != val_ptr_type {
+                    allocation = builder.build_bitcast(allocation, val_ptr_type, "")?.try_into().map_err(|_| anyhow!("val_ptr_type not a pointer"))?;
+                }
+                builder.build_store(allocation, val)?;
+                if allocation.get_type() != expected_result_type {
+                    allocation = builder.build_bitcast(allocation, expected_result_type, "")?.try_into().map_err(|_| anyhow!("val_ptr_type not a pointer"))?;
+                }
+
+                args.outputs.finish(builder, [allocation.into()])
+
+            },
+            ptr::PtrOpDef::Read => {
+                let builder = self.context.builder();
+                let [mut ptr] = args.inputs.try_into().map_err(|_| anyhow!("PtrOpDef::Read expects one input"))?;
+                let [expected_type] = args.outputs.get_types().collect_vec().try_into().map_err(|_| anyhow!("PtrOpDef::Read expects one output"))?;
+                let expected_ptr_type = expected_type.ptr_type(Default::default());
+                if ptr.get_type() != expected_ptr_type.into() {
+                    ptr = builder.build_bitcast(ptr, expected_ptr_type, "")?;
+                }
+                let Ok(ptr) = PointerValue::try_from(ptr) else {
+                    Err(anyhow!("PtrOpDef::Read arg is not a pointer"))?
+                };
+                let result = builder.build_load(ptr, "")?;
+                (self.build_inc_count)(builder, ptr, -1)?;
+                args.outputs.finish(builder, [result])
+            },
+            ptr::PtrOpDef::Write => {
+                let builder = self.context.builder();
+                let [mut ptr, val] = args.inputs.try_into().map_err(|_| anyhow!("PtrOpDef::Write expects two inputs"))?;
+                let expected_ptr_type = val.get_type().ptr_type(Default::default());
+                if ptr.get_type() != expected_ptr_type.into() {
+                    ptr = builder.build_bitcast(ptr, expected_ptr_type, "")?;
+                }
+                let Ok(ptr) = PointerValue::try_from(ptr) else {
+                    Err(anyhow!("PtrOpDef::Read arg is not a pointer"))?
+                };
+                builder.build_store(ptr, val)?;
+                (self.build_inc_count)(builder, ptr, -1)?;
+                args.outputs.finish(builder, [])
+
+            },
+            _ => todo!(),
+        }
+
+
+    }
+}
+
+impl<'c, H: HugrView> CodegenExtsMap<'c, H> {
+    pub fn add_ref_counted_ptr(self, module: &Module<'c>) -> Self {
+        let ctx = module.get_context();
+        let i8_ptr_type = ctx.i8_type().ptr_type(Default::default()).as_basic_type_enum();
+
+        let inc_count_type = ctx.void_type().fn_type(&[i8_ptr_type.into(), ctx.i64_type().into()], false);
+        let inc_count = module.add_function("inc_count", inc_count_type, Some(Linkage::External));
+
+        let new_type = i8_ptr_type.fn_type(&[ctx.i64_type().into(), i8_ptr_type.into()], false);
+        let new = module.add_function("__new", new_type, Some(Linkage::External));
+
+        self.add_cge(RefCountedPtrCodegenExtension{ inc_count, new })
     }
 }
 
@@ -159,7 +242,7 @@ mod test {
 
     #[rstest]
     fn ptr(mut llvm_ctx: TestContext) {
-        llvm_ctx.add_extensions(|exts| exts.add_ref_counted_ptr());
+        // llvm_ctx.add_extensions(|exts| exts.add_ref_counted_ptr());
         let mut emit_context = llvm_ctx.get_emit_module_context();
         let iw_context = emit_context.iw_context();
 
