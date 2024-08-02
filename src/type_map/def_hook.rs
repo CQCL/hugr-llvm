@@ -74,10 +74,6 @@ impl<'a, 'c, H> TypeMappable<'a> for DefHookTypeMapping<'a, 'c, H> {
     type InV = DefHookInV<'a, 'c, H>;
     type OutV = Rc<dyn MailBoxDefHook<'c> + 'a>;
 
-    fn noop(_: &Self::InV) -> Self::OutV {
-        Rc::new(move |_, value| Ok(value))
-    }
-
     fn aggregate_variants(
         sum_type: &HugrSumType,
         inv: Self::InV,

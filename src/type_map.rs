@@ -10,6 +10,7 @@ use itertools::Either;
 use crate::types::{HugrSumType, HugrType};
 
 pub mod def_hook;
+pub mod destructor;
 
 pub trait TypeMapping<'a, TM: TypeMappable<'a>>: Fn(TM::InV) -> Result<TM::OutV> {}
 impl<'a, TM: TypeMappable<'a>, F: Fn(TM::InV) -> Result<TM::OutV> + ?Sized> TypeMapping<'a, TM>
@@ -20,7 +21,6 @@ impl<'a, TM: TypeMappable<'a>, F: Fn(TM::InV) -> Result<TM::OutV> + ?Sized> Type
 pub trait TypeMappable<'a> {
     type InV: Clone;
     type OutV;
-    fn noop(v: &Self::InV) -> Self::OutV;
     fn aggregate_variants(
         sum_type: &HugrSumType,
         inv: Self::InV,
