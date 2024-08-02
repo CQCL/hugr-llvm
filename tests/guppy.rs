@@ -13,8 +13,8 @@ use hugr::{
     Hugr, HugrView,
 };
 use hugr_llvm::{
-    custom::{CodegenExtension, CodegenExtsMap},
-    emit::{deaggregate_call_result, EmitHugr, EmitOp, EmitOpArgs, Namer},
+    custom::{CodegenExtensionsBuilder, CodegenExtsMap},
+    emit::{deaggregate_call_result, EmitFuncContext, EmitHugr, EmitOp, EmitOpArgs, Namer},
     fat::FatExt as _,
 };
 use inkwell::{context::Context, module::Module};
@@ -50,27 +50,25 @@ impl<'a, 'c, H: HugrView> EmitOp<'c, CustomOp, H> for Tket2Emitter<'a, 'c, H> {
     }
 }
 
-// A toy codegen extension for "quantum.tket2" ops.
-struct Tket2CodegenExtension;
+fn tket2_op_handler<'a, 'c, H: HugrView>(
+    context: &'a mut EmitFuncContext<'c, H>,
+) -> Box<dyn EmitOp<'c, CustomOp, H> + 'a> {
+    Box::new(Tket2Emitter(context))
+}
 
-impl<'c, H: HugrView> CodegenExtension<'c, H> for Tket2CodegenExtension {
-    fn extension(&self) -> ExtensionId {
-        ExtensionId::new("quantum.tket2").unwrap()
-    }
+trait AddTket2Extension {
+    fn add_tket2_extension(self) -> Self;
+}
 
-    fn llvm_type(
-        &self,
-        _context: &hugr_llvm::types::TypingSession<'c, H>,
-        _hugr_type: &hugr::types::CustomType,
-    ) -> anyhow::Result<inkwell::types::BasicTypeEnum<'c>> {
-        unimplemented!()
-    }
-
-    fn emitter<'a>(
-        &self,
-        context: &'a mut hugr_llvm::emit::EmitFuncContext<'c, H>,
-    ) -> Box<dyn hugr_llvm::emit::EmitOp<'c, hugr::ops::CustomOp, H> + 'a> {
-        Box::new(Tket2Emitter(context))
+impl<'c, H: HugrView> AddTket2Extension for CodegenExtensionsBuilder<'c, H> {
+    fn add_tket2_extension(mut self) -> Self {
+        let id = ExtensionId::new("quantum.tket2").unwrap();
+        for op in [
+            "QAlloc", "H", "CX", "Tdg", "Measure", "RzF64", "QFree", "T", "Z", "X", "Reset",
+        ] {
+            self = self.add_op(&id, op, tket2_op_handler);
+        }
+        self
     }
 }
 
@@ -78,11 +76,11 @@ impl<'c, H: HugrView> CodegenExtension<'c, H> for Tket2CodegenExtension {
 fn hugr_to_module<'c>(context: &'c Context, hugr: &'c Hugr) -> Module<'c> {
     let module = context.create_module("test_context");
     let namer = Namer::default().into();
-    let exts = CodegenExtsMap::default()
+    let exts = CodegenExtensionsBuilder::default()
         .add_int_extensions()
         .add_default_prelude_extensions()
         .add_float_extensions()
-        .add_cge(Tket2CodegenExtension);
+        .add_tket2_extension();
     let root = hugr.fat_root().unwrap();
     EmitHugr::new(context, module, namer, exts.into())
         .emit_module(root)

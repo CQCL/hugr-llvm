@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use anyhow::{anyhow, Result};
 use hugr::{
-    extension::{simple_op::MakeExtensionOp as _, ExtensionId}, ops::CustomOp, std_extensions::ptr::{self, PtrOp}, types::{CustomType, TypeArg}, HugrView
+    extension::{simple_op::MakeExtensionOp as _, ExtensionId}, ops::CustomOp, std_extensions::ptr::{self, PtrOp, PtrOpDef, PTR_REG}, types::{CustomType, TypeArg}, HugrView
 };
 use inkwell::{
     builder::Builder, module::{Linkage, Module}, types::{BasicType, BasicTypeEnum, PointerType}, values::{BasicValueEnum, FunctionValue, PointerValue}, AddressSpace
@@ -11,52 +11,58 @@ use itertools::Itertools as _;
 
 use crate::{
     emit::{EmitFuncContext, EmitModuleContext, EmitOp, EmitOpArgs},
-    type_map::def_hook::DefHookInV,
+    type_map::{def_hook::{DefHookInV, DefHookTypeMapping}, TypeMapping},
     types::TypingSession,
 };
 
-use super::{CodegenExtension, CodegenExtsMap};
+use super::{CodegenExtsMap};
 
 struct RefCountedPtrCodegenExtension<'c>{
     inc_count: FunctionValue<'c>,
     new: FunctionValue<'c>,
 }
 
-impl<'c, H: HugrView> CodegenExtension<'c, H> for RefCountedPtrCodegenExtension<'c> {
-    fn extension(&self) -> ExtensionId {
-        ptr::EXTENSION_ID
-    }
+// impl<'c, H: HugrView> CodegenExtension<'c, H> for RefCountedPtrCodegenExtension<'c> {
+//     fn extension(&self) -> ExtensionId {
+//         ptr::EXTENSION_ID
+//     }
 
-    fn llvm_type(
-        &self,
-        context: &TypingSession<'c, H>,
-        hugr_type: &CustomType,
-    ) -> Result<BasicTypeEnum<'c>> {
-        if hugr_type.name() == &ptr::PTR_TYPE_ID {
-            let [TypeArg::Type { ty }] = hugr_type.args() else {
-                return Err(anyhow!("Expected exactly one argument for ptr type"));
-            };
-            Ok(context
-                .llvm_type(ty)?
-                .ptr_type(AddressSpace::default())
-                .as_basic_type_enum())
-        } else {
-            Err(anyhow!("Unsupported type: {hugr_type}"))
-        }
-    }
+//     fn llvm_type(
+//         &self,
+//         context: &TypingSession<'c, H>,
+//         hugr_type: &CustomType,
+//     ) -> Result<BasicTypeEnum<'c>> {
+//         if hugr_type.name() == &ptr::PTR_TYPE_ID {
+//             let [TypeArg::Type { ty }] = hugr_type.args() else {
+//                 return Err(anyhow!("Expected exactly one argument for ptr type"));
+//             };
+//             Ok(context
+//                 .llvm_type(ty)?
+//                 .ptr_type(AddressSpace::default())
+//                 .as_basic_type_enum())
+//         } else {
+//             Err(anyhow!("Unsupported type: {hugr_type}"))
+//         }
+//     }
 
-    fn emitter<'a>(
-        &self,
-        context: &'a mut EmitFuncContext<'c, H>,
-    ) -> Box<dyn EmitOp<'c, CustomOp, H> + 'a> {
-        Box::new(RefCountedPtrEmitter{context, build_inc_count: build_call_inc_count(self.inc_count), new: self.new} )
-    }
-}
+//     fn emitter<'a>(
+//         &self,
+//         context: &'a mut EmitFuncContext<'c, H>,
+//     ) -> Box<dyn EmitOp<'c, CustomOp, H> + 'a> {
+//         Box::new(RefCountedPtrEmitter{context, build_inc_count: build_call_inc_count(self.inc_count), new: self.new} )
+//     }
+// }
 
 struct RefCountedPtrEmitter<'a, 'c, H, B> {
     context: &'a mut EmitFuncContext<'c, H>,
     build_inc_count: B,
     new: FunctionValue<'c>,
+}
+
+impl<'a, 'c,H: HugrView ,B: BuildIncCount<'c,'c>>  RefCountedPtrEmitter<'a, 'c, H, B> {
+    pub fn new(context: &'a mut EmitFuncContext<'c, H>, build_inc_count: B, new: FunctionValue<'c>) -> Box<dyn EmitOp<'c,CustomOp,H> + 'a> {
+        Box::new(Self { context, build_inc_count,new })
+    }
 }
 
 impl<'c,H: HugrView, B: BuildIncCount<'c, 'c>> EmitOp<'c, CustomOp, H> for RefCountedPtrEmitter<'_, 'c, H, B> {
@@ -129,6 +135,12 @@ impl<'c,H: HugrView, B: BuildIncCount<'c, 'c>> EmitOp<'c, CustomOp, H> for RefCo
     }
 }
 
+fn handle_ptr_op<'a,'c, H: HugrView, B: BuildIncCount<'c,'c>>(context: &'a mut EmitFuncContext<'c, H>, build_inc_count: B, new: FunctionValue<'c>) -> Box<dyn EmitOp<'c, CustomOp, H> + 'a> {
+    RefCountedPtrEmitter::new(context, build_inc_count, new)
+
+
+}
+
 impl<'c, H: HugrView> CodegenExtsMap<'c, H> {
     pub fn add_ref_counted_ptr(self, module: &Module<'c>) -> Self {
         let ctx = module.get_context();
@@ -136,60 +148,71 @@ impl<'c, H: HugrView> CodegenExtsMap<'c, H> {
 
         let inc_count_type = ctx.void_type().fn_type(&[i8_ptr_type.into(), ctx.i64_type().into()], false);
         let inc_count = module.add_function("inc_count", inc_count_type, Some(Linkage::External));
+        let build_inc_count = Rc::new(build_call_inc_count(inc_count));
 
         let new_type = i8_ptr_type.fn_type(&[ctx.i64_type().into(), i8_ptr_type.into()], false);
         let new = module.add_function("__new", new_type, Some(Linkage::External));
 
-        self.add_cge(RefCountedPtrCodegenExtension{ inc_count, new })
+        let ptr_key = (ptr::EXTENSION_ID,ptr::PTR_TYPE_ID);
+        self.add_type_by_key(ptr_key.clone(), move |session, custom_type| {
+            if custom_type.name() == &ptr::PTR_TYPE_ID {
+                let [TypeArg::Type { ty }] = custom_type.args() else {
+                    return Err(anyhow!("Expected exactly one argument for ptr type"));
+                };
+                Ok(session
+                    .llvm_type(ty)?
+                    .ptr_type(AddressSpace::default())
+                    .as_basic_type_enum())
+            } else {
+                Err(anyhow!("Unsupported type: {custom_type}"))
+            }}).add_simple_op::<PtrOpDef>(move |context| handle_ptr_op(context, build_inc_count.clone(), new))
+            .set_def_hook_by_key(ptr_key, ptr_def_hook(build_call_inc_count(inc_count)))
+
     }
 }
+
+
 
 pub trait BuildIncCount<'a, 'c>:
     Fn(&Builder<'c>, PointerValue<'c>, isize) -> Result<()> + 'a
 where
-    'c: 'a,
 {
 }
 
 impl<'a, 'c, F: Fn(&Builder<'c>, PointerValue<'c>, isize) -> Result<()> + 'a> BuildIncCount<'a, 'c>
     for F
 where
-    'c: 'a,
 {
 }
 
-pub fn add_ptr_def_hook<'c, H: HugrView>(
-    context: &mut EmitModuleContext<'c, H>,
-    build_inc_count: impl BuildIncCount<'c, 'c>,
-) {
+pub fn ptr_def_hook<'a, 'c, H: HugrView>(
+    build_inc_count: impl BuildIncCount<'a, 'c>,
+) -> impl TypeMapping<'a, DefHookTypeMapping<'a, 'c, H>> {
     let build_inc_count = Rc::new(build_inc_count);
-    context.set_def_hook(
-        (ptr::EXTENSION_ID, ptr::PTR_TYPE_ID),
-        move |DefHookInV(_, hugr, wire)| {
-            let build_inc_count = build_inc_count.clone();
-            Ok(Rc::new(
-                move |builder: &Builder<'c>, value: BasicValueEnum<'c>| {
-                    let value: PointerValue = value
-                        .try_into()
-                        .map_err(|_| anyhow!("no a pointer value"))?;
-                    let num_uses = hugr.linked_inputs(wire.node(), wire.source()).count();
-                    match num_uses {
-                        0 => {
-                            build_inc_count(builder, value.into(), -1)?;
-                        }
-                        x if x > 1 => {
-                            build_inc_count(builder, value.into(), (x - 1) as isize)?;
-                        }
-                        _ => (),
-                    };
-                    Ok(value.into())
-                },
-            ))
-        },
-    )
+    move |DefHookInV(_, hugr, wire)| {
+        let build_inc_count = build_inc_count.clone();
+        Ok(Rc::new(
+            move |builder: &Builder<'c>, value: BasicValueEnum<'c>| {
+                let value: PointerValue = value
+                    .try_into()
+                    .map_err(|_| anyhow!("no a pointer value"))?;
+                let num_uses = hugr.linked_inputs(wire.node(), wire.source()).count();
+                match num_uses {
+                    0 => {
+                        build_inc_count(builder, value.into(), -1)?;
+                    }
+                    x if x > 1 => {
+                        build_inc_count(builder, value.into(), (x - 1) as isize)?;
+                    }
+                    _ => (),
+                };
+                Ok(value.into())
+            },
+        ))
+    }
 }
 
-pub fn build_call_inc_count<'a, 'c>(inc_count_func: FunctionValue<'c>) -> impl BuildIncCount<'a, 'c>
+pub fn build_call_inc_count<'a, 'c>(inc_count_func: FunctionValue<'c>) -> impl BuildIncCount<'a, 'c> + 'a
 where
     'c: 'a,
 {
@@ -210,12 +233,6 @@ where
         }
         builder.build_call(inc_count_func, &[value.into(), inc.into()], "")?;
         Ok(())
-    }
-}
-
-impl<'c, H: HugrView> EmitModuleContext<'c, H> {
-    pub fn add_ptr_def_hook(&mut self, build_inc_count: impl BuildIncCount<'c, 'c>) {
-        add_ptr_def_hook(self, build_inc_count)
     }
 }
 

@@ -13,6 +13,7 @@ use crate::{
 
 use super::{CustomTypeKey, TypeMap, TypeMappable, TypeMapping};
 
+#[derive(Default)]
 pub struct Destructor<'a, 'c, H>(TypeMap<'a, DestructorTypeMapping<'a, 'c, H>>);
 
 #[derive(Default)]

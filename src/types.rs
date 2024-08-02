@@ -10,9 +10,8 @@ use inkwell::{
     types::{BasicMetadataTypeEnum, BasicType, BasicTypeEnum},
 };
 
+use crate::custom::{CodegenExtensionsBuilder, CodegenExtsMap};
 pub use crate::sum::LLVMSumType;
-
-use super::custom::CodegenExtsMap;
 
 /// A type alias for a hugr function type. We use this to disambiguate from
 /// the LLVM [FunctionType].
@@ -37,7 +36,7 @@ pub struct TypeConverter<'c> {
 /// a hugr [HugrType] to an LLVM [Type](inkwell::types).
 pub struct TypingSession<'c, H> {
     tc: Rc<TypeConverter<'c>>,
-    extensions: Rc<CodegenExtsMap<'c, H>>,
+    extensions: Rc<CodegenExtensionsBuilder<'c, H>>,
 }
 
 impl<'c, H> Clone for TypingSession<'c, H> {
@@ -58,7 +57,7 @@ impl<'c, H> TypingSession<'c, H> {
     }
 
     /// Creates a new `TypingSession`.
-    pub fn new(tc: Rc<TypeConverter<'c>>, extensions: Rc<CodegenExtsMap<'c, H>>) -> Self {
+    pub fn new(tc: Rc<TypeConverter<'c>>, extensions: Rc<CodegenExtensionsBuilder<'c, H>>) -> Self {
         TypingSession { tc, extensions }
     }
 

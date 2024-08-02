@@ -1,92 +1,32 @@
-use std::{any::TypeId, collections::HashSet};
-
 use anyhow::{anyhow, Result};
 use hugr::{
-    ops::{constant::CustomConst, CustomOp},
-    std_extensions::arithmetic::{
-        float_ops,
-        float_types::{self, ConstF64, FLOAT64_CUSTOM_TYPE},
-    },
-    HugrView,
+    ops::{constant::CustomConst, CustomOp}, std_extensions::arithmetic::float_types::{self, ConstF64, FLOAT64_CUSTOM_TYPE, FLOAT64_TYPE}, types::CustomType, HugrView
 };
 use inkwell::{
-    types::{BasicType, FloatType},
+    types::{BasicType, BasicTypeEnum, FloatType},
     values::{BasicValue, BasicValueEnum},
 };
 
-use crate::emit::{func::EmitFuncContext, EmitOp, EmitOpArgs, NullEmitLlvm};
+use crate::{emit::{func::EmitFuncContext, EmitOp, EmitOpArgs}, types::TypingSession};
 
-use super::{CodegenExtension, CodegenExtsMap};
-
-struct FloatTypesCodegenExtension;
-
-impl<'c, H: HugrView> CodegenExtension<'c, H> for FloatTypesCodegenExtension {
-    fn extension(&self) -> hugr::extension::ExtensionId {
-        float_types::EXTENSION_ID
-    }
-
-    fn llvm_type(
-        &self,
-        context: &crate::types::TypingSession<'c, H>,
-        hugr_type: &hugr::types::CustomType,
-    ) -> anyhow::Result<inkwell::types::BasicTypeEnum<'c>> {
-        if hugr_type == &FLOAT64_CUSTOM_TYPE {
-            Ok(context.iw_context().f64_type().as_basic_type_enum())
-        } else {
-            Err(anyhow!(
-                "FloatCodegenExtension: Unsupported type: {}",
-                hugr_type
-            ))
-        }
-    }
-
-    fn emitter<'a>(
-        &self,
-        _context: &'a mut crate::emit::func::EmitFuncContext<'c, H>,
-    ) -> Box<dyn crate::emit::EmitOp<'c, hugr::ops::CustomOp, H> + 'a> {
-        Box::new(NullEmitLlvm)
-    }
-
-    fn supported_consts(&self) -> HashSet<TypeId> {
-        [TypeId::of::<ConstF64>()].into_iter().collect()
-    }
-
-    fn load_constant(
-        &self,
-        context: &mut EmitFuncContext<'c, H>,
-        konst: &dyn hugr::ops::constant::CustomConst,
-    ) -> Result<Option<BasicValueEnum<'c>>> {
-        let Some(k) = konst.downcast_ref::<ConstF64>() else {
-            return Ok(None);
-        };
-        let ty: FloatType<'c> = context.llvm_type(&k.get_type())?.try_into().unwrap();
-        Ok(Some(ty.const_float(k.value()).as_basic_value_enum()))
-    }
-}
+use super::{CodegenExtensionsBuilder};
 
 struct FloatOpsCodegenExtension;
 
-impl<'c, H: HugrView> CodegenExtension<'c, H> for FloatOpsCodegenExtension {
-    fn extension(&self) -> hugr::extension::ExtensionId {
-        float_ops::EXTENSION_ID
-    }
+fn float_type_handler<'c, H>(
+    session: &TypingSession<'c, H>,
+    hugr_type: &CustomType,
+) -> Result<BasicTypeEnum<'c>> {
+    debug_assert_eq!(hugr_type, &FLOAT64_CUSTOM_TYPE);
+    Ok(session.iw_context().f64_type().as_basic_type_enum())
+}
 
-    fn llvm_type(
-        &self,
-        _context: &crate::types::TypingSession<'c, H>,
-        hugr_type: &hugr::types::CustomType,
-    ) -> anyhow::Result<inkwell::types::BasicTypeEnum<'c>> {
-        Err(anyhow!(
-            "FloatOpsCodegenExtension: unsupported type: {hugr_type}"
-        ))
-    }
-
-    fn emitter<'a>(
-        &self,
-        context: &'a mut crate::emit::func::EmitFuncContext<'c, H>,
-    ) -> Box<dyn crate::emit::EmitOp<'c, hugr::ops::CustomOp, H> + 'a> {
-        Box::new(FloatOpEmitter(context))
-    }
+fn const_float_handler<'c, H: HugrView>(
+    context: &mut EmitFuncContext<'c, H>,
+    konst: &ConstF64,
+) -> Result<BasicValueEnum<'c>> {
+    let ty: FloatType<'c> = context.llvm_type(&konst.get_type())?.try_into().unwrap();
+    Ok(ty.const_float(konst.value()).as_basic_value_enum())
 }
 
 // we allow dead code for now, but once we implement the emitter, we should
@@ -107,12 +47,11 @@ impl<'c, H: HugrView> EmitOp<'c, CustomOp, H> for FloatOpEmitter<'c, '_, H> {
     }
 }
 
-pub fn add_float_extensions<H: HugrView>(cem: CodegenExtsMap<'_, H>) -> CodegenExtsMap<'_, H> {
-    cem.add_cge(FloatTypesCodegenExtension)
-        .add_cge(FloatOpsCodegenExtension)
+pub fn add_float_extensions<H: HugrView>(cem: CodegenExtensionsBuilder<H>) -> CodegenExtensionsBuilder<H> {
+    cem.add_custom_const(const_float_handler).add_type(&FLOAT64_CUSTOM_TYPE, float_type_handler)
 }
 
-impl<H: HugrView> CodegenExtsMap<'_, H> {
+impl<H: HugrView> CodegenExtensionsBuilder<'_, H> {
     pub fn add_float_extensions(self) -> Self {
         add_float_extensions(self)
     }

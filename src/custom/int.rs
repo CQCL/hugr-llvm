@@ -1,11 +1,9 @@
-use std::{any::TypeId, collections::HashSet};
-
 use hugr::{
-    extension::{simple_op::MakeExtensionOp, ExtensionId},
+    extension::simple_op::MakeExtensionOp,
     ops::{constant::CustomConst, CustomOp, NamedOp, Value},
     std_extensions::arithmetic::{
-        int_ops::{self, ConcreteIntOp},
-        int_types::{self, ConstInt},
+        int_ops::{ConcreteIntOp, IntOpDef},
+        int_types::{self, ConstInt, INT_TYPE_ID},
     },
     types::{CustomType, TypeArg},
     HugrView,
@@ -18,12 +16,13 @@ use inkwell::{
 use itertools::{zip_eq, Itertools as _};
 
 use crate::{
-    emit::{emit_value, func::EmitFuncContext, EmitOp, EmitOpArgs, NullEmitLlvm},
+    emit::{emit_value, func::EmitFuncContext, EmitOp, EmitOpArgs},
     types::TypingSession,
 };
 
-use super::{CodegenExtension, CodegenExtsMap};
 use anyhow::{anyhow, Result};
+
+use super::CodegenExtensionsBuilder;
 
 struct IntOpEmitter<'c, 'd, H>(&'d mut EmitFuncContext<'c, H>);
 
@@ -114,118 +113,169 @@ impl<'c, H: HugrView> EmitOp<'c, CustomOp, H> for IntOpEmitter<'c, '_, H> {
 /// extension.
 ///
 /// TODO: very incomplete
-pub struct IntOpsCodegenExtension;
+// pub struct IntOpsCodegenExtension;
 
-impl<'c, H: HugrView> CodegenExtension<'c, H> for IntOpsCodegenExtension {
-    fn extension(&self) -> ExtensionId {
-        int_ops::EXTENSION_ID
-    }
+// impl<'c, H: HugrView> CodegenExtension<'c, H> for IntOpsCodegenExtension {
+//     fn extension(&self) -> ExtensionId {
+//         int_ops::EXTENSION_ID
+//     }
 
-    fn llvm_type<'d>(
-        &self,
-        _context: &TypingSession<'c, H>,
-        hugr_type: &CustomType,
-    ) -> Result<BasicTypeEnum<'c>> {
-        Err(anyhow!(
-            "IntOpsCodegenExtension: unsupported type: {}",
-            hugr_type
-        ))
-    }
+//     fn llvm_type<'d>(
+//         &self,
+//         _context: &TypingSession<'c, H>,
+//         hugr_type: &CustomType,
+//     ) -> Result<BasicTypeEnum<'c>> {
+//         Err(anyhow!(
+//             "IntOpsCodegenExtension: unsupported type: {}",
+//             hugr_type
+//         ))
+//     }
 
-    fn emitter<'a>(
-        &self,
-        context: &'a mut EmitFuncContext<'c, H>,
-    ) -> Box<dyn EmitOp<'c, CustomOp, H> + 'a> {
-        Box::new(IntOpEmitter(context))
-    }
+//     fn emitter<'a>(
+//         &self,
+//         context: &'a mut EmitFuncContext<'c, H>,
+//     ) -> Box<dyn EmitOp<'c, CustomOp, H> + 'a> {
+//         Box::new(IntOpEmitter(context))
+//     }
+// }
+
+// /// A [CodegenExtension] for the [hugr::std_extensions::arithmetic::int_types]
+// /// extension.
+// ///
+// /// TODO: very incomplete
+// pub struct IntTypesCodegenExtension;
+
+// impl<'c, H: HugrView> EmitOp<'c, CustomOp, H> for IntTypesCodegenExtension {
+//     fn emit(&mut self, args: EmitOpArgs<'c, CustomOp, H>) -> Result<()> {
+//         Err(anyhow!(
+//             "IntTypesCodegenExtension: unsupported op: {}",
+//             args.node().name()
+//         ))
+//     }
+// }
+
+// impl<'c, H: HugrView> CodegenExtension<'c, H> for IntTypesCodegenExtension {
+//     fn extension(&self) -> ExtensionId {
+//         int_types::EXTENSION_ID
+//     }
+
+//     fn llvm_type<'d>(
+//         &self,
+//         context: &TypingSession<'c, H>,
+//         hugr_type: &CustomType,
+//     ) -> Result<BasicTypeEnum<'c>> {
+//         if let [TypeArg::BoundedNat { n }] = hugr_type.args() {
+//             let m = *n as usize;
+//             if m < int_types::INT_TYPES.len() && int_types::INT_TYPES[m] == hugr_type.clone().into()
+//             {
+//                 return Ok(match m {
+//                     0..=3 => context.iw_context().i8_type(),
+//                     4 => context.iw_context().i16_type(),
+//                     5 => context.iw_context().i32_type(),
+//                     6 => context.iw_context().i64_type(),
+//                     _ => Err(anyhow!(
+//                         "IntTypesCodegenExtension: unsupported log_width: {}",
+//                         m
+//                     ))?,
+//                 }
+//                 .into());
+//             }
+//         }
+//         Err(anyhow!(
+//             "IntTypesCodegenExtension: unsupported type: {}",
+//             hugr_type
+//         ))
+//     }
+
+//     fn emitter<'a>(
+//         &self,
+//         _: &'a mut EmitFuncContext<'c, H>,
+//     ) -> Box<dyn EmitOp<'c, CustomOp, H> + 'a> {
+//         Box::new(NullEmitLlvm)
+//     }
+
+//     fn supported_consts(&self) -> HashSet<TypeId> {
+//         [TypeId::of::<ConstInt>()].into_iter().collect()
+//     }
+
+//     fn load_constant(
+//         &self,
+//         context: &mut EmitFuncContext<'c, H>,
+//         konst: &dyn hugr::ops::constant::CustomConst,
+//     ) -> Result<Option<BasicValueEnum<'c>>> {
+//         let Some(k) = konst.downcast_ref::<ConstInt>() else {
+//             return Ok(None);
+//         };
+//         let ty: IntType<'c> = context
+//             .llvm_type(&k.get_type())?
+//             .try_into()
+//             .map_err(|_| anyhow!("Failed to get ConstInt as IntType"))?;
+//         // k.value_u() is in two's complement representation of the exactly
+//         // correct bit width, so we are safe to unconditionally retrieve the
+//         // unsigned value and do no sign extension.
+//         Ok(Some(ty.const_int(k.value_u(), false).into()))
+//     }
+// }
+
+fn const_int_handler<'c, H: HugrView>(
+    context: &mut EmitFuncContext<'c, H>,
+    konst: &ConstInt,
+) -> Result<BasicValueEnum<'c>> {
+    let ty: IntType = context
+        .llvm_type(&konst.get_type())?
+        .try_into()
+        .map_err(|_| anyhow!("Failed to get ConstInt as IntType"))?;
+    // k.value_u() is in two's complement representation of the exactly
+    // correct bit width, so we are safe to unconditionally retrieve the
+    // unsigned value and do no sign extension.
+    Ok(ty.const_int(konst.value_u(), false).into())
 }
 
-/// A [CodegenExtension] for the [hugr::std_extensions::arithmetic::int_types]
-/// extension.
-///
-/// TODO: very incomplete
-pub struct IntTypesCodegenExtension;
-
-impl<'c, H: HugrView> EmitOp<'c, CustomOp, H> for IntTypesCodegenExtension {
-    fn emit(&mut self, args: EmitOpArgs<'c, CustomOp, H>) -> Result<()> {
-        Err(anyhow!(
-            "IntTypesCodegenExtension: unsupported op: {}",
-            args.node().name()
-        ))
-    }
-}
-
-impl<'c, H: HugrView> CodegenExtension<'c, H> for IntTypesCodegenExtension {
-    fn extension(&self) -> ExtensionId {
-        int_types::EXTENSION_ID
-    }
-
-    fn llvm_type<'d>(
-        &self,
-        context: &TypingSession<'c, H>,
-        hugr_type: &CustomType,
-    ) -> Result<BasicTypeEnum<'c>> {
-        if let [TypeArg::BoundedNat { n }] = hugr_type.args() {
-            let m = *n as usize;
-            if m < int_types::INT_TYPES.len() && int_types::INT_TYPES[m] == hugr_type.clone().into()
-            {
-                return Ok(match m {
-                    0..=3 => context.iw_context().i8_type(),
-                    4 => context.iw_context().i16_type(),
-                    5 => context.iw_context().i32_type(),
-                    6 => context.iw_context().i64_type(),
-                    _ => Err(anyhow!(
-                        "IntTypesCodegenExtension: unsupported log_width: {}",
-                        m
-                    ))?,
-                }
-                .into());
-            }
+fn int_type_handler<'c, H: HugrView>(
+    context: &TypingSession<'c, H>,
+    custom_type: &CustomType,
+) -> Result<BasicTypeEnum<'c>> {
+    let [TypeArg::BoundedNat { n }] = custom_type.args() else {
+        Err(anyhow!("IntTypesCodegenExtension: bad args"))?
+    };
+    let n = *n as usize;
+    if n < int_types::INT_TYPES.len() && int_types::INT_TYPES[n] == custom_type.clone().into() {
+        Ok(match n {
+            0..=3 => context.iw_context().i8_type(),
+            4 => context.iw_context().i16_type(),
+            5 => context.iw_context().i32_type(),
+            6 => context.iw_context().i64_type(),
+            _ => Err(anyhow!(
+                "IntTypesCodegenExtension: unsupported log_width: {n}"
+            ))?,
         }
+        .into())
+    } else {
         Err(anyhow!(
-            "IntTypesCodegenExtension: unsupported type: {}",
-            hugr_type
+            "IntTypesCodegenExtension: unsupported type: {custom_type}",
         ))
     }
+}
 
-    fn emitter<'a>(
-        &self,
-        _: &'a mut EmitFuncContext<'c, H>,
-    ) -> Box<dyn EmitOp<'c, CustomOp, H> + 'a> {
-        Box::new(NullEmitLlvm)
-    }
-
-    fn supported_consts(&self) -> HashSet<TypeId> {
-        [TypeId::of::<ConstInt>()].into_iter().collect()
-    }
-
-    fn load_constant(
-        &self,
-        context: &mut EmitFuncContext<'c, H>,
-        konst: &dyn hugr::ops::constant::CustomConst,
-    ) -> Result<Option<BasicValueEnum<'c>>> {
-        let Some(k) = konst.downcast_ref::<ConstInt>() else {
-            return Ok(None);
-        };
-        let ty: IntType<'c> = context
-            .llvm_type(&k.get_type())?
-            .try_into()
-            .map_err(|_| anyhow!("Failed to get ConstInt as IntType"))?;
-        // k.value_u() is in two's complement representation of the exactly
-        // correct bit width, so we are safe to unconditionally retrieve the
-        // unsigned value and do no sign extension.
-        Ok(Some(ty.const_int(k.value_u(), false).into()))
-    }
+fn int_op_handler<'a, 'c, H: HugrView>(
+    context: &'a mut EmitFuncContext<'c, H>,
+) -> Box<dyn EmitOp<'c, CustomOp, H> + 'a> {
+    Box::new(IntOpEmitter(context))
 }
 
 /// Populates a [CodegenExtsMap] with all extensions needed to lower int ops,
 /// types, and constants.
-pub fn add_int_extensions<H: HugrView>(cem: CodegenExtsMap<'_, H>) -> CodegenExtsMap<'_, H> {
-    cem.add_cge(IntOpsCodegenExtension)
-        .add_cge(IntTypesCodegenExtension)
+pub fn add_int_extensions<'c, H: HugrView>(cem: CodegenExtensionsBuilder<H>) -> CodegenExtensionsBuilder<H> {
+    cem.add_custom_const(const_int_handler)
+        .add_type_by_key(
+            (int_types::EXTENSION_ID,
+            INT_TYPE_ID),
+            int_type_handler,
+        )
+        .add_simple_op::<IntOpDef>(int_op_handler)
 }
 
-impl<H: HugrView> CodegenExtsMap<'_, H> {
+impl<H: HugrView> CodegenExtensionsBuilder <'_, H> {
     /// Populates a [CodegenExtsMap] with all extensions needed to lower int ops,
     /// types, and constants.
     pub fn add_int_extensions(self) -> Self {

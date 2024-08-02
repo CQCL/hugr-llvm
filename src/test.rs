@@ -9,9 +9,7 @@ use itertools::Itertools as _;
 use rstest::fixture;
 
 use crate::{
-    custom::CodegenExtsMap,
-    emit::{EmitHugr, EmitModuleContext, Namer},
-    types::{TypeConverter, TypingSession},
+    custom::CodegenExtsMap, emit::{EmitHugr, EmitModuleContext, Namer}, types::{TypeConverter, TypingSession}
 };
 
 pub type THugrView = Hugr;

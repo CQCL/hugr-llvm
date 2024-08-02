@@ -16,15 +16,13 @@ use inkwell::{
 use std::{collections::HashSet, rc::Rc};
 
 use crate::{
-    type_map::{
+    custom::CodegenExtsMap, type_map::{
         def_hook::{DefHookTypeMap, DefHookTypeMapping},
         CustomTypeKey, TypeMapping,
-    },
-    types::{HugrFuncType, HugrSumType, HugrType, TypingSession},
+    }, types::{HugrFuncType, HugrSumType, HugrType, TypingSession}
 };
 
 use crate::{
-    custom::CodegenExtsMap,
     fat::FatNode,
     types::{LLVMSumType, TypeConverter},
 };

@@ -243,7 +243,7 @@ pub fn emit_value<'c, H: HugrView>(
     match v {
         Value::Extension { e } => {
             let exts = context.extensions();
-            exts.load_constant(context, e.value())
+            exts.emit_load_constant(context, e.value())
         }
         Value::Function { .. } => todo!(),
         Value::Sum(Sum {
