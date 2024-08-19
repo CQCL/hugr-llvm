@@ -7,7 +7,7 @@ use hugr::builder::{
     BuildHandle, Container, DFGWrapper, Dataflow, HugrBuilder, ModuleBuilder, SubContainer,
 };
 use hugr::extension::prelude::BOOL_T;
-use hugr::extension::{ExtensionRegistry, ExtensionSet, EMPTY_REG};
+use hugr::extension::{ExtensionRegistry, EMPTY_REG};
 use hugr::ops::constant::CustomConst;
 use hugr::ops::handle::FuncID;
 use hugr::ops::{CallIndirect, Tag, UnpackTuple, Value};
@@ -370,7 +370,7 @@ fn diverse_cfg_children(llvm_ctx: TestContext) {
         .finish(|mut builder: DFGW| {
             let [r] = {
                 let mut builder = builder
-                    .cfg_builder([], type_row![BOOL_T], ExtensionSet::new())
+                    .cfg_builder([], type_row![BOOL_T])
                     .unwrap();
                 let konst = builder.add_constant(Value::false_val());
                 let func = {
