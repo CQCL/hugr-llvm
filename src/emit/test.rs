@@ -369,9 +369,7 @@ fn diverse_cfg_children(llvm_ctx: TestContext) {
         .with_outs(BOOL_T)
         .finish(|mut builder: DFGW| {
             let [r] = {
-                let mut builder = builder
-                    .cfg_builder([], type_row![BOOL_T])
-                    .unwrap();
+                let mut builder = builder.cfg_builder([], type_row![BOOL_T]).unwrap();
                 let konst = builder.add_constant(Value::false_val());
                 let func = {
                     let mut builder = builder

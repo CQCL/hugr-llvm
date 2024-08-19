@@ -291,10 +291,7 @@ mod test {
                 let unit_val = builder.add_load_value(Value::unit());
                 let [outer_cfg_out] = {
                     let mut outer_cfg_builder = builder
-                        .cfg_builder(
-                            [(t1.clone(), in1), (BOOL_T, in2)],
-                            BOOL_T.into(),
-                        )
+                        .cfg_builder([(t1.clone(), in1), (BOOL_T, in2)], BOOL_T.into())
                         .unwrap();
 
                     let outer_entry_block = {
@@ -304,9 +301,8 @@ mod test {
                         let [outer_entry_in1, outer_entry_in2] =
                             outer_entry_builder.input_wires_arr();
                         let [outer_entry_out] = {
-                            let mut inner_cfg_builder = outer_entry_builder
-                                .cfg_builder([], BOOL_T.into())
-                                .unwrap();
+                            let mut inner_cfg_builder =
+                                outer_entry_builder.cfg_builder([], BOOL_T.into()).unwrap();
                             let inner_exit_block = inner_cfg_builder.exit_block();
                             let inner_entry_block = {
                                 let inner_entry_builder = inner_cfg_builder
