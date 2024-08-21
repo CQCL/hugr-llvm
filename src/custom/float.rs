@@ -188,6 +188,11 @@ impl<H: HugrView> CodegenExtsMap<'_, H> {
 
 #[cfg(test)]
 mod test {
+    use hugr::extension::simple_op::MakeOpDef;
+    use hugr::extension::SignatureFunc;
+    use hugr::std_extensions::arithmetic::float_ops::{self, FloatOps};
+    use hugr::types::TypeRow;
+    use hugr::Hugr;
     use hugr::{
         builder::{Dataflow, DataflowSubContainer},
         std_extensions::arithmetic::{
@@ -204,6 +209,27 @@ mod test {
         test::{llvm_ctx, TestContext},
     };
 
+    fn test_float_op(op: FloatOps) -> Hugr {
+        let SignatureFunc::PolyFuncType(poly_sig) = op.signature() else {
+            panic!("Expected PolyFuncType");
+        };
+        let sig = poly_sig.body();
+        let inp: TypeRow = sig.input.clone().try_into().unwrap();
+        let out: TypeRow = sig.output.clone().try_into().unwrap();
+
+        SimpleHugrConfig::new()
+            .with_ins(inp)
+            .with_outs(out)
+            .with_extensions(float_ops::FLOAT_OPS_REGISTRY.to_owned())
+            .finish(|mut builder| {
+                let outputs = builder
+                    .add_dataflow_op(op, builder.input_wires())
+                    .unwrap()
+                    .outputs();
+                builder.finish_with_outputs(outputs).unwrap()
+            })
+    }
+
     #[rstest]
     fn const_float(mut llvm_ctx: TestContext) {
         llvm_ctx.add_extensions(add_float_extensions);
@@ -215,5 +241,24 @@ mod test {
                 builder.finish_with_outputs([c]).unwrap()
             });
         check_emission!(hugr, llvm_ctx);
+    }
+
+    #[rstest]
+    #[case::feq(FloatOps::feq)]
+    #[case::fne(FloatOps::fne)]
+    #[case::flt(FloatOps::flt)]
+    #[case::fgt(FloatOps::fgt)]
+    #[case::fle(FloatOps::fle)]
+    #[case::fge(FloatOps::fge)]
+    #[case::fadd(FloatOps::fadd)]
+    #[case::fsub(FloatOps::fsub)]
+    #[case::fneg(FloatOps::fneg)]
+    #[case::fmul(FloatOps::fmul)]
+    #[case::fdiv(FloatOps::fdiv)]
+    fn float_operations(mut llvm_ctx: TestContext, #[case] op: FloatOps) {
+        let name: &str = op.into();
+        let hugr = test_float_op(op);
+        llvm_ctx.add_extensions(add_float_extensions);
+        check_emission!(name, hugr, llvm_ctx);
     }
 }
