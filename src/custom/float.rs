@@ -122,7 +122,7 @@ fn emit_fcmp<'c, H: HugrView>(
 impl<'c, H: HugrView> EmitOp<'c, CustomOp, H> for FloatOpEmitter<'c, '_, H> {
     fn emit(&mut self, args: EmitOpArgs<'c, CustomOp, H>) -> Result<()> {
         let op = FloatOps::from_optype(&args.node().generalise()).ok_or(anyhow!(
-            "LogicOpEmitter: from_optype_failed: {:?}",
+            "FloatOpEmitter: from_optype_failed: {:?}",
             args.node().as_ref()
         ))?;
         // We emit the float comparison variants where NaN is an absorbing value.

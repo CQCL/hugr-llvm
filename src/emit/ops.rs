@@ -446,7 +446,7 @@ where
 {
     let [inp] = TryInto::<[_; 1]>::try_into(args.inputs).map_err(|v| {
         anyhow!(
-            "emit_custom_1_to_1_op: expected exactly one input, got {}",
+            "emit_custom_unary_op: expected exactly one input, got {}",
             v.len()
         )
     })?;
@@ -456,7 +456,7 @@ where
         || zip_eq(res.iter(), out_types).any(|(a, b)| a.get_type() != b)
     {
         return Err(anyhow!(
-            "emit_custom_1_to_1_op: expected outputs of types {:?}, got {:?}",
+            "emit_custom_unary_op: expected outputs of types {:?}, got {:?}",
             args.outputs.get_types().collect_vec(),
             res.iter().map(BasicValueEnum::get_type).collect_vec()
         ));
@@ -487,13 +487,13 @@ where
 {
     let [lhs, rhs] = TryInto::<[_; 2]>::try_into(args.inputs).map_err(|v| {
         anyhow!(
-            "emit_custom_2_to_1_op: expected exactly 2 inputs, got {}",
+            "emit_custom_binary_op: expected exactly 2 inputs, got {}",
             v.len()
         )
     })?;
     if lhs.get_type() != rhs.get_type() {
         return Err(anyhow!(
-            "emit_custom_2_to_1_op: expected inputs of the same type, got {} and {}",
+            "emit_custom_binary_op: expected inputs of the same type, got {} and {}",
             lhs.get_type(),
             rhs.get_type()
         ));
@@ -503,7 +503,7 @@ where
     if res.len() != out_types.len() || zip_eq(res.iter(), out_types).any(|(a, b)| a.get_type() != b)
     {
         return Err(anyhow!(
-            "emit_custom_2_to_1_op: expected outputs of types {:?}, got {:?}",
+            "emit_custom_binary_op: expected outputs of types {:?}, got {:?}",
             args.outputs.get_types().collect_vec(),
             res.iter().map(BasicValueEnum::get_type).collect_vec()
         ));
