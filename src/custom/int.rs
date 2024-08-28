@@ -16,7 +16,8 @@ use inkwell::{
 };
 
 use crate::emit::{
-    emit_value, func::EmitFuncContext, ops::emit_custom_binary_op, ops::emit_custom_unary_op, EmitOp, EmitOpArgs, NullEmitLlvm,
+    emit_value, func::EmitFuncContext, ops::emit_custom_binary_op, ops::emit_custom_unary_op,
+    EmitOp, EmitOpArgs, NullEmitLlvm,
 };
 use crate::types::TypingSession;
 
@@ -77,13 +78,13 @@ impl<'c, H: HugrView> EmitOp<'c, CustomOp, H> for IntOpEmitter<'c, '_, H> {
             }),
             IntOpDef::imod_s => emit_custom_binary_op(self.0, args, |builder, (lhs, rhs), _| {
                 Ok(vec![builder
-                        .build_int_signed_rem(lhs.into_int_value(), rhs.into_int_value(), "")?
-                        .as_basic_value_enum()])
+                    .build_int_signed_rem(lhs.into_int_value(), rhs.into_int_value(), "")?
+                    .as_basic_value_enum()])
             }),
             IntOpDef::ineg => emit_custom_unary_op(self.0, args, |builder, arg, _| {
                 Ok(vec![builder
-                        .build_int_neg(arg.into_int_value(), "")?
-                        .as_basic_value_enum()])
+                    .build_int_neg(arg.into_int_value(), "")?
+                    .as_basic_value_enum()])
             }),
             IntOpDef::ieq => emit_icmp(self.0, args, inkwell::IntPredicate::EQ),
             IntOpDef::ilt_s => emit_icmp(self.0, args, inkwell::IntPredicate::SLT),
@@ -275,10 +276,7 @@ mod test {
             })
     }
 
-    fn test_unary_int_op(
-        name: impl AsRef<str>,
-        log_width: u8,
-    ) -> Hugr {
+    fn test_unary_int_op(name: impl AsRef<str>, log_width: u8) -> Hugr {
         let ty = &INT_TYPES[log_width as usize];
         SimpleHugrConfig::new()
             .with_ins(vec![ty.clone()])
@@ -318,12 +316,11 @@ mod test {
     }
 
     #[rstest]
-    #[case::ieq("ieq",  1)]
+    #[case::ieq("ieq", 1)]
     #[case::ilt_s("ilt_s", 0)]
     fn test_cmp_emission(mut llvm_ctx: TestContext, #[case] op: String, #[case] width: u8) {
         llvm_ctx.add_extensions(add_int_extensions);
         let hugr = test_binary_icmp_op(op.clone(), width);
         check_emission!(op.clone(), hugr, llvm_ctx);
     }
-
 }
