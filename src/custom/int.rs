@@ -49,7 +49,6 @@ impl<'c, H: HugrView> EmitOp<'c, CustomOp, H> for IntOpEmitter<'c, '_, H> {
             "IntOpEmitter from_optype_failed: {:?}",
             args.node().as_ref()
         ))?;
-        // TODO: Match on `iot.def` instead.
         match iot.def {
             IntOpDef::iadd => emit_custom_binary_op(self.0, args, |builder, (lhs, rhs), _| {
                 Ok(vec![builder
