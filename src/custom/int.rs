@@ -4,7 +4,7 @@ use hugr::{
     extension::{simple_op::MakeExtensionOp, ExtensionId},
     ops::{constant::CustomConst, CustomOp, NamedOp, Value},
     std_extensions::arithmetic::{
-        int_ops::{self, ConcreteIntOp},
+        int_ops::{self, ConcreteIntOp, IntOpDef},
         int_types::{self, ConstInt},
     },
     types::{CustomType, TypeArg},
@@ -49,32 +49,43 @@ impl<'c, H: HugrView> EmitOp<'c, CustomOp, H> for IntOpEmitter<'c, '_, H> {
             args.node().as_ref()
         ))?;
         // TODO: Match on `iot.def` instead.
-        match iot.name().as_str() {
-            "iadd" => emit_custom_binary_op(self.0, args, |builder, (lhs, rhs), _| {
+        match iot.def {
+            IntOpDef::iadd => emit_custom_binary_op(self.0, args, |builder, (lhs, rhs), _| {
                 Ok(vec![builder
                     .build_int_add(lhs.into_int_value(), rhs.into_int_value(), "")?
                     .as_basic_value_enum()])
             }),
-            "imul" => emit_custom_binary_op(self.0, args, |builder, (lhs, rhs), _| {
+            IntOpDef::imul => emit_custom_binary_op(self.0, args, |builder, (lhs, rhs), _| {
                 Ok(vec![builder
                     .build_int_mul(lhs.into_int_value(), rhs.into_int_value(), "")?
                     .as_basic_value_enum()])
             }),
-            "ieq" => emit_icmp(self.0, args, inkwell::IntPredicate::EQ),
-            "ilt_s" => emit_icmp(self.0, args, inkwell::IntPredicate::SLT),
-            "igt_s" => emit_icmp(self.0, args, inkwell::IntPredicate::SGT),
-            "ile_s" => emit_icmp(self.0, args, inkwell::IntPredicate::SLE),
-            "ige_s" => emit_icmp(self.0, args, inkwell::IntPredicate::SGE),
-            "ilt_u" => emit_icmp(self.0, args, inkwell::IntPredicate::ULT),
-            "igt_u" => emit_icmp(self.0, args, inkwell::IntPredicate::UGT),
-            "ile_u" => emit_icmp(self.0, args, inkwell::IntPredicate::ULE),
-            "ige_u" => emit_icmp(self.0, args, inkwell::IntPredicate::UGE),
-            "isub" => emit_custom_binary_op(self.0, args, |builder, (lhs, rhs), _| {
+            IntOpDef::isub => emit_custom_binary_op(self.0, args, |builder, (lhs, rhs), _| {
                 Ok(vec![builder
                     .build_int_sub(lhs.into_int_value(), rhs.into_int_value(), "")?
                     .as_basic_value_enum()])
             }),
-            n => Err(anyhow!("IntOpEmitter: unimplemented op: {n}")),
+            IntOpDef::idiv_s => emit_custom_binary_op(self.0, args, |builder, (lhs, rhs), _| {
+                Ok(vec![builder
+                    .build_int_signed_div(lhs.into_int_value(), rhs.into_int_value(), "")?
+                    .as_basic_value_enum()])
+            }),
+            IntOpDef::idiv_u => emit_custom_binary_op(self.0, args, |builder, (lhs, rhs), _| {
+                Ok(vec![builder
+                    .build_int_unsigned_div(lhs.into_int_value(), rhs.into_int_value(), "")?
+                    .as_basic_value_enum()])
+            }),
+
+            IntOpDef::ieq => emit_icmp(self.0, args, inkwell::IntPredicate::EQ),
+            IntOpDef::ilt_s => emit_icmp(self.0, args, inkwell::IntPredicate::SLT),
+            IntOpDef::igt_s => emit_icmp(self.0, args, inkwell::IntPredicate::SGT),
+            IntOpDef::ile_s => emit_icmp(self.0, args, inkwell::IntPredicate::SLE),
+            IntOpDef::ige_s => emit_icmp(self.0, args, inkwell::IntPredicate::SGE),
+            IntOpDef::ilt_u => emit_icmp(self.0, args, inkwell::IntPredicate::ULT),
+            IntOpDef::igt_u => emit_icmp(self.0, args, inkwell::IntPredicate::UGT),
+            IntOpDef::ile_u => emit_icmp(self.0, args, inkwell::IntPredicate::ULE),
+            IntOpDef::ige_u => emit_icmp(self.0, args, inkwell::IntPredicate::UGE),
+            _ => Err(anyhow!("IntOpEmitter: unimplemented op: {}", iot.name())),
         }
     }
 }
