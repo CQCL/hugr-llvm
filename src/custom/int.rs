@@ -305,7 +305,7 @@ mod test {
     fn test_neg_emission(mut llvm_ctx: TestContext) {
         llvm_ctx.add_extensions(add_int_extensions);
         let hugr = test_unary_int_op("ineg", 2);
-        check_emission!(hugr, llvm_ctx);
+        check_emission!("ineg", hugr, llvm_ctx);
     }
 
     #[rstest]
@@ -313,8 +313,8 @@ mod test {
     #[case::isub("isub", 6)]
     fn test_binop_emission(mut llvm_ctx: TestContext, #[case] op: String, #[case] width: u8) {
         llvm_ctx.add_extensions(add_int_extensions);
-        let hugr = test_binary_int_op(op, width);
-        check_emission!(hugr, llvm_ctx);
+        let hugr = test_binary_int_op(op.clone(), width);
+        check_emission!(op.clone(), hugr, llvm_ctx);
     }
 
     #[rstest]
@@ -322,8 +322,8 @@ mod test {
     #[case::ilt_s("ilt_s", 0)]
     fn test_cmp_emission(mut llvm_ctx: TestContext, #[case] op: String, #[case] width: u8) {
         llvm_ctx.add_extensions(add_int_extensions);
-        let hugr = test_binary_icmp_op(op, width);
-        check_emission!(hugr, llvm_ctx);
+        let hugr = test_binary_icmp_op(op.clone(), width);
+        check_emission!(op.clone(), hugr, llvm_ctx);
     }
 
 }
