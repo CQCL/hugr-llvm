@@ -55,6 +55,11 @@ impl<'c, H: HugrView> EmitOp<'c, CustomOp, H> for IntOpEmitter<'c, '_, H> {
                     .build_int_add(lhs.into_int_value(), rhs.into_int_value(), "")?
                     .as_basic_value_enum()])
             }),
+            "imul" => emit_custom_binary_op(self.0, args, |builder, (lhs, rhs), _| {
+                Ok(vec![builder
+                    .build_int_mul(lhs.into_int_value(), rhs.into_int_value(), "")?
+                    .as_basic_value_enum()])
+            }),
             "ieq" => emit_icmp(self.0, args, inkwell::IntPredicate::EQ),
             "ilt_s" => emit_icmp(self.0, args, inkwell::IntPredicate::SLT),
             "igt_s" => emit_icmp(self.0, args, inkwell::IntPredicate::SGT),
