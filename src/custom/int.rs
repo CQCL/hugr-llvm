@@ -271,30 +271,29 @@ mod test {
     }
 
     #[rstest]
-    fn iadd(mut llvm_ctx: TestContext) {
+    fn test_iadd(mut llvm_ctx: TestContext) {
         llvm_ctx.add_extensions(add_int_extensions);
         let hugr = test_binary_int_op("iadd", 3);
         check_emission!(hugr, llvm_ctx);
+
     }
 
     #[rstest]
-    fn isub(mut llvm_ctx: TestContext) {
+    #[case::iadd("iadd", 3)]
+    #[case::isub("isub", 6)]
+    fn test_binop_emission(mut llvm_ctx: TestContext, #[case] op: String, #[case] width: u8) {
         llvm_ctx.add_extensions(add_int_extensions);
-        let hugr = test_binary_int_op("isub", 6);
+        let hugr = test_binary_int_op(op, width);
         check_emission!(hugr, llvm_ctx);
     }
 
     #[rstest]
-    fn ieq(mut llvm_ctx: TestContext) {
+    #[case::ieq("ieq",  1)]
+    #[case::ilt_s("ilt_s", 0)]
+    fn test_cmp_emission(mut llvm_ctx: TestContext, #[case] op: String, #[case] width: u8) {
         llvm_ctx.add_extensions(add_int_extensions);
-        let hugr = test_binary_icmp_op("ieq", 1);
+        let hugr = test_binary_icmp_op(op, width);
         check_emission!(hugr, llvm_ctx);
     }
 
-    #[rstest]
-    fn ilt_s(mut llvm_ctx: TestContext) {
-        llvm_ctx.add_extensions(add_int_extensions);
-        let hugr = test_binary_icmp_op("ilt_s", 0);
-        check_emission!(hugr, llvm_ctx);
-    }
 }
