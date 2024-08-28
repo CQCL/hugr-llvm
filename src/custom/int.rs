@@ -16,7 +16,7 @@ use inkwell::{
 };
 
 use crate::emit::{
-    emit_value, func::EmitFuncContext, ops::emit_custom_binary_op, EmitOp, EmitOpArgs, NullEmitLlvm,
+    emit_value, func::EmitFuncContext, ops::emit_custom_binary_op, ops::emit_custom_unary_op, EmitOp, EmitOpArgs, NullEmitLlvm,
 };
 use crate::types::TypingSession;
 
@@ -78,6 +78,11 @@ impl<'c, H: HugrView> EmitOp<'c, CustomOp, H> for IntOpEmitter<'c, '_, H> {
             IntOpDef::imod_s => emit_custom_binary_op(self.0, args, |builder, (lhs, rhs), _| {
                 Ok(vec![builder
                         .build_int_signed_rem(lhs.into_int_value(), rhs.into_int_value(), "")?
+                        .as_basic_value_enum()])
+            }),
+            IntOpDef::ineg => emit_custom_unary_op(self.0, args, |builder, arg, _| {
+                Ok(vec![builder
+                        .build_int_neg(arg.into_int_value(), "")?
                         .as_basic_value_enum()])
             }),
             IntOpDef::ieq => emit_icmp(self.0, args, inkwell::IntPredicate::EQ),
