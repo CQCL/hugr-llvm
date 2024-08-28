@@ -275,12 +275,37 @@ mod test {
             })
     }
 
-    #[rstest]
-    fn test_iadd(mut llvm_ctx: TestContext) {
-        llvm_ctx.add_extensions(add_int_extensions);
-        let hugr = test_binary_int_op("iadd", 3);
-        check_emission!(hugr, llvm_ctx);
+    fn test_unary_int_op(
+        name: impl AsRef<str>,
+        log_width: u8,
+    ) -> Hugr {
+        let ty = &INT_TYPES[log_width as usize];
+        SimpleHugrConfig::new()
+            .with_ins(vec![ty.clone()])
+            .with_outs(vec![ty.clone()])
+            .with_extensions(int_ops::INT_OPS_REGISTRY.clone())
+            .finish(|mut hugr_builder| {
+                let [in1] = hugr_builder.input_wires_arr();
+                let ext_op = int_ops::EXTENSION
+                    .instantiate_extension_op(
+                        name.as_ref(),
+                        [(log_width as u64).into()],
+                        &int_ops::INT_OPS_REGISTRY,
+                    )
+                    .unwrap();
+                let outputs = hugr_builder
+                    .add_dataflow_op(ext_op, [in1])
+                    .unwrap()
+                    .outputs();
+                hugr_builder.finish_with_outputs(outputs).unwrap()
+            })
+    }
 
+    #[rstest]
+    fn test_neg_emission(mut llvm_ctx: TestContext) {
+        llvm_ctx.add_extensions(add_int_extensions);
+        let hugr = test_unary_int_op("ineg", 2);
+        check_emission!(hugr, llvm_ctx);
     }
 
     #[rstest]
