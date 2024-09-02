@@ -11,7 +11,7 @@ use hugr::{
 use inkwell::types::BasicTypeEnum;
 use inkwell::{
     builder::Builder,
-    values::{BasicValueEnum, CallableValue},
+    values::{AnyValueEnum, BasicValueEnum, CallableValue},
 };
 use itertools::{zip_eq, Itertools};
 use petgraph::visit::Walker;

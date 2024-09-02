@@ -46,7 +46,7 @@ fn emit_icmp<'c, H: HugrView>(
 impl<'c, H: HugrView> EmitOp<'c, CustomOp, H> for IntOpEmitter<'c, '_, H> {
     fn emit(&mut self, args: EmitOpArgs<'c, CustomOp, H>) -> Result<()> {
         let iot = ConcreteIntOp::from_optype(&args.node().generalise()).ok_or(anyhow!(
-            "IntOpEmitter from_optype_failed: {:?}",
+            "IntOpEmitter from_optype failed: {:?}",
             args.node().as_ref()
         ))?;
         // TODO: Match on `iot.def` instead.
