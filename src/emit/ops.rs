@@ -42,28 +42,6 @@ impl<'c, 'd, H: HugrView> SumOpEmitter<'c, 'd, H> {
     }
 }
 
-// impl<'c, H: HugrView> EmitOp<'c, MakeTuple, H> for SumOpEmitter<'c, '_, H> {
-//     fn emit(&mut self, args: EmitOpArgs<'c, MakeTuple, H>) -> Result<()> {
-//         let builder = self.0.builder();
-//         args.outputs
-//             .finish(builder, [self.1.build_tag(builder, 0, args.inputs)?])
-//     }
-// }
-
-// impl<'c, H: HugrView> EmitOp<'c, UnpackTuple, H> for SumOpEmitter<'c, '_, H> {
-//     fn emit(&mut self, args: EmitOpArgs<'c, UnpackTuple, H>) -> Result<()> {
-//         let builder = self.0.builder();
-//         let input = LLVMSumValue::try_new(
-//             args.inputs
-//                 .into_iter()
-//                 .exactly_one()
-//                 .map_err(|_| anyhow!("unpacktuple expected exactly one input"))?,
-//             self.1.clone(),
-//         )?;
-//         args.outputs.finish(builder, input.build_untag(builder, 0)?)
-//     }
-// }
-
 impl<'c, H: HugrView> EmitOp<'c, Tag, H> for SumOpEmitter<'c, '_, H> {
     fn emit(&mut self, args: EmitOpArgs<'c, Tag, H>) -> Result<()> {
         let builder = self.0.builder();
@@ -275,20 +253,6 @@ where
     DataflowParentEmitter::new(context, args).emit_children()
 }
 
-// fn emit_make_tuple<'c, H: HugrView>(
-//     context: &mut EmitFuncContext<'c, H>,
-//     args: EmitOpArgs<'c, MakeTuple, H>,
-// ) -> Result<()> {
-//     SumOpEmitter::try_new(context, args.node.out_value_types().map(|x| x.1))?.emit(args)
-// }
-
-// fn emit_unpack_tuple<'c, H: HugrView>(
-//     context: &mut EmitFuncContext<'c, H>,
-//     args: EmitOpArgs<'c, UnpackTuple, H>,
-// ) -> Result<()> {
-//     SumOpEmitter::try_new(context, args.node.in_value_types().map(|x| x.1))?.emit(args)
-// }
-
 fn emit_tag<'c, H: HugrView>(
     context: &mut EmitFuncContext<'c, H>,
     args: EmitOpArgs<'c, Tag, H>,
@@ -397,7 +361,6 @@ fn emit_optype<'c, H: HugrView>(
         OpType::Tag(ref tag) => emit_tag(context, args.into_ot(tag)),
         OpType::DFG(_) => emit_dataflow_parent(context, args),
 
-        // TODO Test cases
         OpType::ExtensionOp(ref co) => {
             let extensions = context.extensions();
             extensions.emit(context, args.into_ot(co))
