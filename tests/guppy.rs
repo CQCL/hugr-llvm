@@ -148,7 +148,7 @@ fn with_suffix<R>(s: impl Display, go: impl FnOnce() -> R) -> R {
 macro_rules! guppy_test {
     ($filename:expr, $testname:ident) => {
         #[rstest]
-        #[ignore]
+        #[ignore = "Guppy has not yet been upgraded to hugr-0.12.0"]
         fn $testname(test_config: TestConfig) {
             with_suffix("noopt", || {
                 test_config.run($filename, false, |module_string| {
