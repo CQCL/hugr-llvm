@@ -1,55 +1,36 @@
-use hugr::extension::ExtensionId;
-use hugr::types::CustomType;
-
-use crate::emit::{func::EmitFuncContext, ops::emit_custom_unary_op, EmitOp, EmitOpArgs};
-
-use hugr::std_extensions::arithmetic::conversions::ConvertOpDef;
-
 use super::{CodegenExtension, CodegenExtsMap};
-use crate::types::TypingSession;
+
 use anyhow::{anyhow, Result};
 
 use hugr::{
-    extension::prelude::sum_with_error,
-    ops::custom::ExtensionOp,
-    std_extensions::arithmetic::{conversions, int_types::INT_TYPES},
+    extension::{
+        prelude::{sum_with_error, ConstError},
+        simple_op::MakeExtensionOp,
+        ExtensionId,
+    },
+    ops::{constant::Value, custom::ExtensionOp},
+    std_extensions::arithmetic::{
+        conversions::{self, ConvertOpDef},
+        int_types::INT_TYPES,
+    },
+    types::CustomType,
     HugrView,
 };
-
-use hugr::extension::prelude::{ConstError, ERROR_TYPE};
-use hugr::extension::simple_op::MakeExtensionOp;
-use hugr::types::SumType;
 
 use inkwell::types::BasicTypeEnum;
 use inkwell::values::{AnyValue, BasicValue};
 
-use crate::emit::ops::emit_value;
-
-use hugr::ops::constant::Value;
-
-
-use crate::sum::LLVMSumType;
-
+use crate::{
+    emit::{
+        func::EmitFuncContext,
+        ops::{emit_custom_unary_op, emit_value},
+        EmitOp, EmitOpArgs,
+    },
+    sum::LLVMSumType,
+    types::TypingSession,
+};
 
 struct ConversionsEmitter<'c, 'd, H>(&'d mut EmitFuncContext<'c, H>);
-
-/*
-fn emit_trunc_op<'c>(builder: Builder<'c>, int_type: BasicTypeEnum, float_value: BasicValueEnum) -> Result<()> {
-    // Make a maximum size int and convert it to float to work out if the
-    // truncation should succeed.
-    let x = builder.build_float_to_unsigned_int(float_value.into_float_value(), int_type.into_int_type(), "")?;
-    // If x is poison, we need to return a failure tag
-    if x.is_poison() {
-        emit_value(builder., &Value::false_val())?;
-    }
-    // Otherwise, we need to pack the result in a success tag
-    else {
-        todo!()
-    }
-
-    Ok(())
-}
- */
 
 fn log2(m: u32) -> Option<u8> {
     if m == 1 {
@@ -77,7 +58,13 @@ impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for ConversionsEmitter<'c, '_, 
                     .last()
                     .map(|a| a.into_struct_type())
                     .unwrap();
-                let int_ty = out_sum_ty.get_field_type_at_index(2).unwrap().into_struct_type().get_field_type_at_index(0).unwrap().into_int_type();
+                let int_ty = out_sum_ty
+                    .get_field_type_at_index(2)
+                    .unwrap()
+                    .into_struct_type()
+                    .get_field_type_at_index(0)
+                    .unwrap()
+                    .into_int_type();
                 let width = int_ty.get_bit_width();
                 let log_width = log2(width).unwrap();
                 let hugr_sum_ty = sum_with_error(vec![INT_TYPES[log_width as usize].clone()]);
@@ -96,10 +83,12 @@ impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for ConversionsEmitter<'c, '_, 
                     }?
                     .as_basic_value_enum();
                     let optional_result = if trunc_result.is_poison() {
-                        // TODO: Construct an error object
                         let trunc_err_hugr_val = Value::extension(ConstError::new(
                             2,
-                            "Float value too big to convert to int of given width",
+                            format!(
+                                "Float value too big to convert to int of given width ({})",
+                                width
+                            ),
                         ));
                         let e = emit_value(ctx, &trunc_err_hugr_val)?;
                         sum_ty.build_tag(ctx.builder(), 0, vec![e])
@@ -111,39 +100,25 @@ impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for ConversionsEmitter<'c, '_, 
                 })
             }
 
-            ConvertOpDef::convert_u => {
-                emit_custom_unary_op(self.0, args, |ctx, arg, out_tys| {
-                    // TODO proper error handling
-                    let [out_ty] = out_tys else {
-                        panic!("");
-                    };
-                    Ok(vec![ctx
-                        .builder()
-                        .build_unsigned_int_to_float(
-                            arg.into_int_value(),
-                            out_ty.into_float_type(),
-                            "",
-                        )?
-                        .as_basic_value_enum()])
-                })
-            }
+            ConvertOpDef::convert_u => emit_custom_unary_op(self.0, args, |ctx, arg, out_tys| {
+                let out_ty = out_tys.last().unwrap();
+                Ok(vec![ctx
+                    .builder()
+                    .build_unsigned_int_to_float(
+                        arg.into_int_value(),
+                        out_ty.into_float_type(),
+                        "",
+                    )?
+                    .as_basic_value_enum()])
+            }),
 
-            ConvertOpDef::convert_s => {
-                emit_custom_unary_op(self.0, args, |ctx, arg, out_tys| {
-                    // TODO proper error handling
-                    let [out_ty] = out_tys else {
-                        panic!("");
-                    };
-                    Ok(vec![ctx
-                        .builder()
-                        .build_signed_int_to_float(
-                            arg.into_int_value(),
-                            out_ty.into_float_type(),
-                            "",
-                        )?
-                        .as_basic_value_enum()])
-                })
-            }
+            ConvertOpDef::convert_s => emit_custom_unary_op(self.0, args, |ctx, arg, out_tys| {
+                let out_ty = out_tys.last().unwrap();
+                Ok(vec![ctx
+                    .builder()
+                    .build_signed_int_to_float(arg.into_int_value(), out_ty.into_float_type(), "")?
+                    .as_basic_value_enum()])
+            }),
             _ => Err(anyhow!(
                 "Conversion op not implemented: {:?}",
                 args.node().as_ref()
@@ -197,13 +172,12 @@ mod test {
     use crate::test::{llvm_ctx, TestContext};
     use hugr::{
         builder::{Dataflow, DataflowSubContainer},
-        extension::prelude::ERROR_TYPE,
         std_extensions::arithmetic::{
             conversions::{CONVERT_OPS_REGISTRY, EXTENSION},
             float_types::FLOAT64_TYPE,
             int_types::INT_TYPES,
         },
-        types::{SumType, Type},
+        types::Type,
         Hugr,
     };
     use rstest::rstest;
