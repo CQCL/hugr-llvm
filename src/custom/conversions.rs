@@ -10,6 +10,7 @@ use crate::types::TypingSession;
 use anyhow::{anyhow, Result};
 
 use hugr::{
+    extension::prelude::sum_with_error,
     ops::custom::ExtensionOp,
     std_extensions::arithmetic::{conversions, int_types::INT_TYPES},
     HugrView,
@@ -70,30 +71,18 @@ impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for ConversionsEmitter<'c, '_, 
 
         match conversion_op {
             ConvertOpDef::trunc_u | ConvertOpDef::trunc_s => {
-                // TODO: Be generic over the width - work it out from what's on the hugr node
-                let int_ty = args
+                let out_sum_ty = args
                     .outputs
                     .get_types()
                     .last()
-                    .map(|a| a.into_int_type())
-                    .ok_or(anyhow!("Malformed type thingy??"))?;
+                    .map(|a| a.into_struct_type())
+                    .unwrap();
+                let int_ty = out_sum_ty.get_field_type_at_index(2).unwrap().into_struct_type().get_field_type_at_index(0).unwrap().into_int_type();
                 let width = int_ty.get_bit_width();
-                let log_width = log2(width).ok_or(anyhow!("Invalid int width???"))?;
-                let hugr_sum_ty = SumType::new(vec![
-                    vec![INT_TYPES[log_width as usize].clone()],
-                    vec![ERROR_TYPE],
-                ]);
+                let log_width = log2(width).unwrap();
+                let hugr_sum_ty = sum_with_error(vec![INT_TYPES[log_width as usize].clone()]);
                 let sum_ty = LLVMSumType::try_new(&self.0.typing_session(), hugr_sum_ty)?;
-                emit_custom_unary_op(self.0, args, |ctx, arg, out_tys| {
-                    // TODO proper error handling
-                    let [out_ty] = out_tys else {
-                        panic!("");
-                    };
-                    let int_ty = out_ty
-                        .into_struct_type()
-                        .get_field_type_at_index(0)
-                        .unwrap()
-                        .into_int_type();
+                emit_custom_unary_op(self.0, args, |ctx, arg, _| {
                     let trunc_result = if conversion_op == ConvertOpDef::trunc_u {
                         ctx.builder().build_float_to_unsigned_int(
                             arg.into_float_value(),
@@ -106,17 +95,16 @@ impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for ConversionsEmitter<'c, '_, 
                             .build_float_to_signed_int(arg.into_float_value(), int_ty, "")
                     }?
                     .as_basic_value_enum();
-                    //let err = builder.load_con
                     let optional_result = if trunc_result.is_poison() {
                         // TODO: Construct an error object
                         let trunc_err_hugr_val = Value::extension(ConstError::new(
                             2,
                             "Float value too big to convert to int of given width",
                         ));
-                        emit_value(ctx, &trunc_err_hugr_val)?;
-                        sum_ty.build_tag(ctx.builder(), 1, vec![])
+                        let e = emit_value(ctx, &trunc_err_hugr_val)?;
+                        sum_ty.build_tag(ctx.builder(), 0, vec![e])
                     } else {
-                        sum_ty.build_tag(ctx.builder(), 0, vec![trunc_result])
+                        sum_ty.build_tag(ctx.builder(), 1, vec![trunc_result])
                     }?;
 
                     Ok(vec![optional_result])
@@ -276,7 +264,7 @@ mod test {
         llvm_ctx.add_extensions(add_conversions_extension);
         llvm_ctx.add_extensions(add_default_prelude_extensions);
         let in_ty = FLOAT64_TYPE;
-        let out_ty = SumType::new([INT_TYPES[width as usize].clone(), ERROR_TYPE]);
+        let out_ty = sum_with_error(INT_TYPES[width as usize].clone());
         let hugr = test_conversion_op(op_name, in_ty, out_ty.into(), width);
         check_emission!(op_name, hugr, llvm_ctx);
     }
