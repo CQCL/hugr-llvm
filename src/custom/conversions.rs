@@ -26,7 +26,6 @@ use crate::{
         ops::{emit_custom_unary_op, emit_value},
         EmitOp, EmitOpArgs,
     },
-    sum::LLVMSumType,
     types::TypingSession,
 };
 
