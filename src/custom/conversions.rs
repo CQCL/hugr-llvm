@@ -244,9 +244,9 @@ mod test {
     }
 
     #[rstest]
-    fn test_convert(mut llvm_ctx: TestContext) -> () {
-        let op_name = "convert_u";
-        let width = 5;
+    #[case("convert_u", 4)]
+    #[case("convert_s", 5)]
+    fn test_convert(mut llvm_ctx: TestContext, #[case] op_name: &str, #[case] width: u8) -> () {
         llvm_ctx.add_extensions(add_int_extensions);
         llvm_ctx.add_extensions(add_float_extensions);
         llvm_ctx.add_extensions(add_conversions_extension);
@@ -257,7 +257,8 @@ mod test {
     }
 
     #[rstest]
-    #[case::trunc("trunc_u", 5)]
+    #[case("trunc_u", 6)]
+    #[case("trunc_s", 5)]
     fn test_truncation(mut llvm_ctx: TestContext, #[case] op_name: &str, #[case] width: u8) -> () {
         llvm_ctx.add_extensions(add_int_extensions);
         llvm_ctx.add_extensions(add_float_extensions);
