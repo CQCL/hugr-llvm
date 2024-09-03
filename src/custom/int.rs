@@ -46,7 +46,7 @@ fn emit_icmp<'c, H: HugrView>(
 impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for IntOpEmitter<'c, '_, H> {
     fn emit(&mut self, args: EmitOpArgs<'c, ExtensionOp, H>) -> Result<()> {
         let iot = ConcreteIntOp::from_optype(&args.node().generalise()).ok_or(anyhow!(
-            "IntOpEmitter from_optype_failed: {:?}",
+            "IntOpEmitter from_optype failed: {:?}",
             args.node().as_ref()
         ))?;
         match iot.def {
@@ -80,8 +80,9 @@ impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for IntOpEmitter<'c, '_, H> {
                     .build_int_signed_rem(lhs.into_int_value(), rhs.into_int_value(), "")?
                     .as_basic_value_enum()])
             }),
-            IntOpDef::ineg => emit_custom_unary_op(self.0, args, |builder, arg, _| {
-                Ok(vec![builder
+            IntOpDef::ineg => emit_custom_unary_op(self.0, args, |ctx, arg, _| {
+                Ok(vec![ctx
+                    .builder()
                     .build_int_neg(arg.into_int_value(), "")?
                     .as_basic_value_enum()])
             }),

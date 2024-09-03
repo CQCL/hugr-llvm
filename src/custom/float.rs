@@ -146,8 +146,9 @@ impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for FloatOpEmitter<'c, '_, H> {
                     .build_float_sub(lhs.into_float_value(), rhs.into_float_value(), "")?
                     .as_basic_value_enum()])
             }),
-            FloatOps::fneg => emit_custom_unary_op(self.0, args, |builder, v, _| {
-                Ok(vec![builder
+            FloatOps::fneg => emit_custom_unary_op(self.0, args, |ctx, v, _| {
+                Ok(vec![ctx
+                    .builder()
                     .build_float_neg(v.into_float_value(), "")?
                     .as_basic_value_enum()])
             }),
