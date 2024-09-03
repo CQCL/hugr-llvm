@@ -81,8 +81,9 @@ impl<'c, H: HugrView> EmitOp<'c, CustomOp, H> for IntOpEmitter<'c, '_, H> {
                     .build_int_signed_rem(lhs.into_int_value(), rhs.into_int_value(), "")?
                     .as_basic_value_enum()])
             }),
-            IntOpDef::ineg => emit_custom_unary_op(self.0, args, |builder, arg, _| {
-                Ok(vec![builder
+            IntOpDef::ineg => emit_custom_unary_op(self.0, args, |ctx, arg, _| {
+                Ok(vec![ctx
+                    .builder()
                     .build_int_neg(arg.into_int_value(), "")?
                     .as_basic_value_enum()])
             }),

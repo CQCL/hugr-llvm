@@ -11,7 +11,7 @@ use hugr::{
 use inkwell::types::BasicTypeEnum;
 use inkwell::{
     builder::Builder,
-    values::{AnyValueEnum, BasicValueEnum, CallableValue},
+    values::{BasicValueEnum, CallableValue},
 };
 use itertools::{zip_eq, Itertools};
 use petgraph::visit::Walker;
@@ -439,7 +439,7 @@ pub(crate) fn emit_custom_unary_op<'c, H, F>(
 where
     H: HugrView,
     F: FnOnce(
-        &Builder<'c>,
+        &mut EmitFuncContext<'c, H>,
         BasicValueEnum<'c>,
         &[BasicTypeEnum<'c>],
     ) -> Result<Vec<BasicValueEnum<'c>>>,
@@ -451,7 +451,7 @@ where
         )
     })?;
     let out_types = args.outputs.get_types().collect_vec();
-    let res = go(context.builder(), inp, &out_types)?;
+    let res = go(context, inp, &out_types)?;
     if res.len() != args.outputs.len()
         || zip_eq(res.iter(), out_types).any(|(a, b)| a.get_type() != b)
     {

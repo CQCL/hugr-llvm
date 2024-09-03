@@ -1,11 +1,7 @@
 use hugr::extension::ExtensionId;
-use hugr::types::{CustomType};
-use llvm_sys_140::LLVMValue;
+use hugr::types::CustomType;
 
-use crate::emit::{
-    func::EmitFuncContext, ops::emit_custom_unary_op,
-    EmitOp, EmitOpArgs,
-};
+use crate::emit::{func::EmitFuncContext, ops::emit_custom_unary_op, EmitOp, EmitOpArgs};
 
 use hugr::std_extensions::arithmetic::conversions::ConvertOpDef;
 
@@ -13,22 +9,26 @@ use super::{CodegenExtension, CodegenExtsMap};
 use crate::types::TypingSession;
 use anyhow::{anyhow, Result};
 
-use hugr::{HugrView, std_extensions::arithmetic::{conversions, int_types::INT_TYPES}, ops::CustomOp};
+use hugr::{
+    ops::CustomOp,
+    std_extensions::arithmetic::{conversions, int_types::INT_TYPES},
+    HugrView,
+};
 
+use hugr::extension::prelude::{ConstError, ERROR_TYPE};
 use hugr::extension::simple_op::MakeExtensionOp;
 use hugr::types::SumType;
-use hugr::extension::prelude::ERROR_TYPE;
 
 use inkwell::types::BasicTypeEnum;
-use inkwell::values::{AnyValue, BasicValue, BasicValueEnum};
+use inkwell::values::{AnyValue, BasicValue};
 
 use crate::emit::ops::emit_value;
 
 use hugr::ops::constant::Value;
 
-use inkwell::builder::Builder;
 
 use crate::sum::LLVMSumType;
+
 
 struct ConversionsEmitter<'c, 'd, H>(&'d mut EmitFuncContext<'c, H>);
 
@@ -50,14 +50,16 @@ fn emit_trunc_op<'c>(builder: Builder<'c>, int_type: BasicTypeEnum, float_value:
 }
  */
 
-
-fn truncate_output(width: u8) -> SumType {
-    SumType::new([
-        INT_TYPES[width as usize].clone(),
-        ERROR_TYPE,
-    ])
+fn log2(m: u32) -> Option<u8> {
+    if m == 1 {
+        Some(0)
+    } else if m % 2 == 0 {
+        let n = log2(m / 2)?;
+        Some(n + 1)
+    } else {
+        None
+    }
 }
-
 
 impl<'c, H: HugrView> EmitOp<'c, CustomOp, H> for ConversionsEmitter<'c, '_, H> {
     fn emit(&mut self, args: EmitOpArgs<'c, CustomOp, H>) -> Result<()> {
@@ -65,63 +67,99 @@ impl<'c, H: HugrView> EmitOp<'c, CustomOp, H> for ConversionsEmitter<'c, '_, H> 
             "ConversionsEmitter from_optype failed: {:?}",
             args.node().as_ref()
         ))?;
+
         match conversion_op {
-            ConvertOpDef::trunc_u => {
+            ConvertOpDef::trunc_u | ConvertOpDef::trunc_s => {
                 // TODO: Be generic over the width - work it out from what's on the hugr node
-                let sum_ty = LLVMSumType::try_new(&self.0.typing_session(), truncate_output(5))?;
-                emit_custom_unary_op(self.0, args, |builder, arg, out_tys| {
+                let int_ty = args
+                    .outputs
+                    .get_types()
+                    .last()
+                    .map(|a| a.into_int_type())
+                    .ok_or(anyhow!("Malformed type thingy??"))?;
+                let width = int_ty.get_bit_width();
+                let log_width = log2(width).ok_or(anyhow!("Invalid int width???"))?;
+                let hugr_sum_ty = SumType::new(vec![
+                    vec![INT_TYPES[log_width as usize].clone()],
+                    vec![ERROR_TYPE],
+                ]);
+                let sum_ty = LLVMSumType::try_new(&self.0.typing_session(), hugr_sum_ty)?;
+                emit_custom_unary_op(self.0, args, |ctx, arg, out_tys| {
                     // TODO proper error handling
-                    let [out_ty] = out_tys else { panic!(""); };
-                    let int_ty = out_ty.into_struct_type().get_field_type_at_index(0).unwrap().into_int_type();
-                    let trunc_result = builder
-                        .build_float_to_unsigned_int(arg.into_float_value(), int_ty, "")?
-                        .as_basic_value_enum();
+                    let [out_ty] = out_tys else {
+                        panic!("");
+                    };
+                    let int_ty = out_ty
+                        .into_struct_type()
+                        .get_field_type_at_index(0)
+                        .unwrap()
+                        .into_int_type();
+                    let trunc_result = if conversion_op == ConvertOpDef::trunc_u {
+                        ctx.builder().build_float_to_unsigned_int(
+                            arg.into_float_value(),
+                            int_ty,
+                            "",
+                        )
+                    } else {
+                        // Otherwise it's ConvertOpDef::trunc_s
+                        ctx.builder()
+                            .build_float_to_signed_int(arg.into_float_value(), int_ty, "")
+                    }?
+                    .as_basic_value_enum();
+                    //let err = builder.load_con
                     let optional_result = if trunc_result.is_poison() {
                         // TODO: Construct an error object
-                        sum_ty.build_tag(builder, 1, vec![])
+                        let trunc_err_hugr_val = Value::extension(ConstError::new(
+                            2,
+                            "Float value too big to convert to int of given width",
+                        ));
+                        emit_value(ctx, &trunc_err_hugr_val)?;
+                        sum_ty.build_tag(ctx.builder(), 1, vec![])
                     } else {
-                        sum_ty.build_tag(builder, 0, vec![trunc_result])
+                        sum_ty.build_tag(ctx.builder(), 0, vec![trunc_result])
                     }?;
 
                     Ok(vec![optional_result])
                 })
-            },
+            }
 
-            ConvertOpDef::trunc_s => {
-                let sum_ty = LLVMSumType::try_new(&self.0.typing_session(), truncate_output(5))?;
-                emit_custom_unary_op(self.0, args, |builder, arg, out_tys| {
+            ConvertOpDef::convert_u => {
+                emit_custom_unary_op(self.0, args, |ctx, arg, out_tys| {
                     // TODO proper error handling
-                    let [out_ty] = out_tys else { panic!(""); };
-                    let int_ty = out_ty.into_struct_type().get_field_type_at_index(0).unwrap().into_int_type();
-                    let trunc_result = builder
-                        .build_float_to_signed_int(arg.into_float_value(), int_ty, "")?
-                        .as_basic_value_enum();
-                    let optional_result = if trunc_result.is_poison() {
-                        // TODO: Construct an error object
-                        sum_ty.build_tag(builder, 1, vec![])
-                    } else {
-                        sum_ty.build_tag(builder, 0, vec![trunc_result])
-                    }?;
-
-                    Ok(vec![optional_result])
+                    let [out_ty] = out_tys else {
+                        panic!("");
+                    };
+                    Ok(vec![ctx
+                        .builder()
+                        .build_unsigned_int_to_float(
+                            arg.into_int_value(),
+                            out_ty.into_float_type(),
+                            "",
+                        )?
+                        .as_basic_value_enum()])
                 })
-            },
+            }
 
-            ConvertOpDef::convert_u => emit_custom_unary_op(self.0, args, |builder, arg, out_tys| {
+            ConvertOpDef::convert_s => {
+                emit_custom_unary_op(self.0, args, |ctx, arg, out_tys| {
                     // TODO proper error handling
-                let [out_ty] = out_tys else {  panic!(""); };
-                Ok(vec![builder
-                    .build_unsigned_int_to_float(arg.into_int_value(), out_ty.into_float_type(), "")?
-                    .as_basic_value_enum()])
-            }),
-            ConvertOpDef::convert_s => emit_custom_unary_op(self.0, args, |builder, arg, out_tys| {
-                    // TODO proper error handling
-                let [out_ty] = out_tys else { panic!(""); };
-                Ok(vec![builder
-                    .build_signed_int_to_float(arg.into_int_value(), out_ty.into_float_type(), "")?
-                    .as_basic_value_enum()])
-            }),
-            _ => Err(anyhow!("Conversion op not implemented: {:?}", args.node().as_ref())),
+                    let [out_ty] = out_tys else {
+                        panic!("");
+                    };
+                    Ok(vec![ctx
+                        .builder()
+                        .build_signed_int_to_float(
+                            arg.into_int_value(),
+                            out_ty.into_float_type(),
+                            "",
+                        )?
+                        .as_basic_value_enum()])
+                })
+            }
+            _ => Err(anyhow!(
+                "Conversion op not implemented: {:?}",
+                args.node().as_ref()
+            )),
         }
         //Ok(())
     }
@@ -151,10 +189,7 @@ impl<'c, H: HugrView> CodegenExtension<'c, H> for ConversionsCodegenExtension {
     ) -> Box<dyn EmitOp<'c, CustomOp, H> + 'a> {
         Box::new(ConversionsEmitter(context))
     }
-
-
 }
-
 
 pub fn add_conversions_extension<H: HugrView>(cem: CodegenExtsMap<'_, H>) -> CodegenExtsMap<'_, H> {
     cem.add_cge(ConversionsCodegenExtension)
@@ -165,9 +200,12 @@ mod test {
 
     use super::*;
 
-    use hugr::extension::prelude::ERROR_TYPE_NAME;
-    use rstest::rstest;
     use crate::check_emission;
+    use crate::custom::{
+        float::add_float_extensions, int::add_int_extensions,
+        prelude::add_default_prelude_extensions,
+    };
+    use crate::emit::test::SimpleHugrConfig;
     use crate::test::{llvm_ctx, TestContext};
     use hugr::{
         builder::{Dataflow, DataflowSubContainer},
@@ -177,14 +215,17 @@ mod test {
             float_types::FLOAT64_TYPE,
             int_types::INT_TYPES,
         },
-        type_row,
         types::{SumType, Type},
         Hugr,
     };
-    use crate::emit::test::SimpleHugrConfig;
-    use crate::custom::{float::add_float_extensions, int::add_int_extensions, prelude::add_default_prelude_extensions};
+    use rstest::rstest;
 
-    fn test_conversion_op(name: impl AsRef<str>, in_type: Type, out_type: Type, int_width: u8) -> Hugr {
+    fn test_conversion_op(
+        name: impl AsRef<str>,
+        in_type: Type,
+        out_type: Type,
+        int_width: u8,
+    ) -> Hugr {
         SimpleHugrConfig::new()
             .with_ins(vec![in_type.clone()])
             .with_outs(vec![out_type.clone()])
@@ -195,7 +236,7 @@ mod test {
                     .instantiate_extension_op(
                         name.as_ref(),
                         [(int_width as u64).into()],
-                        &CONVERT_OPS_REGISTRY
+                        &CONVERT_OPS_REGISTRY,
                     )
                     .unwrap();
                 let outputs = hugr_builder
@@ -207,6 +248,14 @@ mod test {
     }
 
     #[rstest]
+    #[case(256, Some(8))]
+    #[case(63, None)]
+    #[case(1, Some(0))]
+    fn log(#[case] m: u32, #[case] expected: Option<u8>) {
+        assert_eq!(log2(m), expected)
+    }
+
+    #[rstest]
     fn test_convert(mut llvm_ctx: TestContext) -> () {
         let op_name = "convert_u";
         let width = 5;
@@ -215,23 +264,20 @@ mod test {
         llvm_ctx.add_extensions(add_conversions_extension);
         let in_ty = INT_TYPES[width as usize].clone();
         let out_ty = FLOAT64_TYPE;
-        let hugr = test_conversion_op(op_name.clone(), in_ty, out_ty, width);
+        let hugr = test_conversion_op(op_name, in_ty, out_ty, width);
         check_emission!(op_name, hugr, llvm_ctx);
     }
 
     #[rstest]
-    #[case::trunc("trunc_u", 23.4, 5)]
-    fn test_truncation(mut llvm_ctx: TestContext, #[case] op_name: &str, #[case] input: f64, #[case] width: u8) -> () {
+    #[case::trunc("trunc_u", 5)]
+    fn test_truncation(mut llvm_ctx: TestContext, #[case] op_name: &str, #[case] width: u8) -> () {
         llvm_ctx.add_extensions(add_int_extensions);
         llvm_ctx.add_extensions(add_float_extensions);
         llvm_ctx.add_extensions(add_conversions_extension);
         llvm_ctx.add_extensions(add_default_prelude_extensions);
         let in_ty = FLOAT64_TYPE;
-        let out_ty = SumType::new([
-            INT_TYPES[width as usize].clone(),
-            ERROR_TYPE,
-        ]);
-        let hugr = test_conversion_op(op_name.clone(), in_ty, out_ty.into(), width);
+        let out_ty = SumType::new([INT_TYPES[width as usize].clone(), ERROR_TYPE]);
+        let hugr = test_conversion_op(op_name, in_ty, out_ty.into(), width);
         check_emission!(op_name, hugr, llvm_ctx);
     }
 }
