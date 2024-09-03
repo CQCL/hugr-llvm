@@ -10,7 +10,7 @@ use crate::types::TypingSession;
 use anyhow::{anyhow, Result};
 
 use hugr::{
-    ops::CustomOp,
+    ops::custom::ExtensionOp,
     std_extensions::arithmetic::{conversions, int_types::INT_TYPES},
     HugrView,
 };
@@ -61,8 +61,8 @@ fn log2(m: u32) -> Option<u8> {
     }
 }
 
-impl<'c, H: HugrView> EmitOp<'c, CustomOp, H> for ConversionsEmitter<'c, '_, H> {
-    fn emit(&mut self, args: EmitOpArgs<'c, CustomOp, H>) -> Result<()> {
+impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for ConversionsEmitter<'c, '_, H> {
+    fn emit(&mut self, args: EmitOpArgs<'c, ExtensionOp, H>) -> Result<()> {
         let conversion_op = ConvertOpDef::from_optype(&args.node().generalise()).ok_or(anyhow!(
             "ConversionsEmitter from_optype failed: {:?}",
             args.node().as_ref()
@@ -186,7 +186,7 @@ impl<'c, H: HugrView> CodegenExtension<'c, H> for ConversionsCodegenExtension {
     fn emitter<'a>(
         &self,
         context: &'a mut EmitFuncContext<'c, H>,
-    ) -> Box<dyn EmitOp<'c, CustomOp, H> + 'a> {
+    ) -> Box<dyn EmitOp<'c, ExtensionOp, H> + 'a> {
         Box::new(ConversionsEmitter(context))
     }
 }

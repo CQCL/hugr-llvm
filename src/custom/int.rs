@@ -2,7 +2,7 @@ use std::{any::TypeId, collections::HashSet};
 
 use hugr::{
     extension::{simple_op::MakeExtensionOp, ExtensionId},
-    ops::{constant::CustomConst, CustomOp, NamedOp, Value},
+    ops::{constant::CustomConst, ExtensionOp, NamedOp, Value},
     std_extensions::arithmetic::{
         int_ops::{self, ConcreteIntOp, IntOpDef},
         int_types::{self, ConstInt},
@@ -29,7 +29,7 @@ struct IntOpEmitter<'c, 'd, H>(&'d mut EmitFuncContext<'c, H>);
 /// Emit an integer comparison operation.
 fn emit_icmp<'c, H: HugrView>(
     context: &mut EmitFuncContext<'c, H>,
-    args: EmitOpArgs<'c, CustomOp, H>,
+    args: EmitOpArgs<'c, ExtensionOp, H>,
     pred: inkwell::IntPredicate,
 ) -> Result<()> {
     let true_val = emit_value(context, &Value::true_val())?;
@@ -43,13 +43,12 @@ fn emit_icmp<'c, H: HugrView>(
     })
 }
 
-impl<'c, H: HugrView> EmitOp<'c, CustomOp, H> for IntOpEmitter<'c, '_, H> {
-    fn emit(&mut self, args: EmitOpArgs<'c, CustomOp, H>) -> Result<()> {
+impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for IntOpEmitter<'c, '_, H> {
+    fn emit(&mut self, args: EmitOpArgs<'c, ExtensionOp, H>) -> Result<()> {
         let iot = ConcreteIntOp::from_optype(&args.node().generalise()).ok_or(anyhow!(
             "IntOpEmitter from_optype failed: {:?}",
             args.node().as_ref()
         ))?;
-        // TODO: Match on `iot.def` instead.
         match iot.def {
             IntOpDef::iadd => emit_custom_binary_op(self.0, args, |builder, (lhs, rhs), _| {
                 Ok(vec![builder
@@ -126,7 +125,7 @@ impl<'c, H: HugrView> CodegenExtension<'c, H> for IntOpsCodegenExtension {
     fn emitter<'a>(
         &self,
         context: &'a mut EmitFuncContext<'c, H>,
-    ) -> Box<dyn EmitOp<'c, CustomOp, H> + 'a> {
+    ) -> Box<dyn EmitOp<'c, ExtensionOp, H> + 'a> {
         Box::new(IntOpEmitter(context))
     }
 }
@@ -137,8 +136,8 @@ impl<'c, H: HugrView> CodegenExtension<'c, H> for IntOpsCodegenExtension {
 /// TODO: very incomplete
 pub struct IntTypesCodegenExtension;
 
-impl<'c, H: HugrView> EmitOp<'c, CustomOp, H> for IntTypesCodegenExtension {
-    fn emit(&mut self, args: EmitOpArgs<'c, CustomOp, H>) -> Result<()> {
+impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for IntTypesCodegenExtension {
+    fn emit(&mut self, args: EmitOpArgs<'c, ExtensionOp, H>) -> Result<()> {
         Err(anyhow!(
             "IntTypesCodegenExtension: unsupported op: {}",
             args.node().name()
@@ -182,7 +181,7 @@ impl<'c, H: HugrView> CodegenExtension<'c, H> for IntTypesCodegenExtension {
     fn emitter<'a>(
         &self,
         _: &'a mut EmitFuncContext<'c, H>,
-    ) -> Box<dyn EmitOp<'c, CustomOp, H> + 'a> {
+    ) -> Box<dyn EmitOp<'c, ExtensionOp, H> + 'a> {
         Box::new(NullEmitLlvm)
     }
 
