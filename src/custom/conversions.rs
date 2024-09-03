@@ -68,7 +68,7 @@ impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for ConversionsEmitter<'c, '_, 
                 let width = int_ty.get_bit_width();
                 let log_width = log2(width).unwrap();
                 let hugr_sum_ty = sum_with_error(vec![INT_TYPES[log_width as usize].clone()]);
-                let sum_ty = LLVMSumType::try_new(&self.0.typing_session(), hugr_sum_ty)?;
+                let sum_ty = self.0.typing_session().llvm_sum_type(hugr_sum_ty)?;
                 emit_custom_unary_op(self.0, args, |ctx, arg, _| {
                     let trunc_result = if conversion_op == ConvertOpDef::trunc_u {
                         ctx.builder().build_float_to_unsigned_int(
