@@ -13,12 +13,16 @@ use hugr::{
         conversions::{self, ConvertOpDef},
         int_types::INT_TYPES,
     },
-    types::CustomType,
+    types::{CustomType, TypeArg},
     HugrView,
 };
 
-use inkwell::types::BasicTypeEnum;
-use inkwell::values::{AnyValue, BasicValue};
+use inkwell::{
+    intrinsics::Intrinsic,
+    types::{BasicType, BasicTypeEnum},
+    values::{AnyValue, BasicValue},
+    FloatPredicate,
+};
 
 use crate::{
     emit::{
@@ -31,17 +35,6 @@ use crate::{
 
 struct ConversionsEmitter<'c, 'd, H>(&'d mut EmitFuncContext<'c, H>);
 
-fn log2(m: u32) -> Option<u8> {
-    if m == 1 {
-        Some(0)
-    } else if m % 2 == 0 {
-        let n = log2(m / 2)?;
-        Some(n + 1)
-    } else {
-        None
-    }
-}
-
 impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for ConversionsEmitter<'c, '_, H> {
     fn emit(&mut self, args: EmitOpArgs<'c, ExtensionOp, H>) -> Result<()> {
         let conversion_op = ConvertOpDef::from_optype(&args.node().generalise()).ok_or(anyhow!(
@@ -51,51 +44,142 @@ impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for ConversionsEmitter<'c, '_, 
 
         match conversion_op {
             ConvertOpDef::trunc_u | ConvertOpDef::trunc_s => {
-                let out_sum_ty = args
-                    .outputs
-                    .get_types()
-                    .last()
-                    .map(|a| a.into_struct_type())
-                    .unwrap();
-                let int_ty = out_sum_ty
-                    .get_field_type_at_index(2)
-                    .unwrap()
-                    .into_struct_type()
-                    .get_field_type_at_index(0)
-                    .unwrap()
+                let signed = conversion_op == ConvertOpDef::trunc_s;
+
+                // This op should have one type arg only: the log-width of the
+                // int we're truncating to.
+                let Some(TypeArg::BoundedNat { n: log_width }) =
+                    conversion_op.type_args().last().cloned()
+                else {
+                    panic!("Unexpected type args to truncate node")
+                };
+
+                // Note: This logic is copied from `llvm_type` in the IntTypes
+                // extension. We need to have a common source of truth for this.
+                let width = match log_width {
+                    0..=3 => Ok(8),
+                    4 => Ok(16),
+                    5 => Ok(32),
+                    6 => Ok(64),
+                    m => Err(anyhow!(
+                        "IntTypesCodegenExtension: unsupported log_width: {}",
+                        m
+                    )),
+                }?;
+
+                let hugr_int_ty = INT_TYPES[log_width as usize].clone();
+                let int_ty = self
+                    .0
+                    .typing_session()
+                    .llvm_type(&hugr_int_ty)?
                     .into_int_type();
-                let width = int_ty.get_bit_width();
-                let log_width = log2(width).unwrap();
-                let hugr_sum_ty = sum_with_error(vec![INT_TYPES[log_width as usize].clone()]);
+
+                let hugr_sum_ty = sum_with_error(vec![hugr_int_ty]);
                 let sum_ty = self.0.typing_session().llvm_sum_type(hugr_sum_ty)?;
+
                 emit_custom_unary_op(self.0, args, |ctx, arg, _| {
-                    let trunc_result = if conversion_op == ConvertOpDef::trunc_u {
+                    // We have to check if the conversion will work, so we
+                    // make the maximum int and convert to a float, then compare
+                    // with the function input.
+                    let int_max = int_ty.const_all_ones();
+
+                    let flt_int_max = if signed {
+                        let abs_name = &format!("llvm.abs.i{}", width);
+                        let abs_intr = Intrinsic::find(&abs_name)
+                            .expect(&format!("Couldn't find {} intrinsic", abs_name));
+                        let abs = abs_intr
+                            .get_declaration(
+                                ctx.get_current_module(),
+                                &[int_ty.as_basic_type_enum()],
+                            )
+                            .unwrap();
+
+                        let abs_call = ctx
+                            .builder()
+                            .build_call(abs, &[arg.into()], "max_int")?
+                            .as_any_value_enum()
+                            .into_int_value();
+
+                        ctx.builder().build_signed_int_to_float(
+                            abs_call,
+                            ctx.iw_context().f64_type(),
+                            "max_flt",
+                        )
+                    } else {
+                        ctx.builder().build_unsigned_int_to_float(
+                            int_max,
+                            ctx.iw_context().f64_type(),
+                            "max_flt",
+                        )
+                    }?;
+
+                    // Build fabs intrinsic
+                    let fabs_intr =
+                        Intrinsic::find("llvm.fabs.f64").expect("Couldn't find fabs intrinsic");
+                    let fabs = fabs_intr
+                        .get_declaration(
+                            ctx.get_current_module(),
+                            &[ctx.iw_context().f64_type().as_basic_type_enum()],
+                        )
+                        .ok_or(anyhow!("TODO"))?;
+
+                    let fabs_call = ctx
+                        .builder()
+                        .build_call(fabs, &[arg.into()], "flt_pos")?
+                        .as_any_value_enum()
+                        .into_float_value();
+
+                    // TODO: Test this with converting INT_MAX to float to see if we need a cheeky error margin
+                    let success = ctx.builder().build_float_compare(
+                        FloatPredicate::OLE,
+                        fabs_call,
+                        flt_int_max,
+                        "conversion_valid",
+                    )?;
+
+                    // Perform the conversion unconditionally, which will result
+                    // in a poison value if the input was too large. We will
+                    // decide whether we return it based on the result of our
+                    // earlier check.
+                    let trunc_result = if signed {
+                        ctx.builder()
+                            .build_float_to_signed_int(arg.into_float_value(), int_ty, "")
+                    } else {
                         ctx.builder().build_float_to_unsigned_int(
                             arg.into_float_value(),
                             int_ty,
                             "",
                         )
-                    } else {
-                        // Otherwise it's ConvertOpDef::trunc_s
-                        ctx.builder()
-                            .build_float_to_signed_int(arg.into_float_value(), int_ty, "")
                     }?
                     .as_basic_value_enum();
-                    let optional_result = if trunc_result.is_poison() {
-                        let trunc_err_hugr_val = Value::extension(ConstError::new(
-                            2,
-                            format!(
-                                "Float value too big to convert to int of given width ({})",
-                                width
-                            ),
-                        ));
-                        let e = emit_value(ctx, &trunc_err_hugr_val)?;
-                        sum_ty.build_tag(ctx.builder(), 0, vec![e])
-                    } else {
-                        sum_ty.build_tag(ctx.builder(), 1, vec![trunc_result])
-                    }?;
 
-                    Ok(vec![optional_result])
+                    let trunc_err_hugr_val = Value::extension(ConstError::new(
+                        2,
+                        format!(
+                            "Float value too big to convert to int of given width ({})",
+                            width
+                        ),
+                    ));
+                    let e = emit_value(ctx, &trunc_err_hugr_val)?;
+
+                    // Make a struct with both fields (error message and
+                    // conversion result) populated, then set the tag to the
+                    // to the result of our overflow check.
+                    // This should look the same as the appropriate sum instance.
+                    let val = sum_ty
+                        .get_poison()
+                        .as_basic_value_enum()
+                        .into_struct_value();
+                    let val = ctx.builder().build_insert_value(val, e, 1, "error val")?;
+                    let val = ctx.builder().build_insert_value(
+                        val,
+                        trunc_result,
+                        2,
+                        "conversion_result",
+                    )?;
+                    let val = ctx.builder().build_insert_value(val, success, 0, "tag")?;
+
+                    Ok(vec![val.as_basic_value_enum()])
                 })
             }
 
@@ -206,14 +290,6 @@ mod test {
                     .outputs();
                 hugr_builder.finish_with_outputs(outputs).unwrap()
             })
-    }
-
-    #[rstest]
-    #[case(256, Some(8))]
-    #[case(63, None)]
-    #[case(1, Some(0))]
-    fn log(#[case] m: u32, #[case] expected: Option<u8>) {
-        assert_eq!(log2(m), expected)
     }
 
     #[rstest]
