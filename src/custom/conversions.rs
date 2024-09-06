@@ -85,8 +85,8 @@ impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for ConversionsEmitter<'c, '_, 
 
                     let flt_int_max = if signed {
                         let abs_name = &format!("llvm.abs.i{}", width);
-                        let abs_intr = Intrinsic::find(&abs_name)
-                            .expect(&format!("Couldn't find {} intrinsic", abs_name));
+                        let abs_intr = Intrinsic::find(abs_name)
+                            .expect("Couldn't find int abs intrinsic");
                         let abs = abs_intr
                             .get_declaration(
                                 ctx.get_current_module(),

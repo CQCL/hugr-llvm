@@ -283,7 +283,7 @@ impl<'c, H: HugrView> EmitFuncContext<'c, H> {
     }
 
     pub fn get_current_module(&self) -> &Module<'c> {
-        &self.emit_context.module()
+        self.emit_context.module()
     }
 
     /// Consumes the `EmitFuncContext` and returns both the inner
