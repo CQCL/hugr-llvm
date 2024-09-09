@@ -71,7 +71,7 @@ pub trait PreludeCodegen: Clone {
         elem_ty.array_type(size as u32)
     }
 
-    /// Emit a [hugr::extension::ArrayOp].
+    /// Emit a [hugr::extension::prelude::ArrayOp].
     fn emit_array_op<'c, H: HugrView>(
         &self,
         ctx: &mut EmitFuncContext<'c, H>,
