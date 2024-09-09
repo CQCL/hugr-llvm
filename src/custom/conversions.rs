@@ -128,7 +128,7 @@ impl<'c, H: HugrView> ConversionsEmitter<'c, '_, H> {
                 flt_int_max,
                 "conversion_valid",
             )?;
-            let success = ctx.builder().build_int_s_extend(
+            let success = ctx.builder().build_int_z_extend(
                 success,
                 ctx.iw_context().i32_type(),
                 "conversion_valid_i32",
