@@ -91,14 +91,15 @@ impl<'c, H: HugrView> ConversionsEmitter<'c, '_, H> {
                     .get_declaration(ctx.get_current_module(), &[int_ty.as_basic_type_enum()])
                     .unwrap();
 
-                let fabs_call = ctx
+                let const_false = ctx.iw_context().bool_type().const_zero().as_basic_value_enum();
+                let abs_call = ctx
                     .builder()
-                    .build_call(abs, &[int_max.into()], "max_int_pos")?
+                    .build_call(abs, &[int_max.into(), const_false.into()], "max_int_pos")?
                     .as_any_value_enum()
                     .into_int_value();
 
                 ctx.builder().build_signed_int_to_float(
-                    fabs_call,
+                    abs_call,
                     ctx.iw_context().f64_type(),
                     "max_flt_pos",
                 )
