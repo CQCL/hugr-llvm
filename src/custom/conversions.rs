@@ -45,10 +45,10 @@ impl<'c, H: HugrView> ConversionsEmitter<'c, '_, H> {
         // Note: This logic is copied from `llvm_type` in the IntTypes
         // extension. We need to have a common source of truth for this.
         let (width, int_max_value_s, int_max_value_u) = match log_width {
-            0..=3 => Ok((8, i8::max_value() as u64, u8::max_value() as u64)),
-            4 => Ok((16, i16::max_value() as u64, u16::max_value() as u64)),
-            5 => Ok((32, i32::max_value() as u64, u32::max_value() as u64)),
-            6 => Ok((64, i64::max_value() as u64, u64::max_value())),
+            0..=3 => Ok((8, i8::MAX as u64, u8::MAX as u64)),
+            4 => Ok((16, i16::MAX as u64, u16::MAX as u64)),
+            5 => Ok((32, i32::MAX as u64, u32::MAX as u64)),
+            6 => Ok((64, i64::MAX as u64, u64::MAX)),
             m => Err(anyhow!(
                 "IntTypesCodegenExtension: unsupported log_width: {}",
                 m
@@ -79,9 +79,9 @@ impl<'c, H: HugrView> ConversionsEmitter<'c, '_, H> {
             // make the maximum int and convert to a float, then compare
             // with the function input.
             let int_max = if signed {
-                int_ty.const_int(int_max_value_s as u64, false)
+                int_ty.const_int(int_max_value_s, false)
             } else {
-                int_ty.const_int(int_max_value_u as u64, false)
+                int_ty.const_int(int_max_value_u, false)
             };
 
             let flt_int_max = if signed {
@@ -123,7 +123,11 @@ impl<'c, H: HugrView> ConversionsEmitter<'c, '_, H> {
                 flt_int_max,
                 "conversion_valid",
             )?;
-            let success = ctx.builder().build_int_s_extend(success, ctx.iw_context().i32_type(), "conversion_valid_i32")?;
+            let success = ctx.builder().build_int_s_extend(
+                success,
+                ctx.iw_context().i32_type(),
+                "conversion_valid_i32",
+            )?;
 
             // Perform the conversion unconditionally, which will result
             // in a poison value if the input was too large. We will
