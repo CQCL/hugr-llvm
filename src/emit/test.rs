@@ -63,7 +63,7 @@ impl<'c> Emission<'c> {
             .map_err(|err| anyhow!("Failed to verify module: {err}"))
     }
 
-    /// Returns the inner module.
+    /// Return the inner module.
     pub fn module(&self) -> &Module<'c> {
         &self.module
     }
