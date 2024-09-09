@@ -5,13 +5,24 @@ expression: module.to_string()
 ; ModuleID = 'test_context'
 source_filename = "test_context"
 
+@0 = private unnamed_addr constant [58 x i8] c"Float value too big to convert to int of given width (64)\00", align 1
+
 define { i32, { { i32, i8* } }, { i64 } } @_hl.main.1(double %0) {
 alloca_block:
   br label %entry_block
 
 entry_block:                                      ; preds = %alloca_block
+  %flt_pos = call double @llvm.fabs.f64(double %0)
+  %conversion_valid = fcmp ole double %flt_pos, 0x43F0000000000000
+  %conversion_valid_i32 = sext i1 %conversion_valid to i32
   %1 = fptoui double %0 to i64
-  %2 = insertvalue { i64 } undef, i64 %1, 0
-  %3 = insertvalue { i32, { { i32, i8* } }, { i64 } } { i32 1, { { i32, i8* } } poison, { i64 } poison }, { i64 } %2, 2
-  ret { i32, { { i32, i8* } }, { i64 } } %3
+  %result_row = insertvalue { i64 } undef, i64 %1, 0
+  %conversion_result = insertvalue { i32, { { i32, i8* } }, { i64 } } { i32 poison, { i32, i8* } { i32 2, i8* getelementptr inbounds ([58 x i8], [58 x i8]* @0, i32 0, i32 0) }, { i64 } poison }, { i64 } %result_row, 2
+  %tag = insertvalue { i32, { { i32, i8* } }, { i64 } } %conversion_result, i32 %conversion_valid_i32, 0
+  ret { i32, { { i32, i8* } }, { i64 } } %tag
 }
+
+; Function Attrs: nofree nosync nounwind readnone speculatable willreturn
+declare double @llvm.fabs.f64(double) #0
+
+attributes #0 = { nofree nosync nounwind readnone speculatable willreturn }
