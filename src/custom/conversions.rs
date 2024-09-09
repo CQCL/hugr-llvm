@@ -167,10 +167,7 @@ impl<'c, H: HugrView> ConversionsEmitter<'c, '_, H> {
             // conversion result) populated, then set the tag to the
             // to the result of our overflow check.
             // This should look the same as the appropriate sum instance.
-            let val = sum_ty
-                .get_undef()
-                .as_basic_value_enum()
-                .into_struct_value();
+            let val = sum_ty.get_undef().as_basic_value_enum().into_struct_value();
             let val = ctx.builder().build_insert_value(val, e, 1, "error val")?;
             let val = ctx
                 .builder()
@@ -190,16 +187,27 @@ impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for ConversionsEmitter<'c, '_, 
                 args.node().as_ref()
             ))?;
 
-        // This op should have one type arg only: the log-width of the
-        // int we're truncating to.
-        let Some(TypeArg::BoundedNat { n: log_width }) = conversion_op.type_args().last().cloned()
-        else {
-            panic!("Unexpected type args to truncate node")
-        };
-
         match conversion_op.def() {
-            ConvertOpDef::trunc_u => self.build_trunc_op(false, log_width, args),
-            ConvertOpDef::trunc_s => self.build_trunc_op(true, log_width, args),
+            ConvertOpDef::trunc_u => {
+                // This op should have one type arg only: the log-width of the
+                // int we're truncating to.
+                let Some(TypeArg::BoundedNat { n: log_width }) =
+                    conversion_op.type_args().last().cloned()
+                else {
+                    panic!("Unexpected type args to truncate node")
+                };
+
+                self.build_trunc_op(false, log_width, args)
+            }
+
+            ConvertOpDef::trunc_s => {
+                let Some(TypeArg::BoundedNat { n: log_width }) =
+                    conversion_op.type_args().last().cloned()
+                else {
+                    panic!("Unexpected type args to truncate node")
+                };
+                self.build_trunc_op(true, log_width, args)
+            }
             ConvertOpDef::convert_u => emit_custom_unary_op(self.0, args, |ctx, arg, out_tys| {
                 let out_ty = out_tys.last().unwrap();
                 Ok(vec![ctx
@@ -219,6 +227,12 @@ impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for ConversionsEmitter<'c, '_, 
                     .build_signed_int_to_float(arg.into_int_value(), out_ty.into_float_type(), "")?
                     .as_basic_value_enum()])
             }),
+            // These ops convert between hugr's `USIZE` and u64. The former is
+            // implementation-dependent and we define them to be the same.
+            // Hence our implementation is a noop.
+            ConvertOpDef::itousize | ConvertOpDef::ifromusize => {
+                emit_custom_unary_op(self.0, args, |_, arg, _| Ok(vec![arg]))
+            }
             _ => Err(anyhow!(
                 "Conversion op not implemented: {:?}",
                 args.node().as_ref()
