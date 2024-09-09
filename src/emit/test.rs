@@ -141,6 +141,9 @@ impl SimpleHugrConfig {
             .unwrap();
         make(func_b, &self.extensions);
 
+        // Intentionally left as a debugging aid. If the HUGR you construct
+        // fails validation, uncomment the following line to print it out
+        // unvalidated.
         // println!("{}", mod_b.hugr().mermaid_string());
 
         mod_b.finish_hugr(&self.extensions).unwrap()
