@@ -10,7 +10,7 @@ use hugr::{
     },
     ops::{constant::Value, custom::ExtensionOp},
     std_extensions::arithmetic::{
-        conversions::{self, ConvertOpDef},
+        conversions::{self, ConvertOpDef, ConvertOpType},
         int_types::INT_TYPES,
     },
     types::{CustomType, TypeArg},
@@ -37,35 +37,35 @@ struct ConversionsEmitter<'c, 'd, H>(&'d mut EmitFuncContext<'c, H>);
 
 impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for ConversionsEmitter<'c, '_, H> {
     fn emit(&mut self, args: EmitOpArgs<'c, ExtensionOp, H>) -> Result<()> {
-        let conversion_op = ConvertOpDef::from_optype(&args.node().generalise()).ok_or(anyhow!(
+        let conversion_op = ConvertOpType::from_optype(&args.node().generalise()).ok_or(anyhow!(
             "ConversionsEmitter from_optype failed: {:?}",
             args.node().as_ref()
         ))?;
 
-        match conversion_op {
+        // This op should have one type arg only: the log-width of the
+        // int we're truncating to.
+        let Some(TypeArg::BoundedNat { n: log_width }) =
+            conversion_op.type_args().last().cloned()
+        else {
+            panic!("Unexpected type args to truncate node")
+        };
+
+        // Note: This logic is copied from `llvm_type` in the IntTypes
+        // extension. We need to have a common source of truth for this.
+            let width = match log_width {
+                0..=3 => Ok(8),
+                4 => Ok(16),
+                5 => Ok(32),
+                6 => Ok(64),
+                m => Err(anyhow!(
+                    "IntTypesCodegenExtension: unsupported log_width: {}",
+                    m
+                )),
+            }?;
+
+        match conversion_op.def() {
             ConvertOpDef::trunc_u | ConvertOpDef::trunc_s => {
-                let signed = conversion_op == ConvertOpDef::trunc_s;
-
-                // This op should have one type arg only: the log-width of the
-                // int we're truncating to.
-                let Some(TypeArg::BoundedNat { n: log_width }) =
-                    conversion_op.type_args().last().cloned()
-                else {
-                    panic!("Unexpected type args to truncate node")
-                };
-
-                // Note: This logic is copied from `llvm_type` in the IntTypes
-                // extension. We need to have a common source of truth for this.
-                let width = match log_width {
-                    0..=3 => Ok(8),
-                    4 => Ok(16),
-                    5 => Ok(32),
-                    6 => Ok(64),
-                    m => Err(anyhow!(
-                        "IntTypesCodegenExtension: unsupported log_width: {}",
-                        m
-                    )),
-                }?;
+                let signed = conversion_op.def() == &ConvertOpDef::trunc_s;
 
                 let hugr_int_ty = INT_TYPES[log_width as usize].clone();
                 let int_ty = self
