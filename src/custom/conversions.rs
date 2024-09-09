@@ -168,7 +168,7 @@ impl<'c, H: HugrView> ConversionsEmitter<'c, '_, H> {
             // to the result of our overflow check.
             // This should look the same as the appropriate sum instance.
             let val = sum_ty
-                .get_poison()
+                .get_undef()
                 .as_basic_value_enum()
                 .into_struct_value();
             let val = ctx.builder().build_insert_value(val, e, 1, "error val")?;
