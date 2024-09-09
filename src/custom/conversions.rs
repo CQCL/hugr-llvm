@@ -78,6 +78,16 @@ impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for ConversionsEmitter<'c, '_, 
                 let sum_ty = self.0.typing_session().llvm_sum_type(hugr_sum_ty)?;
 
                 emit_custom_unary_op(self.0, args, |ctx, arg, _| {
+                    // Build fabs intrinsic
+                    let fabs_intr =
+                        Intrinsic::find("llvm.fabs.f64").expect("Couldn't find fabs intrinsic");
+                    let fabs = fabs_intr
+                        .get_declaration(
+                            ctx.get_current_module(),
+                            &[ctx.iw_context().f64_type().as_basic_type_enum()],
+                        )
+                        .ok_or(anyhow!("TODO"))?;
+
                     // We have to check if the conversion will work, so we
                     // make the maximum int and convert to a float, then compare
                     // with the function input.
@@ -94,16 +104,16 @@ impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for ConversionsEmitter<'c, '_, 
                             )
                             .unwrap();
 
-                        let abs_call = ctx
+                        let fabs_call = ctx
                             .builder()
-                            .build_call(abs, &[arg.into()], "max_int")?
+                            .build_call(abs, &[int_max.into()], "max_int_pos")?
                             .as_any_value_enum()
                             .into_int_value();
 
                         ctx.builder().build_signed_int_to_float(
-                            abs_call,
+                            fabs_call,
                             ctx.iw_context().f64_type(),
-                            "max_flt",
+                            "max_flt_pos",
                         )
                     } else {
                         ctx.builder().build_unsigned_int_to_float(
@@ -112,16 +122,6 @@ impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for ConversionsEmitter<'c, '_, 
                             "max_flt",
                         )
                     }?;
-
-                    // Build fabs intrinsic
-                    let fabs_intr =
-                        Intrinsic::find("llvm.fabs.f64").expect("Couldn't find fabs intrinsic");
-                    let fabs = fabs_intr
-                        .get_declaration(
-                            ctx.get_current_module(),
-                            &[ctx.iw_context().f64_type().as_basic_type_enum()],
-                        )
-                        .ok_or(anyhow!("TODO"))?;
 
                     let fabs_call = ctx
                         .builder()
