@@ -57,7 +57,11 @@ pub fn emit_array_op<'c, H: HugrView>(
     let builder = ctx.builder();
     let ts = ctx.typing_session();
     let sig = op.clone().to_extension_op().unwrap().signature();
-    let ArrayOp { def, ref elem_ty, size } = op;
+    let ArrayOp {
+        def,
+        ref elem_ty,
+        size,
+    } = op;
     let llvm_array_ty = pcg
         .array_type(&ts, ts.llvm_type(elem_ty)?, size)
         .as_basic_type_enum()
@@ -84,7 +88,12 @@ pub fn emit_array_op<'c, H: HugrView>(
             })?;
 
             let res_sum_ty = {
-                let TypeEnum::Sum(st) = sig.output().get(0).ok_or(anyhow!("ArrayOp::get has no outputs"))?.as_type_enum() else {
+                let TypeEnum::Sum(st) = sig
+                    .output()
+                    .get(0)
+                    .ok_or(anyhow!("ArrayOp::get has no outputs"))?
+                    .as_type_enum()
+                else {
                     Err(anyhow!("ArrayOp::get output is not a sum type"))?
                 };
                 LLVMSumType::try_new(&ts, st.clone())?
@@ -274,11 +283,11 @@ fn emit_pop_op<'c, H: HugrView>(
 mod test {
     use hugr::{
         builder::{Dataflow, DataflowSubContainer, SubContainer},
-        ops::Value,
         extension::{
             prelude::{self, array_type, option_type, ConstUsize, BOOL_T, USIZE_T},
             ExtensionRegistry,
         },
+        ops::Value,
         std_extensions::{
             arithmetic::{
                 int_ops::{self},
@@ -296,10 +305,10 @@ mod test {
         custom::prelude::add_default_prelude_extensions,
         emit::test::SimpleHugrConfig,
         test::{exec_ctx, llvm_ctx, TestContext},
-        utils::{array_op_builder, ArrayOpBuilder, IntOpBuilder, LogicOpBuilder, UnwrapBuilder as _,},
+        utils::{
+            array_op_builder, ArrayOpBuilder, IntOpBuilder, LogicOpBuilder, UnwrapBuilder as _,
+        },
     };
-
-    use super::*;
 
     #[rstest]
     fn emit_all_ops(mut llvm_ctx: TestContext) {
@@ -386,6 +395,8 @@ mod test {
         // - Checks the following, returning 1 iff they are all true:
         //   - The element returned from set is `expected_elem`
         //   - The Oth element of the resulting array is `expected_arr_0`
+
+        use hugr::extension::prelude::either_type;
         let int_ty = int_type(3);
         let hugr = SimpleHugrConfig::new()
             .with_outs(USIZE_T)
@@ -404,10 +415,17 @@ mod test {
                 let r = {
                     let res_sum_ty = {
                         let row = vec![int_ty.clone(), array_type(2, int_ty.clone())];
-                        either_type(row.clone(),row)
+                        either_type(row.clone(), row)
                     };
                     let variants = (0..res_sum_ty.num_variants())
-                        .map(|i| res_sum_ty.get_variant(i).cloned().unwrap().try_into().unwrap())
+                        .map(|i| {
+                            res_sum_ty
+                                .get_variant(i)
+                                .cloned()
+                                .unwrap()
+                                .try_into()
+                                .unwrap()
+                        })
                         .collect_vec();
                     let mut builder = builder
                         .conditional_builder((variants, get_r), [], BOOL_T.into())
