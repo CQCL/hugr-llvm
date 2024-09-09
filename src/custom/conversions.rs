@@ -282,12 +282,14 @@ mod test {
         float::add_float_extensions, int::add_int_extensions,
         prelude::add_default_prelude_extensions,
     };
-    use crate::emit::test::SimpleHugrConfig;
-    use crate::test::{llvm_ctx, TestContext};
+    use crate::emit::test::{SimpleHugrConfig, DFGW};
+    use crate::test::{exec_ctx, llvm_ctx, TestContext};
+    use hugr::builder::SubContainer;
     use hugr::{
         builder::{Dataflow, DataflowSubContainer},
+        extension::prelude::{ConstUsize, PRELUDE_REGISTRY, USIZE_T},
         std_extensions::arithmetic::{
-            conversions::{CONVERT_OPS_REGISTRY, EXTENSION},
+            conversions::{ConvertOpDef, CONVERT_OPS_REGISTRY, EXTENSION},
             float_types::FLOAT64_TYPE,
             int_types::INT_TYPES,
         },
@@ -348,5 +350,114 @@ mod test {
         let out_ty = sum_with_error(INT_TYPES[width as usize].clone());
         let hugr = test_conversion_op(op_name, in_ty, out_ty.into(), width);
         check_emission!(op_name, hugr, llvm_ctx);
+    }
+
+    #[rstest]
+    fn my_test_exec(mut exec_ctx: TestContext) {
+        let hugr = SimpleHugrConfig::new()
+            .with_outs(USIZE_T)
+            .with_extensions(PRELUDE_REGISTRY.to_owned())
+            .finish(|mut builder: DFGW| {
+                let konst = builder.add_load_value(ConstUsize::new(42));
+                builder.finish_with_outputs([konst]).unwrap()
+            });
+        exec_ctx.add_extensions(add_default_prelude_extensions);
+        assert_eq!(42, exec_ctx.exec_hugr_u64(hugr, "main"));
+    }
+
+    #[rstest]
+    #[case(0)]
+    #[case(42)]
+    #[case(18_446_744_073_709_551_615)]
+    fn usize_roundtrip(mut exec_ctx: TestContext, #[case] val: u64) -> () {
+        let hugr = SimpleHugrConfig::new()
+            .with_outs(USIZE_T)
+            .with_extensions(CONVERT_OPS_REGISTRY.clone())
+            .finish(|mut builder: DFGW| {
+                let k = builder.add_load_value(ConstUsize::new(val));
+                let [int] = builder
+                    .add_dataflow_op(ConvertOpDef::ifromusize.without_log_width(), [k])
+                    .unwrap()
+                    .outputs_arr();
+                let [usize_] = builder
+                    .add_dataflow_op(ConvertOpDef::itousize.without_log_width(), [int])
+                    .unwrap()
+                    .outputs_arr();
+                builder.finish_with_outputs([usize_]).unwrap()
+            });
+        exec_ctx.add_extensions(add_int_extensions);
+        exec_ctx.add_extensions(add_conversions_extension);
+        exec_ctx.add_extensions(add_default_prelude_extensions);
+        assert_eq!(val, exec_ctx.exec_hugr_u64(hugr, "main"));
+    }
+
+    #[rstest]
+    // Being roundtrippable from float isn't defined on every value in u64, but
+    // here are some that should work.
+    #[case(0)]
+    #[case(3)]
+    #[case(255)]
+    #[case(4294967295)]
+    #[case(42)]
+    #[case(18_000_000_000_000_000_000)]
+    // N.B.: There's some strange behaviour at the upper end of the ints - the
+    // first case gets converted to something that's off by 1,000, but the second
+    // (which is (2 ^ 64) - 1) gets converted to (2 ^ 32) - off by 9 million!
+    // The fact that the first case works as expected  tells me this isn't to do
+    // with int widths - maybe a floating point expert could explain that this
+    // is standard behaviour...
+    // #[case(18_446_744_073_709_550_000)]
+    // #[case(18_446_744_073_709_551_615)]
+    fn float_roundtrip(mut exec_ctx: TestContext, #[case] val: u64) -> () {
+        let int64 = INT_TYPES[6].clone();
+        let hugr = SimpleHugrConfig::new()
+            .with_outs(USIZE_T)
+            .with_extensions(CONVERT_OPS_REGISTRY.clone())
+            .finish(|mut builder| {
+                let k = builder.add_load_value(ConstUsize::new(val));
+                let [int] = builder
+                    .add_dataflow_op(ConvertOpDef::ifromusize.without_log_width(), [k])
+                    .unwrap()
+                    .outputs_arr();
+                let [flt] = builder
+                    .add_dataflow_op(ConvertOpDef::convert_u.with_log_width(6), [int])
+                    .unwrap()
+                    .outputs_arr();
+                let [int_or_err] = builder
+                    .add_dataflow_op(ConvertOpDef::trunc_u.with_log_width(6), [flt])
+                    .unwrap()
+                    .outputs_arr();
+                let sum_ty = sum_with_error(int64.clone());
+                let variants = (0..sum_ty.num_variants())
+                    .map(|i| sum_ty.get_variant(i).unwrap().clone().try_into().unwrap());
+                let mut cond_b = builder
+                    .conditional_builder((variants, int_or_err), [], vec![int64].into())
+                    .unwrap();
+                let win_case = cond_b.case_builder(1).unwrap();
+                let [win_in] = win_case.input_wires_arr();
+                win_case.finish_with_outputs([win_in]).unwrap();
+                let mut lose_case = cond_b.case_builder(0).unwrap();
+                let const_999 = lose_case.add_load_value(ConstUsize::new(999));
+                let [const_999] = lose_case
+                    .add_dataflow_op(ConvertOpDef::ifromusize.without_log_width(), [const_999])
+                    .unwrap()
+                    .outputs_arr();
+                lose_case.finish_with_outputs([const_999]).unwrap();
+
+                let cond = cond_b.finish_sub_container().unwrap();
+
+                let [cond_result] = cond.outputs_arr();
+
+                let [usize_] = builder
+                    .add_dataflow_op(ConvertOpDef::itousize.without_log_width(), [cond_result])
+                    .unwrap()
+                    .outputs_arr();
+                builder.finish_with_outputs([usize_]).unwrap()
+            });
+        exec_ctx.add_extensions(add_conversions_extension);
+        exec_ctx.add_extensions(add_default_prelude_extensions);
+        exec_ctx.add_extensions(add_float_extensions);
+        exec_ctx.add_extensions(add_int_extensions);
+        assert_eq!(val, exec_ctx.exec_hugr_u64(hugr, "main"));
     }
 }
