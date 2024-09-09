@@ -91,7 +91,11 @@ impl<'c, H: HugrView> ConversionsEmitter<'c, '_, H> {
                     .get_declaration(ctx.get_current_module(), &[int_ty.as_basic_type_enum()])
                     .unwrap();
 
-                let const_false = ctx.iw_context().bool_type().const_zero().as_basic_value_enum();
+                let const_false = ctx
+                    .iw_context()
+                    .bool_type()
+                    .const_zero()
+                    .as_basic_value_enum();
                 let abs_call = ctx
                     .builder()
                     .build_call(abs, &[int_max.into(), const_false.into()], "max_int_pos")?
@@ -143,8 +147,13 @@ impl<'c, H: HugrView> ConversionsEmitter<'c, '_, H> {
             }?
             .as_basic_value_enum();
 
-            let placeholder = ctx.iw_context().struct_type(&[int_ty.as_basic_type_enum()], false).get_undef();
-            let result_row = ctx.builder().build_insert_value(placeholder, trunc_result, 0, "result_row")?;
+            let placeholder = ctx
+                .iw_context()
+                .struct_type(&[int_ty.as_basic_type_enum()], false)
+                .get_undef();
+            let result_row =
+                ctx.builder()
+                    .build_insert_value(placeholder, trunc_result, 0, "result_row")?;
             let trunc_err_hugr_val = Value::extension(ConstError::new(
                 2,
                 format!(
@@ -163,9 +172,9 @@ impl<'c, H: HugrView> ConversionsEmitter<'c, '_, H> {
                 .as_basic_value_enum()
                 .into_struct_value();
             let val = ctx.builder().build_insert_value(val, e, 1, "error val")?;
-            let val =
-                ctx.builder()
-                    .build_insert_value(val, result_row, 2, "conversion_result")?;
+            let val = ctx
+                .builder()
+                .build_insert_value(val, result_row, 2, "conversion_result")?;
             let val = ctx.builder().build_insert_value(val, success, 0, "tag")?;
 
             Ok(vec![val.as_basic_value_enum()])
