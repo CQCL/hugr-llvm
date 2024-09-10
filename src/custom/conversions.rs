@@ -102,53 +102,45 @@ impl<'c, H: HugrView> ConversionsEmitter<'c, '_, H> {
                 flt_max,
                 "conversion_valid",
             )?;
-            let success = ctx.builder().build_int_z_extend(
-                success,
-                ctx.iw_context().i32_type(),
-                "conversion_valid_i32",
-            )?;
 
             // Perform the conversion unconditionally, which will result
             // in a poison value if the input was too large. We will
             // decide whether we return it based on the result of our
             // earlier check.
             let trunc_result = if signed {
-                ctx.builder()
-                    .build_float_to_signed_int(arg.into_float_value(), int_ty, "trunc_result")
+                ctx.builder().build_float_to_signed_int(
+                    arg.into_float_value(),
+                    int_ty,
+                    "trunc_result",
+                )
             } else {
-                ctx.builder()
-                    .build_float_to_unsigned_int(arg.into_float_value(), int_ty, "trunc_result")
+                ctx.builder().build_float_to_unsigned_int(
+                    arg.into_float_value(),
+                    int_ty,
+                    "trunc_result",
+                )
             }?
             .as_basic_value_enum();
 
-            let placeholder = ctx
-                .iw_context()
-                .struct_type(&[int_ty.as_basic_type_enum()], false)
-                .get_undef();
-            let result_row =
-                ctx.builder()
-                    .build_insert_value(placeholder, trunc_result, 0, "result_row")?;
-            let trunc_err_hugr_val = Value::extension(ConstError::new(
+            let err_msg = Value::extension(ConstError::new(
                 2,
                 format!(
                     "Float value too big to convert to int of given width ({})",
                     width
                 ),
             ));
-            let e = emit_value(ctx, &trunc_err_hugr_val)?;
 
-            // Make a struct with both fields (error message and
-            // conversion result) populated, then set the tag to the
-            // to the result of our overflow check.
-            // This should look the same as the appropriate sum instance.
-            let val = sum_ty.get_undef().as_basic_value_enum().into_struct_value();
-            let val = ctx.builder().build_insert_value(val, e, 1, "error val")?;
-            let val = ctx
+            let err_val = emit_value(ctx, &err_msg)?;
+            let failure = sum_ty.build_tag(ctx.builder(), 0, vec![err_val]).unwrap();
+            let trunc_result = sum_ty
+                .build_tag(ctx.builder(), 1, vec![trunc_result])
+                .unwrap();
+
+            let final_result = ctx
                 .builder()
-                .build_insert_value(val, result_row, 2, "conversion_result")?;
-            let val = ctx.builder().build_insert_value(val, success, 0, "tag")?;
-
-            Ok(vec![val.as_basic_value_enum()])
+                .build_select(success, trunc_result, failure, "")
+                .unwrap();
+            Ok(vec![final_result])
         })
     }
 }
