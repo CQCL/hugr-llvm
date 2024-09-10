@@ -16,7 +16,7 @@ use inkwell::{
     values::{AnyValue, AsValueRef, BasicValue, BasicValueEnum, FloatValue, IntValue, StructValue},
     FloatPredicate, IntPredicate,
 };
-use llvm_sys_140::prelude::{LLVMTypeRef, LLVMValueRef};
+use llvm_sys_140::{core::LLVMBuildFreeze, prelude::{LLVMTypeRef, LLVMValueRef}};
 
 use crate::{
     emit::{emit_value, EmitFuncContext, EmitOp, EmitOpArgs},
@@ -26,121 +26,91 @@ use crate::{
 
 use super::CodegenExtension;
 
-use tket2::extension::angle::{AngleOp, ConstAngle, ANGLE_CUSTOM_TYPE, ANGLE_EXTENSION_ID};
+use tket2::extension::angle::{AngleOp, ConstAngle, ANGLE_CUSTOM_TYPE, ANGLE_EXTENSION_ID, LOG_DENOM_MAX};
 
-#[derive(Debug, Clone, Copy)]
-struct LLVMAngleType<'c>(StructType<'c>);
+// #[derive(Debug, Clone, Copy)]
+// struct LLVMAngleType<'c>(IntType<'c>);
 
-impl<'c> LLVMAngleType<'c> {
-    pub fn new(context: &'c Context, usize_type: IntType<'c>) -> Self {
-        Self(context.struct_type(&[usize_type.into(), usize_type.into()], false))
-    }
+// impl<'c> LLVMAngleType<'c> {
+//     pub fn new(usize_type: IntType<'c>) -> Self {
+//         Self(usize_type)
+//     }
 
-    fn value_field_type(&self) -> IntType<'c> {
-        assert_eq!(2, self.0.get_field_types().len());
-        unsafe { self.0.get_field_type_at_index_unchecked(0) }.into_int_type()
-    }
+//     fn value_field_type(&self) -> IntType<'c> {
+//         self.0
+//     }
 
-    fn log_denom_field_type(&self) -> IntType<'c> {
-        assert_eq!(2, self.0.get_field_types().len());
-        unsafe { self.0.get_field_type_at_index_unchecked(1) }.into_int_type()
-    }
+//     pub fn const_angle(&self, value: u64, log_denom: u8) -> Result<LLVMAngleValue<'c>> {
+//         let log_denom = log_denom as u64;
+//         let width =
+//             self.0.size_of().get_zero_extended_constant().ok_or(anyhow!("Width of
+//             usize is not a constant"))?;
+//         ensure!(width >= log_denom, "log_denom is greater than width of usize: {log_denom} > {width}");
+//         Ok(LLVMAngleValue(self.0.const_int(value << (width - log_denom), false), *self))
+//     }
 
-    pub fn const_angle(&self, value: u64, log_denom: u8) -> LLVMAngleValue<'c> {
-        assert_eq!(2, self.0.get_field_types().len());
-        let v = self.0.get_undef();
-        v.set_field_at_index(0, self.value_field_type().const_int(value, false));
-        v.set_field_at_index(
-            1,
-            self.log_denom_field_type()
-                .const_int(log_denom as u64, false),
-        );
-        LLVMAngleValue(v, *self)
-    }
+//     // pub fn build_value(
+//     //     &self,
+//     //     builder: &Builder<'c>,
+//     //     value: impl BasicValue<'c>,
+//     //     log_denom: impl BasicValue<'c>,
+//     // ) -> Result<LLVMAngleValue<'c>> {
+//     //     let (value, log_denom) = (value.as_basic_value_enum(), log_denom.as_basic_value_enum());
+//     //     ensure!(value.get_type() == self.value_field_type().as_basic_type_enum());
 
-    pub fn build_value(
-        &self,
-        builder: &Builder<'c>,
-        value: impl BasicValue<'c>,
-        log_denom: impl BasicValue<'c>,
-    ) -> Result<LLVMAngleValue<'c>> {
-        let (value, log_denom) = (value.as_basic_value_enum(), log_denom.as_basic_value_enum());
-        ensure!(value.get_type() == self.value_field_type().as_basic_type_enum());
-        ensure!(log_denom.get_type() == self.log_denom_field_type().as_basic_type_enum());
+//     //     let r = self.0.get_undef();
+//     //     let r = builder.build_insert_value(r, value, 0, "")?;
+//     //     let r = builder.build_insert_value(r, log_denom, 1, "")?;
+//     //     Ok(LLVMAngleValue(r.into_struct_value(), *self))
+//     // }
+// }
 
-        let r = self.0.get_undef();
-        let r = builder.build_insert_value(r, value, 0, "")?;
-        let r = builder.build_insert_value(r, log_denom, 1, "")?;
-        Ok(LLVMAngleValue(r.into_struct_value(), *self))
-    }
-}
+// unsafe impl<'c> AsTypeRef for LLVMAngleType<'c> {
+//     fn as_type_ref(&self) -> LLVMTypeRef {
+//         self.0.as_type_ref()
+//     }
+// }
 
-unsafe impl<'c> AsTypeRef for LLVMAngleType<'c> {
-    fn as_type_ref(&self) -> LLVMTypeRef {
-        self.0.as_type_ref()
-    }
-}
+// unsafe impl<'c> AnyType<'c> for LLVMAngleType<'c> {}
+// unsafe impl<'c> BasicType<'c> for LLVMAngleType<'c> {}
 
-unsafe impl<'c> AnyType<'c> for LLVMAngleType<'c> {}
-unsafe impl<'c> BasicType<'c> for LLVMAngleType<'c> {}
+// #[derive(Debug, Clone, Copy)]
+// struct LLVMAngleValue<'c>(IntValue<'c>, LLVMAngleType<'c>);
 
-#[derive(Debug, Clone, Copy)]
-struct LLVMAngleValue<'c>(StructValue<'c>, LLVMAngleType<'c>);
+// impl<'c> LLVMAngleValue<'c> {
+//     fn try_new(typ: LLVMAngleType<'c>, value: impl BasicValue<'c>) -> Result<Self> {
+//         let value = value.as_basic_value_enum();
+//         ensure!(typ.as_basic_type_enum() == value.get_type());
+//         Ok(Self(value.into_int_value(), typ))
+//     }
 
-impl<'c> LLVMAngleValue<'c> {
-    fn try_new(typ: LLVMAngleType<'c>, value: impl BasicValue<'c>) -> Result<Self> {
-        let value = value.as_basic_value_enum();
-        ensure!(typ.as_basic_type_enum() == value.get_type());
-        Ok(Self(value.into_struct_value(), typ))
-    }
+//     fn build_get_value(&self, _builder: &Builder<'c>) -> Result<IntValue<'c>> {
+//         Ok(self.0)
+//     }
+// }
 
-    fn build_get_value(&self, builder: &Builder<'c>) -> Result<IntValue<'c>> {
-        Ok(builder.build_extract_value(self.0, 0, "")?.into_int_value())
-    }
+// impl<'c> From<LLVMAngleValue<'c>> for BasicValueEnum<'c> {
+//     fn from(value: LLVMAngleValue<'c>) -> Self {
+//         value.as_basic_value_enum()
+//     }
+// }
 
-    fn build_get_log_denom(&self, builder: &Builder<'c>) -> Result<IntValue<'c>> {
-        Ok(builder.build_extract_value(self.0, 1, "")?.into_int_value())
-    }
+// unsafe impl<'c> AsValueRef for LLVMAngleValue<'c> {
+//     fn as_value_ref(&self) -> LLVMValueRef {
+//         self.0.as_value_ref()
+//     }
+// }
 
-    fn build_unmax_denom(
-        &self,
-        builder: &Builder<'c>,
-        max_denom_value: IntValue<'c>,
-    ) -> Result<IntValue<'c>> {
-        let log_denom = self.build_get_log_denom(builder)?;
-        let shift = builder.build_int_sub(self.1.value_field_type().size_of(), log_denom, "")?;
-        Ok(builder.build_right_shift(max_denom_value, shift, false, "")?)
-    }
-    fn build_get_value_max_denom(&self, builder: &Builder<'c>) -> Result<IntValue<'c>> {
-        let value = self.build_get_value(builder)?;
-        let log_denom = self.build_get_log_denom(builder)?;
-        let shift = builder.build_int_sub(self.1.value_field_type().size_of(), log_denom, "")?;
-        Ok(builder.build_left_shift(value, shift, "")?)
-    }
-}
-
-impl<'c> From<LLVMAngleValue<'c>> for BasicValueEnum<'c> {
-    fn from(value: LLVMAngleValue<'c>) -> Self {
-        value.as_basic_value_enum()
-    }
-}
-
-unsafe impl<'c> AsValueRef for LLVMAngleValue<'c> {
-    fn as_value_ref(&self) -> LLVMValueRef {
-        self.0.as_value_ref()
-    }
-}
-
-unsafe impl<'c> AnyValue<'c> for LLVMAngleValue<'c> {}
-unsafe impl<'c> BasicValue<'c> for LLVMAngleValue<'c> {}
+// unsafe impl<'c> AnyValue<'c> for LLVMAngleValue<'c> {}
+// unsafe impl<'c> BasicValue<'c> for LLVMAngleValue<'c> {}
 
 pub struct AngleCodegenExtension<'c> {
     usize_type: IntType<'c>,
 }
 
 impl<'c> AngleCodegenExtension<'c> {
-    fn angle_type(&self, context: &'c Context) -> LLVMAngleType<'c> {
-        LLVMAngleType::new(context, self.usize_type)
+    fn angle_type(&self) -> IntType<'c> {
+        self.usize_type
     }
 }
 
@@ -155,7 +125,7 @@ impl<'c, H: HugrView> CodegenExtension<'c, H> for AngleCodegenExtension<'c> {
         hugr_type: &CustomType,
     ) -> Result<BasicTypeEnum<'c>> {
         if hugr_type == &ANGLE_CUSTOM_TYPE {
-            Ok(self.angle_type(context.iw_context()).as_basic_type_enum())
+            Ok(self.angle_type().as_basic_type_enum())
         } else {
             bail!("Unsupported type: {hugr_type}")
         }
@@ -167,7 +137,7 @@ impl<'c, H: HugrView> CodegenExtension<'c, H> for AngleCodegenExtension<'c> {
     ) -> Box<dyn crate::emit::EmitOp<'c, hugr::ops::ExtensionOp, H> + 'a> {
         Box::new(AngleOpEmitter(
             context,
-            self.angle_type(context.iw_context()),
+            self.angle_type(),
         ))
     }
 
@@ -184,10 +154,15 @@ impl<'c, H: HugrView> CodegenExtension<'c, H> for AngleCodegenExtension<'c> {
         let Some(angle) = konst.downcast_ref::<ConstAngle>() else {
             return Ok(None);
         };
-        let angle_type = self.angle_type(context.iw_context());
-        Ok(Some(
-            angle_type
-                .const_angle(angle.value(), angle.log_denom())
+        let angle_type = self.angle_type();
+        let log_denom = angle.log_denom() as u64;
+        let width =
+            angle_type.size_of().get_zero_extended_constant().ok_or(anyhow!("Width of
+            usize is not a constant"))?;
+//         ensure!(width >= log_denom, "log_denom is greater than width of usize: {log_denom} > {width}");
+//         Ok(LLVMAngleValue(self.0.const_int(value << (width - log_denom), false), *self))
+        Ok(Some(angle_type
+                .const_int(angle.value() << (width - log_denom), false)
                 .as_basic_value_enum(),
         ))
     }
@@ -195,39 +170,39 @@ impl<'c, H: HugrView> CodegenExtension<'c, H> for AngleCodegenExtension<'c> {
 
 struct AngleOpEmitter<'c, 'd, H>(&'d mut EmitFuncContext<'c, H>, LLVMAngleType<'c>);
 
-impl<'c, 'd, H: HugrView> AngleOpEmitter<'c, 'd, H> {
-    fn binary_angle_op<E>(
-        &self,
-        lhs: LLVMAngleValue<'c>,
-        rhs: LLVMAngleValue<'c>,
-        go: impl FnOnce(IntValue<'c>, IntValue<'c>) -> Result<IntValue<'c>, E>,
-    ) -> Result<LLVMAngleValue<'c>>
-    where
-        anyhow::Error: From<E>,
-    {
-        let angle_ty = self.1;
-        let builder = self.0.builder();
-        let lhs_value = lhs.build_get_value_max_denom(builder)?;
-        let rhs_value = lhs.build_get_value_max_denom(builder)?;
-        let new_value = go(lhs_value, rhs_value)?;
+// impl<'c, 'd, H: HugrView> AngleOpEmitter<'c, 'd, H> {
+//     fn binary_angle_op<E>(
+//         &self,
+//         lhs: LLVMAngleValue<'c>,
+//         rhs: LLVMAngleValue<'c>,
+//         go: impl FnOnce(IntValue<'c>, IntValue<'c>) -> Result<IntValue<'c>, E>,
+//     ) -> Result<LLVMAngleValue<'c>>
+//     where
+//         anyhow::Error: From<E>,
+//     {
+//         let angle_ty = self.1;
+//         let builder = self.0.builder();
+//         let lhs_value = lhs.build_get_value(builder)?;
+//         let rhs_value = lhs.build_get_value(builder)?;
+//         let new_value = go(lhs_value, rhs_value)?;
 
-        let lhs_log_denom = lhs.build_get_log_denom(builder)?;
-        let rhs_log_denom = lhs.build_get_log_denom(builder)?;
+//         let lhs_log_denom = lhs.build_get_log_denom(builder)?;
+//         let rhs_log_denom = lhs.build_get_log_denom(builder)?;
 
-        let lhs_log_denom_larger =
-            builder.build_int_compare(IntPredicate::UGT, lhs_log_denom, rhs_log_denom, "")?;
-        let lhs_larger_r = {
-            let v = lhs.build_unmax_denom(builder, new_value)?;
-            angle_ty.build_value(builder, v, lhs_log_denom)?
-        };
-        let rhs_larger_r = {
-            let v = rhs.build_unmax_denom(builder, new_value)?;
-            angle_ty.build_value(builder, v, rhs_log_denom)?
-        };
-        let r = builder.build_select(lhs_log_denom_larger, lhs_larger_r, rhs_larger_r, "")?;
-        LLVMAngleValue::try_new(angle_ty, r)
-    }
-}
+//         let lhs_log_denom_larger =
+//             builder.build_int_compare(IntPredicate::UGT, lhs_log_denom, rhs_log_denom, "")?;
+//         let lhs_larger_r = {
+//             let v = lhs.build_unmax_denom(builder, new_value)?;
+//             angle_ty.build_value(builder, v, lhs_log_denom)?
+//         };
+//         let rhs_larger_r = {
+//             let v = rhs.build_unmax_denom(builder, new_value)?;
+//             angle_ty.build_value(builder, v, rhs_log_denom)?
+//         };
+//         let r = builder.build_select(lhs_log_denom_larger, lhs_larger_r, rhs_larger_r, "")?;
+//         LLVMAngleValue::try_new(angle_ty, r)
+//     }
+// }
 
 impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for AngleOpEmitter<'c, '_, H> {
     fn emit(&mut self, args: EmitOpArgs<'c, ExtensionOp, H>) -> Result<()> {
@@ -239,56 +214,19 @@ impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for AngleOpEmitter<'c, '_, H> {
 
         match AngleOp::from_op(&args.node())? {
             AngleOp::atrunc => {
-                let [angle, new_log_denom] = args
+                let [angle, _] = args
                     .inputs
                     .try_into()
                     .map_err(|_| anyhow!("AngleOp::atrunc expects two arguments"))?;
-                let new_log_denom = new_log_denom.into_int_value();
-                let angle = LLVMAngleValue::try_new(angle_ty, angle)?;
-                let (value, old_log_denom) = (
-                    angle.build_get_value(builder)?,
-                    angle.build_get_log_denom(builder)?,
-                );
-
-                let denom_increasing = builder.build_int_compare(
-                    inkwell::IntPredicate::UGT,
-                    new_log_denom,
-                    old_log_denom,
-                    "",
-                )?;
-
-                let increasing_new_value = {
-                    let denom_increase = builder.build_int_sub(new_log_denom, old_log_denom, "")?;
-                    builder.build_left_shift(value, denom_increase, "")?
-                };
-
-                let decreasing_new_value = {
-                    let denom_decrease = builder.build_int_sub(old_log_denom, new_log_denom, "")?;
-                    builder.build_right_shift(value, denom_decrease, false, "")?
-                };
-
-                let value = builder
-                    .build_select(
-                        denom_increasing,
-                        increasing_new_value,
-                        decreasing_new_value,
-                        "",
-                    )?
-                    .into_int_value();
-                let r = angle_ty.build_value(builder, value, new_log_denom)?;
-
-                args.outputs.finish(builder, [r.into()])
+                args.outputs.finish(builder, [angle.into()])
             }
             AngleOp::aadd => {
                 let [lhs, rhs] = args
                     .inputs
                     .try_into()
                     .map_err(|_| anyhow!("AngleOp::aadd expects two arguments"))?;
-                let r = self.binary_angle_op(
-                    LLVMAngleValue::try_new(angle_ty, lhs)?,
-                    LLVMAngleValue::try_new(angle_ty, rhs)?,
-                    |lhs, rhs| builder.build_int_add(lhs, rhs, ""),
-                )?;
+                let (lhs,rhs) = (lhs.into_int_value(), rhs.into_int_value());
+                let r = builder.build_int_add(lhs, rhs, "")?;
                 args.outputs.finish(builder, [r.into()])
             }
             AngleOp::asub => {
@@ -296,11 +234,8 @@ impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for AngleOpEmitter<'c, '_, H> {
                     .inputs
                     .try_into()
                     .map_err(|_| anyhow!("AngleOp::asub expects one arguments"))?;
-                let r = self.binary_angle_op(
-                    LLVMAngleValue::try_new(angle_ty, lhs)?,
-                    LLVMAngleValue::try_new(angle_ty, rhs)?,
-                    |lhs, rhs| builder.build_int_sub(lhs, rhs, ""),
-                )?;
+                let (lhs,rhs) = (lhs.into_int_value(), rhs.into_int_value());
+                let r = builder.build_int_sub(lhs, rhs, "")?;
                 args.outputs.finish(builder, [r.into()])
             }
             AngleOp::aneg => {
@@ -308,14 +243,8 @@ impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for AngleOpEmitter<'c, '_, H> {
                     .inputs
                     .try_into()
                     .map_err(|_| anyhow!("AngleOp::aparts expects one arguments"))?;
-                let angle = LLVMAngleValue::try_new(angle_ty, angle)?;
-                let log_denom = angle.build_get_log_denom(builder)?;
-                let value = {
-                    let v = angle.build_get_value_max_denom(builder)?;
-                    let v = builder.build_int_neg(v, "")?;
-                    angle.build_unmax_denom(builder, v)?
-                };
-                let r = angle_ty.build_value(builder, value, log_denom)?;
+                let angle = angle.into_int_value();
+                let r = builder.build_int_neg(angle, "")?;
                 args.outputs.finish(builder, [r.into()])
             }
             AngleOp::anew => {
@@ -323,6 +252,27 @@ impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for AngleOpEmitter<'c, '_, H> {
                     .inputs
                     .try_into()
                     .map_err(|_| anyhow!("AngleOp::anew expects two arguments"))?;
+                let value = value.into_int_value();
+                let log_denom = log_denom.into_int_value();
+                let denom = builder.build_left_shift(angle_ty.const_int(1, false), log_denom, "")?;
+                let is_ok = {
+                    let log_denom_ok = {
+                        let log_denom_in_range = builder.build_int_compare(IntPredicate::ULE, log_denom, log_denom.get_type().const_int(LOG_DENOM_MAX as u64, false), "")?;
+                        let width_large_enough = builder.build_int_compare(IntPredicate::ULE, log_denom, angle_ty.size_of(), "")?;
+                        builder.build_and(log_denom_in_range, width_large_enough, "")?
+                    };
+
+                    let value_ok = {
+                        let ok = builder.build_int_compare(IntPredicate::ULT, value, denom, "")?;
+                        // if `log_denom_ok` is false, denom will be poison and so will `ok`.
+                        // We freeze `ok` here since `log_denom_ok` is false and so
+                        // the `and` below does not depend on this value.
+                        unsafe {
+                            IntValue::new(LLVMBuildFreeze(builder.as_mut_ptr(), ok.as_value_ref(), "".as_ref() as *const i8))
+                        }
+                    };
+                    builder.build_and(log_denom_ok, value_ok, "")?
+                };
                 let r = self.1.build_value(builder, value, log_denom)?;
                 args.outputs.finish(builder, [r.into()])
             }
