@@ -28,7 +28,8 @@ use super::PreludeCodegen;
 /// to a closure.
 ///
 /// The pointer forwarded to the closure is a pointer to the first element of
-/// the array.
+/// the array. I.e. it is of type `array.get_element_type().ptr_type()` not
+/// `array.ptr_type()`
 fn with_array_alloca<'c, T, E: From<BuilderError>>(
     builder: &Builder<'c>,
     array: ArrayValue<'c>,
@@ -82,32 +83,61 @@ pub fn emit_array_op<'c, H: HugrView>(
                 .map_err(|_| anyhow!("ArrayOpDef::get expects two arguments"))?;
             let array_v = array_v.into_array_value();
             let index_v = index_v.into_int_value();
-            let elem = with_array_alloca(builder, array_v, |ptr| {
-                let elem_addr = unsafe { builder.build_gep(ptr, &[index_v], "")? };
-                builder.build_load(elem_addr, "")
-            })?;
+            let res_hugr_ty = sig
+                .output()
+                .get(0)
+                .ok_or(anyhow!("ArrayOp::get has no outputs"))?;
 
             let res_sum_ty = {
-                let TypeEnum::Sum(st) = sig
-                    .output()
-                    .get(0)
-                    .ok_or(anyhow!("ArrayOp::get has no outputs"))?
-                    .as_type_enum()
-                else {
+                let TypeEnum::Sum(st) = res_hugr_ty.as_type_enum() else {
                     Err(anyhow!("ArrayOp::get output is not a sum type"))?
                 };
                 LLVMSumType::try_new(&ts, st.clone())?
             };
-            let success_v = res_sum_ty.build_tag(builder, 1, vec![elem])?;
-            let failure_v = res_sum_ty.build_tag(builder, 0, vec![])?;
+
+            let exit_rmb = ctx.new_row_mail_box([res_hugr_ty], "")?;
+
+            let exit_block = ctx.build_positioned_new_block("", None, |ctx, bb| {
+                outputs.finish(ctx.builder(), exit_rmb.read_vec(ctx.builder(), [])?)?;
+                Ok(bb)
+            })?;
+
+            let success_block =
+                ctx.build_positioned_new_block("", Some(exit_block), |ctx, bb| {
+                    let builder = ctx.builder();
+                    let elem_v = with_array_alloca(builder, array_v, |ptr| {
+                        // inside `success_block` we know `index_v` to be in
+                        // bounds.
+                        let elem_addr =
+                            unsafe { builder.build_in_bounds_gep(ptr, &[index_v], "")? };
+                        builder.build_load(elem_addr, "")
+                    })?;
+                    let success_v = res_sum_ty.build_tag(builder, 1, vec![elem_v])?;
+                    exit_rmb.write(ctx.builder(), [success_v])?;
+                    builder.build_unconditional_branch(exit_block)?;
+                    Ok(bb)
+                })?;
+
+            let failure_block =
+                ctx.build_positioned_new_block("", Some(success_block), |ctx, bb| {
+                    let builder = ctx.builder();
+                    let failure_v = res_sum_ty.build_tag(builder, 0, vec![])?;
+                    exit_rmb.write(ctx.builder(), [failure_v])?;
+                    builder.build_unconditional_branch(exit_block)?;
+                    Ok(bb)
+                })?;
+
+            let builder = ctx.builder();
             let is_success = builder.build_int_compare(
                 IntPredicate::ULT,
                 index_v,
                 index_v.get_type().const_int(size, false),
                 "",
             )?;
-            let res_v = builder.build_select(is_success, success_v, failure_v, "")?;
-            outputs.finish(ctx.builder(), [res_v])
+
+            builder.build_conditional_branch(is_success, success_block, failure_block)?;
+            builder.position_at_end(exit_block);
+            Ok(())
         }
         ArrayOpDef::set => {
             let [array_v0, index_v, value_v] = inputs
@@ -319,6 +349,21 @@ mod test {
                     .finish_sub_container()
                     .unwrap();
                 builder.finish_sub_container().unwrap()
+            });
+        llvm_ctx.add_extensions(add_default_prelude_extensions);
+        check_emission!(hugr, llvm_ctx);
+    }
+
+    #[rstest]
+    fn emit_get(mut llvm_ctx: TestContext) {
+        let hugr = SimpleHugrConfig::new()
+            .with_extensions(prelude::PRELUDE_REGISTRY.to_owned())
+            .finish(|mut builder| {
+                let us1 = builder.add_load_value(ConstUsize::new(1));
+                let us2 = builder.add_load_value(ConstUsize::new(2));
+                let arr = builder.add_new_array(USIZE_T, [us1, us2]).unwrap();
+                builder.add_array_get(USIZE_T, 2, arr, us1).unwrap();
+                builder.finish_with_outputs([]).unwrap()
             });
         llvm_ctx.add_extensions(add_default_prelude_extensions);
         check_emission!(hugr, llvm_ctx);
