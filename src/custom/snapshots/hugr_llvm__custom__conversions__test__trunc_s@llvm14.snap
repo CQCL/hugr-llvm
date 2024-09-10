@@ -12,10 +12,8 @@ alloca_block:
   br label %entry_block
 
 entry_block:                                      ; preds = %alloca_block
-  %max_int_pos = call i32 @llvm.abs.i32(i32 2147483647, i1 false)
-  %max_flt_pos = sitofp i32 %max_int_pos to double
   %flt_pos = call double @llvm.fabs.f64(double %0)
-  %conversion_valid = fcmp ole double %flt_pos, %max_flt_pos
+  %conversion_valid = fcmp ole double %flt_pos, 0x41DFFFFFFFC00000
   %conversion_valid_i32 = zext i1 %conversion_valid to i32
   %1 = fptosi double %0 to i32
   %result_row = insertvalue { i32 } undef, i32 %1, 0
@@ -26,8 +24,5 @@ entry_block:                                      ; preds = %alloca_block
 
 ; Function Attrs: nofree nosync nounwind readnone speculatable willreturn
 declare double @llvm.fabs.f64(double) #0
-
-; Function Attrs: nofree nosync nounwind readnone speculatable willreturn
-declare i32 @llvm.abs.i32(i32, i1 immarg) #0
 
 attributes #0 = { nofree nosync nounwind readnone speculatable willreturn }

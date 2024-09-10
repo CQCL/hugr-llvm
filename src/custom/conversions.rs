@@ -80,42 +80,15 @@ impl<'c, H: HugrView> ConversionsEmitter<'c, '_, H> {
             // We have to check if the conversion will work, so we
             // make the maximum int and convert to a float, then compare
             // with the function input.
-            let int_max = if signed {
-                int_ty.const_int(int_max_value_s, false)
+            let flt_max = if signed {
+                ctx.iw_context()
+                    .f64_type()
+                    .const_float(int_max_value_s as f64)
             } else {
-                int_ty.const_int(int_max_value_u, false)
+                ctx.iw_context()
+                    .f64_type()
+                    .const_float(int_max_value_u as f64)
             };
-
-            let flt_int_max = if signed {
-                let abs_name = &format!("llvm.abs.i{}", width);
-                let abs_intr = Intrinsic::find(abs_name).expect("Couldn't find int abs intrinsic");
-                let abs = abs_intr
-                    .get_declaration(ctx.get_current_module(), &[int_ty.as_basic_type_enum()])
-                    .unwrap();
-
-                let const_false = ctx
-                    .iw_context()
-                    .bool_type()
-                    .const_zero()
-                    .as_basic_value_enum();
-                let abs_call = ctx
-                    .builder()
-                    .build_call(abs, &[int_max.into(), const_false.into()], "max_int_pos")?
-                    .as_any_value_enum()
-                    .into_int_value();
-
-                ctx.builder().build_signed_int_to_float(
-                    abs_call,
-                    ctx.iw_context().f64_type(),
-                    "max_flt_pos",
-                )
-            } else {
-                ctx.builder().build_unsigned_int_to_float(
-                    int_max,
-                    ctx.iw_context().f64_type(),
-                    "max_flt",
-                )
-            }?;
 
             let fabs_call = ctx
                 .builder()
@@ -123,11 +96,10 @@ impl<'c, H: HugrView> ConversionsEmitter<'c, '_, H> {
                 .as_any_value_enum()
                 .into_float_value();
 
-            // TODO: Test this with converting INT_MAX to float to see if we need a cheeky error margin
             let success = ctx.builder().build_float_compare(
                 FloatPredicate::OLE,
                 fabs_call,
-                flt_int_max,
+                flt_max,
                 "conversion_valid",
             )?;
             let success = ctx.builder().build_int_z_extend(
@@ -142,10 +114,10 @@ impl<'c, H: HugrView> ConversionsEmitter<'c, '_, H> {
             // earlier check.
             let trunc_result = if signed {
                 ctx.builder()
-                    .build_float_to_signed_int(arg.into_float_value(), int_ty, "")
+                    .build_float_to_signed_int(arg.into_float_value(), int_ty, "trunc_result")
             } else {
                 ctx.builder()
-                    .build_float_to_unsigned_int(arg.into_float_value(), int_ty, "")
+                    .build_float_to_unsigned_int(arg.into_float_value(), int_ty, "trunc_result")
             }?
             .as_basic_value_enum();
 
