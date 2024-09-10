@@ -45,15 +45,17 @@ impl<'c, H: HugrView> ConversionsEmitter<'c, '_, H> {
         // Note: This logic is copied from `llvm_type` in the IntTypes
         // extension. We need to have a common source of truth for this.
         let (width, int_max_value_s, int_max_value_u) = match log_width {
-            0..=3 => Ok((8, i8::MAX as u64, u8::MAX as u64)),
-            4 => Ok((16, i16::MAX as u64, u16::MAX as u64)),
-            5 => Ok((32, i32::MAX as u64, u32::MAX as u64)),
-            6 => Ok((64, i64::MAX as u64, u64::MAX)),
-            m => Err(anyhow!(
-                "IntTypesCodegenExtension: unsupported log_width: {}",
-                m
-            )),
-        }?;
+            0..=3 => (8, i8::MAX as u64, u8::MAX as u64),
+            4 => (16, i16::MAX as u64, u16::MAX as u64),
+            5 => (32, i32::MAX as u64, u32::MAX as u64),
+            6 => (64, i64::MAX as u64, u64::MAX),
+            m => {
+                return Err(anyhow!(
+                    "IntTypesCodegenExtension: unsupported log_width: {}",
+                    m
+                ))
+            }
+        };
 
         let hugr_int_ty = INT_TYPES[log_width as usize].clone();
         let int_ty = self
