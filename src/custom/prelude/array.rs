@@ -338,6 +338,7 @@ mod test {
     #[case(0, 1)]
     #[case(1, 2)]
     #[case(3, 0)]
+    #[case(999999, 0)]
     fn exec_get(mut exec_ctx: TestContext, #[case] index: u64, #[case] expected: u64) {
         // We build a HUGR that:
         // - Creates an array of [1,2]
