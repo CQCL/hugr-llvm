@@ -1,5 +1,5 @@
 use hugr::{ops::OpType, HugrView};
-use inkwell::values::BasicValueEnum;
+use inkwell::{builder::Builder, values::BasicValueEnum};
 
 use crate::fat::FatNode;
 
@@ -67,4 +67,5 @@ impl<'c, H: HugrView> EmitOpArgs<'c, OpType, H> {
             outputs,
         }
     }
+
 }
