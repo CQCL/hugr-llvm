@@ -1,15 +1,20 @@
 use anyhow::{anyhow, bail, ensure, Result};
-use std::{any::TypeId, f64::consts::PI, ffi::CString, ptr};
+use std::{any::TypeId, f64::consts::PI, ffi::CString};
 
 use hugr::{
-    extension::{prelude::{option_type, sum_with_error, ConstError, USIZE_T}, simple_op::MakeOpDef, ExtensionId},
+    extension::{
+        prelude::{sum_with_error, ConstError, USIZE_T},
+        simple_op::MakeOpDef,
+        ExtensionId,
+    },
     ops::{constant::CustomConst, ExtensionOp, Value},
     types::CustomType,
     HugrView,
 };
 use inkwell::{
-    types::{BasicType, BasicTypeEnum},
-    values::{AsValueRef, BasicValue, BasicValueEnum, FloatValue, IntValue}, IntPredicate,
+    types::BasicTypeEnum,
+    values::{AsValueRef, BasicValue, BasicValueEnum, FloatValue, IntValue},
+    IntPredicate,
 };
 use llvm_sys_140::core::LLVMBuildFreeze;
 
@@ -20,7 +25,9 @@ use crate::{
 
 use super::{CodegenExtension, CodegenExtsMap};
 
-use tket2::extension::angle::{AngleOp, ConstAngle, ANGLE_CUSTOM_TYPE, ANGLE_EXTENSION_ID, LOG_DENOM_MAX};
+use tket2::extension::angle::{
+    AngleOp, ConstAngle, ANGLE_CUSTOM_TYPE, ANGLE_EXTENSION_ID, LOG_DENOM_MAX,
+};
 
 // #[derive(Debug, Clone, Copy)]
 // struct LLVMAngleType<'c>(IntType<'c>);
@@ -111,7 +118,7 @@ impl<'c, H: HugrView> CodegenExtension<'c, H> for AngleCodegenExtension {
         hugr_type: &CustomType,
     ) -> Result<BasicTypeEnum<'c>> {
         if hugr_type == &ANGLE_CUSTOM_TYPE {
-            let r = context.llvm_type(&USIZE_T.into())?;
+            let r = context.llvm_type(&USIZE_T)?;
             ensure!(r.is_int_type(), "USIZE_T is not an int type");
             Ok(r)
         } else {
@@ -123,9 +130,7 @@ impl<'c, H: HugrView> CodegenExtension<'c, H> for AngleCodegenExtension {
         &'a self,
         context: &'a mut EmitFuncContext<'c, H>,
     ) -> Box<dyn crate::emit::EmitOp<'c, hugr::ops::ExtensionOp, H> + 'a> {
-        Box::new(AngleOpEmitter(
-            context,
-        ))
+        Box::new(AngleOpEmitter(context))
     }
 
     fn supported_consts(&self) -> std::collections::HashSet<std::any::TypeId> {
@@ -141,11 +146,15 @@ impl<'c, H: HugrView> CodegenExtension<'c, H> for AngleCodegenExtension {
         let Some(angle) = konst.downcast_ref::<ConstAngle>() else {
             return Ok(None);
         };
-        let angle_type = context.llvm_type(&USIZE_T.into())?.into_int_type();
+        let angle_type = context.llvm_type(&USIZE_T)?.into_int_type();
         let log_denom = angle.log_denom() as u64;
         let width = angle_type.get_bit_width() as u64;
-        ensure!(log_denom <= width, "log_denom is greater than width of usize: {log_denom} > {width}");
-        Ok(Some(angle_type
+        ensure!(
+            log_denom <= width,
+            "log_denom is greater than width of usize: {log_denom} > {width}"
+        );
+        Ok(Some(
+            angle_type
                 .const_int(angle.value() << (width - log_denom), false)
                 .as_basic_value_enum(),
         ))
@@ -193,9 +202,8 @@ impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for AngleOpEmitter<'c, '_, H> {
         let ts = self.0.typing_session();
         let module = self.0.get_current_module();
         let float_ty = self.0.iw_context().f64_type();
-        let i32_ty = self.0.iw_context().i32_type();
         let builder = self.0.builder();
-        let angle_ty = self.0.llvm_type(&USIZE_T.into())?.into_int_type();
+        let angle_ty = self.0.llvm_type(&USIZE_T)?.into_int_type();
         let angle_width = angle_ty.get_bit_width() as u64;
 
         match AngleOp::from_op(&args.node())? {
@@ -204,14 +212,14 @@ impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for AngleOpEmitter<'c, '_, H> {
                     .inputs
                     .try_into()
                     .map_err(|_| anyhow!("AngleOp::atrunc expects two arguments"))?;
-                args.outputs.finish(builder, [angle.into()])
+                args.outputs.finish(builder, [angle])
             }
             AngleOp::aadd => {
                 let [lhs, rhs] = args
                     .inputs
                     .try_into()
                     .map_err(|_| anyhow!("AngleOp::aadd expects two arguments"))?;
-                let (lhs,rhs) = (lhs.into_int_value(), rhs.into_int_value());
+                let (lhs, rhs) = (lhs.into_int_value(), rhs.into_int_value());
                 let r = builder.build_int_add(lhs, rhs, "")?;
                 args.outputs.finish(builder, [r.into()])
             }
@@ -220,7 +228,7 @@ impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for AngleOpEmitter<'c, '_, H> {
                     .inputs
                     .try_into()
                     .map_err(|_| anyhow!("AngleOp::asub expects one arguments"))?;
-                let (lhs,rhs) = (lhs.into_int_value(), rhs.into_int_value());
+                let (lhs, rhs) = (lhs.into_int_value(), rhs.into_int_value());
                 let r = builder.build_int_sub(lhs, rhs, "")?;
                 args.outputs.finish(builder, [r.into()])
             }
@@ -240,11 +248,22 @@ impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for AngleOpEmitter<'c, '_, H> {
                     .map_err(|_| anyhow!("AngleOp::anew expects two arguments"))?;
                 let value = value.into_int_value();
                 let log_denom = log_denom.into_int_value();
-                let denom = builder.build_left_shift(angle_ty.const_int(1, false), log_denom, "")?;
+                let denom =
+                    builder.build_left_shift(angle_ty.const_int(1, false), log_denom, "")?;
                 let ok = {
                     let log_denom_ok = {
-                        let log_denom_in_range = builder.build_int_compare(IntPredicate::ULE, log_denom, log_denom.get_type().const_int(LOG_DENOM_MAX as u64, false), "")?;
-                        let width_large_enough = builder.build_int_compare(IntPredicate::ULE, log_denom, angle_ty.const_int(angle_width, false), "")?;
+                        let log_denom_in_range = builder.build_int_compare(
+                            IntPredicate::ULE,
+                            log_denom,
+                            log_denom.get_type().const_int(LOG_DENOM_MAX as u64, false),
+                            "",
+                        )?;
+                        let width_large_enough = builder.build_int_compare(
+                            IntPredicate::ULE,
+                            log_denom,
+                            angle_ty.const_int(angle_width, false),
+                            "",
+                        )?;
                         builder.build_and(log_denom_in_range, width_large_enough, "")?
                     };
 
@@ -254,15 +273,17 @@ impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for AngleOpEmitter<'c, '_, H> {
                         // We freeze `ok` here since `log_denom_ok` is false and so
                         // the `and` below will be false independently of `value_ok''s value.
                         unsafe {
-                            let str = CString::new("")?;
-                            let r = LLVMBuildFreeze(builder.as_mut_ptr(), ok.as_value_ref(), str.as_ptr());
-                            assert!(r != ptr::null_mut());
-                            IntValue::new(r)
+                            IntValue::new(LLVMBuildFreeze(
+                                builder.as_mut_ptr(),
+                                ok.as_value_ref(),
+                                CString::default().as_ptr(),
+                            ))
                         }
                     };
                     builder.build_and(log_denom_ok, value_ok, "")?
                 };
-                let shift = builder.build_int_sub(angle_ty.const_int(angle_width, false), log_denom, "")?;
+                let shift =
+                    builder.build_int_sub(angle_ty.const_int(angle_width, false), log_denom, "")?;
                 let value = builder.build_left_shift(value, shift, "")?;
 
                 let ret_sum_ty = ts.llvm_sum_type(sum_with_error(USIZE_T))?;
@@ -279,8 +300,10 @@ impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for AngleOpEmitter<'c, '_, H> {
                     .inputs
                     .try_into()
                     .map_err(|_| anyhow!("AngleOp::aparts expects one argument"))?;
-                args.outputs
-                    .finish(builder, [angle, angle_ty.const_int(angle_width, false).into()])
+                args.outputs.finish(
+                    builder,
+                    [angle, angle_ty.const_int(angle_width, false).into()],
+                )
             }
             AngleOp::afromrad => {
                 let [_log_denom, rads] = args
@@ -297,10 +320,15 @@ impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for AngleOpEmitter<'c, '_, H> {
                     let rads_by_2pi = builder.build_float_div(rads, two_pi, "")?;
                     let floor_rads_by_2pi = {
                         let floor = get_intrinsic(module, "llvm.floor", [float_ty.into()])?;
-                        builder.build_call(floor, &[rads_by_2pi.into()], "")?.try_as_basic_value().left().ok_or(anyhow!("llvm.floor has no return value"))?.into_float_value()
+                        builder
+                            .build_call(floor, &[rads_by_2pi.into()], "")?
+                            .try_as_basic_value()
+                            .left()
+                            .ok_or(anyhow!("llvm.floor has no return value"))?
+                            .into_float_value()
                     };
-                    let normalised_rads = builder.build_float_sub(rads_by_2pi, floor_rads_by_2pi, "")?;
-                    normalised_rads
+
+                    builder.build_float_sub(rads_by_2pi, floor_rads_by_2pi, "")?
                     // let rads_ok = {
                     //     let is_fpclass = get_intrinsic(module, "llvm.is.fpclass", [float_ty.as_basic_type_enum(), i32_ty.as_basic_type_enum()])?;
                     //     // We choose to treat {Quiet NaNs, infinities, subnormal values} as zero.
@@ -329,12 +357,17 @@ impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for AngleOpEmitter<'c, '_, H> {
                         .left()
                         .ok_or(anyhow!("exp2 intrinsic had no return value"))?
                         .into_float_value();
-                    builder.build_float_to_unsigned_int(builder.build_float_add(builder.build_float_mul(normalised_rads, denom, "")?, float_ty.const_float(0.5),"")?, angle_ty, "")?
+                    builder.build_float_to_unsigned_int(
+                        builder.build_float_add(
+                            builder.build_float_mul(normalised_rads, denom, "")?,
+                            float_ty.const_float(0.5),
+                            "",
+                        )?,
+                        angle_ty,
+                        "",
+                    )?
                 };
-                args.outputs.finish(
-                    builder,
-                    [value.into()],
-                )
+                args.outputs.finish(builder, [value.into()])
             }
             AngleOp::atorad => {
                 let [angle] = args
@@ -347,7 +380,11 @@ impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for AngleOpEmitter<'c, '_, H> {
                     let denom = {
                         let exp2 = get_intrinsic(module, "llvm.exp2", [float_ty.into()])?;
                         builder
-                            .build_call(exp2, &[float_ty.const_float(angle_width as f64).into()], "")?
+                            .build_call(
+                                exp2,
+                                &[float_ty.const_float(angle_width as f64).into()],
+                                "",
+                            )?
                             .try_as_basic_value()
                             .left()
                             .ok_or(anyhow!("exp2 intrinsic had no return value"))?
@@ -366,15 +403,14 @@ impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for AngleOpEmitter<'c, '_, H> {
                     .map_err(|_| anyhow!("AngleOp::aeq expects two arguments"))?;
                 let (lhs, rhs) = (lhs.into_int_value(), rhs.into_int_value());
                 let r = {
-                    let r_i1 =
-                        builder.build_int_compare(IntPredicate::EQ, lhs, rhs, "")?;
+                    let r_i1 = builder.build_int_compare(IntPredicate::EQ, lhs, rhs, "")?;
                     let true_val = emit_value(self.0, &Value::true_val())?;
                     let false_val = emit_value(self.0, &Value::false_val())?;
                     self.0
                         .builder()
                         .build_select(r_i1, true_val, false_val, "")?
                 };
-                args.outputs.finish(self.0.builder(), [r.into()])
+                args.outputs.finish(self.0.builder(), [r])
             }
             AngleOp::amul => {
                 let [lhs, rhs] = args
@@ -382,7 +418,7 @@ impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for AngleOpEmitter<'c, '_, H> {
                     .try_into()
                     .map_err(|_| anyhow!("AngleOp::amul expects two arguments"))?;
                 let (lhs, rhs) = (lhs.into_int_value(), rhs.into_int_value());
-                let r =  builder.build_int_mul(lhs, rhs, "")?;
+                let r = builder.build_int_mul(lhs, rhs, "")?;
                 args.outputs.finish(builder, [r.into()])
             }
             AngleOp::adiv => {
@@ -396,7 +432,7 @@ impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for AngleOpEmitter<'c, '_, H> {
                 //  - check for zero and branch, then in the is-zero branch:
                 //    - panic
                 //    - return poison. I.e. it is fine in HUGR if you never look at the result
-                let r =  builder.build_int_unsigned_div(lhs, rhs, "")?;
+                let r = builder.build_int_unsigned_div(lhs, rhs, "")?;
                 args.outputs.finish(builder, [r.into()])
             }
             _ => todo!(),
@@ -404,11 +440,11 @@ impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for AngleOpEmitter<'c, '_, H> {
     }
 }
 
-pub fn add_angle_extensions<'c,H: HugrView>(cge: CodegenExtsMap<'c,H>) -> CodegenExtsMap<'c,H> {
+pub fn add_angle_extensions<H: HugrView>(cge: CodegenExtsMap<'_, H>) -> CodegenExtsMap<'_, H> {
     cge.add_cge(AngleCodegenExtension)
 }
 
-impl<'c,H: HugrView> CodegenExtsMap<'c,H> {
+impl<'c, H: HugrView> CodegenExtsMap<'c, H> {
     pub fn add_angle_extensions(self) -> Self {
         add_angle_extensions(self)
     }
@@ -416,11 +452,18 @@ impl<'c,H: HugrView> CodegenExtsMap<'c,H> {
 
 #[cfg(test)]
 mod test {
-    use hugr::{builder::{Dataflow as _, DataflowSubContainer as _}, extension::prelude::BOOL_T};
+    use hugr::{
+        builder::{Dataflow as _, DataflowSubContainer as _},
+        extension::prelude::BOOL_T,
+    };
     use rstest::rstest;
     use tket2::extension::angle::{AngleOpBuilder as _, ANGLE_TYPE};
 
-    use crate::{check_emission, emit::test::SimpleHugrConfig, test::{TestContext, llvm_ctx}};
+    use crate::{
+        check_emission,
+        emit::test::SimpleHugrConfig,
+        test::{llvm_ctx, TestContext},
+    };
 
     use super::*;
 
@@ -445,8 +488,11 @@ mod test {
                 let bool = builder.add_aeq(angle, angle).unwrap();
                 builder.finish_with_outputs([bool]).unwrap()
             });
-        llvm_ctx.add_extensions(|cge| cge.add_angle_extensions().add_default_prelude_extensions().add_float_extensions());
+        llvm_ctx.add_extensions(|cge| {
+            cge.add_angle_extensions()
+                .add_default_prelude_extensions()
+                .add_float_extensions()
+        });
         check_emission!(hugr, llvm_ctx);
     }
 }
-

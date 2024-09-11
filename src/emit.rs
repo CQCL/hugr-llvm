@@ -6,7 +6,12 @@ use hugr::{
     HugrView, Node,
 };
 use inkwell::{
-    builder::Builder, context::Context, intrinsics::Intrinsic, module::{Linkage, Module}, types::{AnyType, BasicType, BasicTypeEnum, FunctionType}, values::{BasicValueEnum, CallSiteValue, FunctionValue, GlobalValue}
+    builder::Builder,
+    context::Context,
+    intrinsics::Intrinsic,
+    module::{Linkage, Module},
+    types::{AnyType, BasicType, BasicTypeEnum, FunctionType},
+    values::{BasicValueEnum, CallSiteValue, FunctionValue, GlobalValue},
 };
 use std::{collections::HashSet, rc::Rc};
 
@@ -392,12 +397,18 @@ pub fn deaggregate_call_result<'c>(
     })
 }
 
-pub fn get_intrinsic<'c>(module: &Module<'c>, name: impl AsRef<str>, args: impl AsRef<[BasicTypeEnum<'c>]>) -> Result<FunctionValue<'c>> {
+pub fn get_intrinsic<'c>(
+    module: &Module<'c>,
+    name: impl AsRef<str>,
+    args: impl AsRef<[BasicTypeEnum<'c>]>,
+) -> Result<FunctionValue<'c>> {
     let (name, args) = (name.as_ref(), args.as_ref());
-    let intrinsic = Intrinsic::find(name)
-        .ok_or(anyhow!("Failed to find intrinsic: '{name}'"))?;
-    intrinsic.get_declaration(module, args.as_ref())
-        .ok_or(anyhow!("failed to get_delcaration for intrisic '{name}' with args '{args:?}'"))
+    let intrinsic = Intrinsic::find(name).ok_or(anyhow!("Failed to find intrinsic: '{name}'"))?;
+    intrinsic
+        .get_declaration(module, args.as_ref())
+        .ok_or(anyhow!(
+            "failed to get_delcaration for intrisic '{name}' with args '{args:?}'"
+        ))
 }
 
 #[cfg(test)]

@@ -67,5 +67,4 @@ impl<'c, H: HugrView> EmitOpArgs<'c, OpType, H> {
             outputs,
         }
     }
-
 }
