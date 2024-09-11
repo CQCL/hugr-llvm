@@ -154,26 +154,17 @@ impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for ConversionsEmitter<'c, '_, 
             ))?;
 
         match conversion_op.def() {
-            ConvertOpDef::trunc_u => {
-                // This op should have one type arg only: the log-width of the
-                // int we're truncating to.
+            ConvertOpDef::trunc_u | ConvertOpDef::trunc_s => {
+                let signed = conversion_op.def() == &ConvertOpDef::trunc_s;
                 let Some(TypeArg::BoundedNat { n: log_width }) =
                     conversion_op.type_args().last().cloned()
                 else {
-                    panic!("Unexpected type args to truncate node")
+                    panic!("This op should have one type arg only: the log-width of the int we're truncating to.")
                 };
 
-                self.build_trunc_op(false, log_width, args)
+                self.build_trunc_op(signed, log_width, args)
             }
 
-            ConvertOpDef::trunc_s => {
-                let Some(TypeArg::BoundedNat { n: log_width }) =
-                    conversion_op.type_args().last().cloned()
-                else {
-                    panic!("Unexpected type args to truncate node")
-                };
-                self.build_trunc_op(true, log_width, args)
-            }
             ConvertOpDef::convert_u => emit_custom_unary_op(self.0, args, |ctx, arg, out_tys| {
                 let out_ty = out_tys.last().unwrap();
                 Ok(vec![ctx
@@ -204,7 +195,6 @@ impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for ConversionsEmitter<'c, '_, 
                 args.node().as_ref()
             )),
         }
-        //Ok(())
     }
 }
 
