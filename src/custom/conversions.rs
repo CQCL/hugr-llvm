@@ -4,7 +4,7 @@ use anyhow::{anyhow, Result};
 
 use hugr::{
     extension::{
-        prelude::{sum_with_error, ConstError},
+        prelude::{sum_with_error, ConstError, BOOL_T},
         simple_op::MakeExtensionOp,
         ExtensionId,
     },
@@ -13,11 +13,11 @@ use hugr::{
         conversions::{self, ConvertOpDef, ConvertOpType},
         int_types::INT_TYPES,
     },
-    types::{CustomType, TypeArg},
+    types::{CustomType, TypeArg, TypeEnum},
     HugrView,
 };
 
-use inkwell::{types::BasicTypeEnum, values::BasicValue, FloatPredicate};
+use inkwell::{types::BasicTypeEnum, values::BasicValue, FloatPredicate, IntPredicate};
 
 use crate::{
     emit::{
@@ -189,6 +189,33 @@ impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for ConversionsEmitter<'c, '_, 
             // Hence our implementation is a noop.
             ConvertOpDef::itousize | ConvertOpDef::ifromusize => {
                 emit_custom_unary_op(self.0, args, |_, arg, _| Ok(vec![arg]))
+            }
+            ConvertOpDef::itobool => {
+                assert!(conversion_op.type_args().is_empty()); // Always 1-bit int -> bool
+                let cst1 = self
+                    .0
+                    .typing_session()
+                    .llvm_type(&INT_TYPES[0])?
+                    .into_int_type()
+                    .const_int(1, false);
+                let sum_ty =
+                    self.0
+                        .typing_session()
+                        .llvm_sum_type(match BOOL_T.as_type_enum() {
+                            TypeEnum::Sum(st) => st.clone(),
+                            _ => panic!("Hugr prelude BOOL_T not a Sum"),
+                        })?;
+                emit_custom_unary_op(self.0, args, |ctx, arg, _| {
+                    let is1 = ctx.builder().build_int_compare(
+                        IntPredicate::EQ,
+                        arg.into_int_value(),
+                        cst1,
+                        "eq1",
+                    )?;
+                    let sum_f = sum_ty.build_tag(ctx.builder(), 0, vec![])?;
+                    let sum_t = sum_ty.build_tag(ctx.builder(), 1, vec![])?;
+                    Ok(vec![ctx.builder().build_select(is1, sum_t, sum_f, "")?])
+                })
             }
             _ => Err(anyhow!(
                 "Conversion op not implemented: {:?}",
