@@ -1,0 +1,53 @@
+---
+source: src/custom/angle.rs
+expression: mod_str
+---
+; ModuleID = 'test_context'
+source_filename = "test_context"
+
+@0 = private unnamed_addr constant [14 x i8] c"Invalid angle\00", align 1
+
+define { i32, {}, {} } @_hl.main.1(i64 %0, i64 %1) {
+alloca_block:
+  br label %entry_block
+
+entry_block:                                      ; preds = %alloca_block
+  %2 = uitofp i64 %0 to double
+  %3 = call double @llvm.exp2.f64(double 6.400000e+01)
+  %4 = fmul double %2, 0x401921FB54442D18
+  %5 = fdiv double %4, %3
+  %6 = fdiv double %5, 0x401921FB54442D18
+  %7 = call double @llvm.floor.f64(double %6)
+  %8 = fsub double %6, %7
+  %9 = call double @llvm.exp2.f64(double 6.400000e+01)
+  %10 = fmul double %8, %9
+  %11 = fadd double %10, 5.000000e-01
+  %12 = fptoui double %11 to i64
+  %13 = mul i64 %12, %1
+  %14 = add i64 %13, %13
+  %15 = sub i64 %14, %14
+  %16 = sub i64 0, %15
+  %17 = icmp eq i64 %16, %16
+  %18 = select i1 %17, { i32, {}, {} } { i32 1, {} poison, {} undef }, { i32, {}, {} } { i32 0, {} undef, {} poison }
+  %19 = shl i64 1, 64
+  %20 = icmp ule i64 64, 53
+  %21 = icmp ule i64 64, 64
+  %22 = and i1 %20, %21
+  %23 = icmp ult i64 %15, %19
+  %24 = freeze i1 %23
+  %25 = and i1 %22, %24
+  %26 = sub i64 64, 64
+  %27 = shl i64 %15, %26
+  %28 = insertvalue { i64 } undef, i64 %27, 0
+  %29 = insertvalue { i32, { { i32, i8* } }, { i64 } } { i32 1, { { i32, i8* } } poison, { i64 } poison }, { i64 } %28, 2
+  %30 = select i1 %25, { i32, { { i32, i8* } }, { i64 } } %29, { i32, { { i32, i8* } }, { i64 } } { i32 0, { { i32, i8* } } { { i32, i8* } { i32 3, i8* getelementptr inbounds ([14 x i8], [14 x i8]* @0, i32 0, i32 0) } }, { i64 } poison }
+  ret { i32, {}, {} } %18
+}
+
+; Function Attrs: nofree nosync nounwind readnone speculatable willreturn
+declare double @llvm.exp2.f64(double) #0
+
+; Function Attrs: nofree nosync nounwind readnone speculatable willreturn
+declare double @llvm.floor.f64(double) #0
+
+attributes #0 = { nofree nosync nounwind readnone speculatable willreturn }

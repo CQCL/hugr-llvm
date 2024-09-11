@@ -1,5 +1,5 @@
 use hugr::{ops::OpType, HugrView};
-use inkwell::{builder::Builder, values::BasicValueEnum};
+use inkwell::values::BasicValueEnum;
 
 use crate::fat::FatNode;
 
