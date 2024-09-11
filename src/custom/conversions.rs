@@ -542,4 +542,27 @@ mod test {
         exec_ctx.add_extensions(add_int_extensions);
         assert_eq!(i * 5 + 1, exec_ctx.exec_hugr_u64(hugr, "main"));
     }
+
+    #[rstest]
+    fn itobool_roundtrip(mut exec_ctx: TestContext, #[values(0, 1)] i: u64) {
+        let hugr = SimpleHugrConfig::new()
+            .with_outs(vec![INT_TYPES[0].clone()])
+            .with_extensions(CONVERT_OPS_REGISTRY.to_owned())
+            .finish(|mut builder| {
+                let i = builder.add_load_value(ConstInt::new_u(0, i).unwrap());
+                let i2b = EXTENSION
+                    .instantiate_extension_op("itobool", [], &CONVERT_OPS_REGISTRY)
+                    .unwrap();
+                let [b] = builder.add_dataflow_op(i2b, [i]).unwrap().outputs_arr();
+                let b2i = EXTENSION
+                    .instantiate_extension_op("ifrombool", [], &CONVERT_OPS_REGISTRY)
+                    .unwrap();
+                let [i] = builder.add_dataflow_op(b2i, [b]).unwrap().outputs_arr();
+                builder.finish_with_outputs([i]).unwrap()
+            });
+        exec_ctx.add_extensions(add_conversions_extension);
+        exec_ctx.add_extensions(add_default_prelude_extensions);
+        exec_ctx.add_extensions(add_int_extensions);
+        assert_eq!(i, exec_ctx.exec_hugr_u64(hugr, "main"));
+    }
 }
