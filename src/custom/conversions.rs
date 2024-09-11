@@ -284,27 +284,27 @@ mod test {
     #[rstest]
     #[case("convert_u", 4)]
     #[case("convert_s", 5)]
-    fn test_convert(mut llvm_ctx: TestContext, #[case] op_name: &str, #[case] width: u8) -> () {
+    fn test_convert(mut llvm_ctx: TestContext, #[case] op_name: &str, #[case] log_width: u8) -> () {
         llvm_ctx.add_extensions(add_int_extensions);
         llvm_ctx.add_extensions(add_float_extensions);
         llvm_ctx.add_extensions(add_conversions_extension);
-        let in_ty = INT_TYPES[width as usize].clone();
+        let in_ty = INT_TYPES[log_width as usize].clone();
         let out_ty = FLOAT64_TYPE;
-        let hugr = test_conversion_op(op_name, in_ty, out_ty, width);
+        let hugr = test_conversion_op(op_name, in_ty, out_ty, log_width);
         check_emission!(op_name, hugr, llvm_ctx);
     }
 
     #[rstest]
     #[case("trunc_u", 6)]
     #[case("trunc_s", 5)]
-    fn test_truncation(mut llvm_ctx: TestContext, #[case] op_name: &str, #[case] width: u8) -> () {
+    fn test_truncation(mut llvm_ctx: TestContext, #[case] op_name: &str, #[case] log_width: u8) -> () {
         llvm_ctx.add_extensions(add_int_extensions);
         llvm_ctx.add_extensions(add_float_extensions);
         llvm_ctx.add_extensions(add_conversions_extension);
         llvm_ctx.add_extensions(add_default_prelude_extensions);
         let in_ty = FLOAT64_TYPE;
-        let out_ty = sum_with_error(INT_TYPES[width as usize].clone());
-        let hugr = test_conversion_op(op_name, in_ty, out_ty.into(), width);
+        let out_ty = sum_with_error(INT_TYPES[log_width as usize].clone());
+        let hugr = test_conversion_op(op_name, in_ty, out_ty.into(), log_width);
         check_emission!(op_name, hugr, llvm_ctx);
     }
 
