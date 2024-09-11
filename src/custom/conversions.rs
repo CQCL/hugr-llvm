@@ -336,6 +336,29 @@ mod test {
     }
 
     #[rstest]
+    fn test_itobool(mut llvm_ctx: TestContext) {
+        llvm_ctx.add_extensions(add_int_extensions);
+        llvm_ctx.add_extensions(add_float_extensions);
+        llvm_ctx.add_extensions(add_conversions_extension);
+        let hugr = SimpleHugrConfig::new()
+            .with_ins(vec![INT_TYPES[0].clone()])
+            .with_outs(vec![BOOL_T])
+            .with_extensions(CONVERT_OPS_REGISTRY.to_owned())
+            .finish(|mut hugr_builder| {
+                let [in1] = hugr_builder.input_wires_arr();
+                let ext_op = EXTENSION
+                    .instantiate_extension_op("itobool", [], &CONVERT_OPS_REGISTRY)
+                    .unwrap();
+                let [out1] = hugr_builder
+                    .add_dataflow_op(ext_op, [in1])
+                    .unwrap()
+                    .outputs_arr();
+                hugr_builder.finish_with_outputs([out1]).unwrap()
+            });
+        check_emission!(hugr, llvm_ctx);
+    }
+
+    #[rstest]
     fn my_test_exec(mut exec_ctx: TestContext) {
         let hugr = SimpleHugrConfig::new()
             .with_outs(USIZE_T)
