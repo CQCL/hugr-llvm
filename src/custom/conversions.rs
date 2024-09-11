@@ -191,36 +191,9 @@ impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for ConversionsEmitter<'c, '_, 
             ConvertOpDef::itousize | ConvertOpDef::ifromusize => {
                 emit_custom_unary_op(self.0, args, |_, arg, _| Ok(vec![arg]))
             }
-            ConvertOpDef::itobool => {
-                assert!(conversion_op.type_args().is_empty()); // Always 1-bit int -> bool
-                let cst1 = self
-                    .0
-                    .typing_session()
-                    .llvm_type(&INT_TYPES[0])?
-                    .into_int_type()
-                    .const_int(1, false);
-                let sum_ty =
-                    self.0
-                        .typing_session()
-                        .llvm_sum_type(match BOOL_T.as_type_enum() {
-                            TypeEnum::Sum(st) => st.clone(),
-                            _ => panic!("Hugr prelude BOOL_T not a Sum"),
-                        })?;
-                emit_custom_unary_op(self.0, args, |ctx, arg, _| {
-                    let is1 = ctx.builder().build_int_compare(
-                        IntPredicate::EQ,
-                        arg.into_int_value(),
-                        cst1,
-                        "eq1",
-                    )?;
-                    let sum_f = sum_ty.build_tag(ctx.builder(), 0, vec![])?;
-                    let sum_t = sum_ty.build_tag(ctx.builder(), 1, vec![])?;
-                    Ok(vec![ctx.builder().build_select(is1, sum_t, sum_f, "")?])
-                })
-            }
-            ConvertOpDef::ifrombool => {
-                assert!(conversion_op.type_args().is_empty()); // Always bool -> 1-bit int
-                let res_ty = self
+            ConvertOpDef::itobool | ConvertOpDef::ifrombool => {
+                assert!(conversion_op.type_args().is_empty()); // Always 1-bit int <-> bool
+                let i0_ty = self
                     .0
                     .typing_session()
                     .llvm_type(&INT_TYPES[0])?
@@ -232,21 +205,35 @@ impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for ConversionsEmitter<'c, '_, 
                             TypeEnum::Sum(st) => st.clone(),
                             _ => panic!("Hugr prelude BOOL_T not a Sum"),
                         })?;
+
                 emit_custom_unary_op(self.0, args, |ctx, arg, _| {
-                    let tag_ty = sum_ty.get_tag_type();
-                    let tag = LLVMSumValue::try_new(arg, sum_ty)?.build_get_tag(ctx.builder())?;
-                    let is_true = ctx.builder().build_int_compare(
-                        IntPredicate::EQ,
-                        tag,
-                        tag_ty.const_int(1, false),
-                        "",
-                    )?;
-                    let res = ctx.builder().build_select(
-                        is_true,
-                        res_ty.const_int(1, false),
-                        res_ty.const_int(0, false),
-                        "",
-                    )?;
+                    let res = if conversion_op.def() == &ConvertOpDef::itobool {
+                        let is1 = ctx.builder().build_int_compare(
+                            IntPredicate::EQ,
+                            arg.into_int_value(),
+                            i0_ty.const_int(1, false),
+                            "eq1",
+                        )?;
+                        let sum_f = sum_ty.build_tag(ctx.builder(), 0, vec![])?;
+                        let sum_t = sum_ty.build_tag(ctx.builder(), 1, vec![])?;
+                        ctx.builder().build_select(is1, sum_t, sum_f, "")?
+                    } else {
+                        let tag_ty = sum_ty.get_tag_type();
+                        let tag =
+                            LLVMSumValue::try_new(arg, sum_ty)?.build_get_tag(ctx.builder())?;
+                        let is_true = ctx.builder().build_int_compare(
+                            IntPredicate::EQ,
+                            tag,
+                            tag_ty.const_int(1, false),
+                            "",
+                        )?;
+                        ctx.builder().build_select(
+                            is_true,
+                            i0_ty.const_int(1, false),
+                            i0_ty.const_int(0, false),
+                            "",
+                        )?
+                    };
                     Ok(vec![res])
                 })
             }
