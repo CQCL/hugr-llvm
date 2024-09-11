@@ -500,16 +500,16 @@ mod test {
     }
 
     #[rstest]
-    #[case(0, 3, 1, 3)]
-    #[case(1, 3, 2, 1)]
-    #[case(2, 3, 3, 1)]
-    #[case(999999, 3, 3, 1)]
+    #[case(0, 3, 1, [3,2])]
+    #[case(1, 3, 2, [1,3])]
+    #[case(2, 3, 3, [1,2])]
+    #[case(999999, 3, 3, [1,2])]
     fn exec_set(
         mut exec_ctx: TestContext,
         #[case] index: u64,
         #[case] value: u64,
         #[case] expected_elem: u64,
-        #[case] expected_arr_0: u64,
+        #[case] expected_arr: [u64; 2],
     ) {
         // We build a HUGR that
         // - Creates an array: [1,2]
@@ -558,16 +558,26 @@ mod test {
                         let expected_elem =
                             builder.add_load_value(ConstInt::new_u(3, expected_elem).unwrap());
                         let expected_arr_0 =
-                            builder.add_load_value(ConstInt::new_u(3, expected_arr_0).unwrap());
+                            builder.add_load_value(ConstInt::new_u(3, expected_arr[0]).unwrap());
+                        let expected_arr_1 =
+                            builder.add_load_value(ConstInt::new_u(3, expected_arr[1]).unwrap());
                         let [arr_0] = {
                             let r = builder.add_array_get(int_ty.clone(), 2, arr, us0).unwrap();
                             builder
                                 .build_unwrap_sum(reg, 1, option_type(int_ty.clone()), r)
                                 .unwrap()
                         };
+                        let [arr_1] = {
+                            let r = builder.add_array_get(int_ty.clone(), 2, arr, us1).unwrap();
+                            builder
+                                .build_unwrap_sum(reg, 1, option_type(int_ty.clone()), r)
+                                .unwrap()
+                        };
                         let elem_eq = builder.add_ieq(3, elem, expected_elem).unwrap();
                         let arr_0_eq = builder.add_ieq(3, arr_0, expected_arr_0).unwrap();
+                        let arr_1_eq = builder.add_ieq(3, arr_1, expected_arr_1).unwrap();
                         let r = builder.add_and(elem_eq, arr_0_eq).unwrap();
+                        let r = builder.add_and(r, arr_1_eq).unwrap();
                         builder.finish_with_outputs([r]).unwrap();
                     }
                     builder.finish_sub_container().unwrap().out_wire(0)
@@ -599,17 +609,17 @@ mod test {
     }
 
     #[rstest]
-    #[case(0, 1, 2, true)]
-    #[case(0, 0, 1, true)]
-    #[case(0, 2, 1, false)]
-    #[case(2, 0, 1, false)]
-    #[case(9999999, 0, 1, false)]
-    #[case(0, 9999999, 1, false)]
+    #[case(0, 1, [2,1], true)]
+    #[case(0, 0, [1,2], true)]
+    #[case(0, 2, [1,2], false)]
+    #[case(2, 0, [1,2], false)]
+    #[case(9999999, 0, [1,2], false)]
+    #[case(0, 9999999, [1,2], false)]
     fn exec_swap(
         mut exec_ctx: TestContext,
         #[case] index1: u64,
         #[case] index2: u64,
-        #[case] expected_elem_0: u64,
+        #[case] expected_arr: [u64; 2],
         #[case] expected_succeeded: bool,
     ) {
         // We build a HUGR that:
@@ -663,13 +673,23 @@ mod test {
                 let elem_0 = {
                     let r = builder.add_array_get(int_ty.clone(), 2, arr, us0).unwrap();
                     builder
+                        .build_unwrap_sum::<1>(reg, 1, option_type(int_ty.clone()), r)
+                        .unwrap()[0]
+                };
+                let elem_1 = {
+                    let r = builder.add_array_get(int_ty.clone(), 2, arr, us1).unwrap();
+                    builder
                         .build_unwrap_sum::<1>(reg, 1, option_type(int_ty), r)
                         .unwrap()[0]
                 };
                 let expected_elem_0 =
-                    builder.add_load_value(ConstInt::new_u(3, expected_elem_0).unwrap());
+                    builder.add_load_value(ConstInt::new_u(3, expected_arr[0]).unwrap());
                 let elem_0_ok = builder.add_ieq(3, elem_0, expected_elem_0).unwrap();
+                let expected_elem_1 =
+                    builder.add_load_value(ConstInt::new_u(3, expected_arr[1]).unwrap());
+                let elem_1_ok = builder.add_ieq(3, elem_1, expected_elem_1).unwrap();
                 let r = builder.add_and(was_expected_success, elem_0_ok).unwrap();
+                let r = builder.add_and(r, elem_1_ok).unwrap();
                 let r = {
                     let mut conditional = builder
                         .conditional_builder(([type_row![], type_row![]], r), [], USIZE_T.into())
