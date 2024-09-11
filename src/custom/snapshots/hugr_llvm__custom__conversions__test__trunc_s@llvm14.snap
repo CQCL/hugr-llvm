@@ -14,7 +14,6 @@ alloca_block:
 entry_block:                                      ; preds = %alloca_block
   %flt_pos = call double @llvm.fabs.f64(double %0)
   %conversion_valid = fcmp ole double %flt_pos, 0x41DFFFFFFFC00000
-  %conversion_valid_i32 = zext i1 %conversion_valid to i32
   %trunc_result = fptosi double %0 to i32
   %1 = insertvalue { i32 } undef, i32 %trunc_result, 0
   %2 = insertvalue { i32, { { i32, i8* } }, { i32 } } { i32 1, { { i32, i8* } } poison, { i32 } poison }, { i32 } %1, 2
