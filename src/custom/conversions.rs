@@ -268,6 +268,7 @@ mod test {
     use crate::emit::test::{SimpleHugrConfig, DFGW};
     use crate::test::{exec_ctx, llvm_ctx, TestContext};
     use hugr::builder::SubContainer;
+    use hugr::std_extensions::arithmetic::int_types::ConstInt;
     use hugr::{
         builder::{Dataflow, DataflowSubContainer},
         extension::prelude::{ConstUsize, PRELUDE_REGISTRY, USIZE_T},
@@ -336,7 +337,7 @@ mod test {
     }
 
     #[rstest]
-    fn test_itobool(mut llvm_ctx: TestContext) {
+    fn test_itobool_emit(mut llvm_ctx: TestContext) {
         llvm_ctx.add_extensions(add_int_extensions);
         llvm_ctx.add_extensions(add_float_extensions);
         llvm_ctx.add_extensions(add_conversions_extension);
@@ -465,5 +466,36 @@ mod test {
         exec_ctx.add_extensions(add_float_extensions);
         exec_ctx.add_extensions(add_int_extensions);
         assert_eq!(val, exec_ctx.exec_hugr_u64(hugr, "main"));
+    }
+
+    #[rstest]
+    fn itobool_cond(mut exec_ctx: TestContext, #[values(0, 1)] i: u64) {
+        use hugr::type_row;
+
+        let hugr = SimpleHugrConfig::new()
+            .with_outs(vec![USIZE_T])
+            .with_extensions(CONVERT_OPS_REGISTRY.to_owned())
+            .finish(|mut builder| {
+                let i = builder.add_load_value(ConstInt::new_u(0, i).unwrap());
+                let ext_op = EXTENSION
+                    .instantiate_extension_op("itobool", [], &CONVERT_OPS_REGISTRY)
+                    .unwrap();
+                let [b] = builder.add_dataflow_op(ext_op, [i]).unwrap().outputs_arr();
+                let mut cond = builder
+                    .conditional_builder(([type_row![], type_row![]], b), [], type_row![USIZE_T])
+                    .unwrap();
+                let mut case_false = cond.case_builder(0).unwrap();
+                let false_result = case_false.add_load_value(ConstUsize::new(1));
+                case_false.finish_with_outputs([false_result]).unwrap();
+                let mut case_true = cond.case_builder(1).unwrap();
+                let true_result = case_true.add_load_value(ConstUsize::new(6));
+                case_true.finish_with_outputs([true_result]).unwrap();
+                let res = cond.finish_sub_container().unwrap();
+                builder.finish_with_outputs(res.outputs()).unwrap()
+            });
+        exec_ctx.add_extensions(add_conversions_extension);
+        exec_ctx.add_extensions(add_default_prelude_extensions);
+        exec_ctx.add_extensions(add_int_extensions);
+        assert_eq!(i * 5 + 1, exec_ctx.exec_hugr_u64(hugr, "main"));
     }
 }
