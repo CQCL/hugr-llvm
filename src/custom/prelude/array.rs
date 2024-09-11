@@ -219,32 +219,72 @@ pub fn emit_array_op<'c, H: HugrView>(
             let array_v = array_v0.into_array_value();
             let index1_v = index1_v.into_int_value();
             let index2_v = index2_v.into_int_value();
-            let array_v = with_array_alloca(builder, array_v, |ptr| {
-                let elem1_addr = unsafe { builder.build_gep(ptr, &[index1_v], "")? };
-                let elem1_v = builder.build_load(elem1_addr, "")?;
-                let elem2_addr = unsafe { builder.build_gep(ptr, &[index2_v], "")? };
-                let elem2_v = builder.build_load(elem2_addr, "")?;
-                builder.build_store(elem1_addr, elem2_v)?;
-                builder.build_store(elem2_addr, elem1_v)?;
-                let ptr = builder
-                    .build_bitcast(ptr, array_v.get_type().ptr_type(Default::default()), "")?
-                    .into_pointer_value();
-                builder.build_load(ptr, "")
-            })?;
 
-            let llvm_res_ty = {
-                let TypeEnum::Sum(st) = sig
-                    .output()
-                    .get(0)
-                    .ok_or(anyhow!("ArrayOp::swap has no outputs"))?
-                    .as_type_enum()
-                else {
+            let res_hugr_ty = sig
+                .output()
+                .get(0)
+                .ok_or(anyhow!("ArrayOp::swap has no outputs"))?;
+
+            let res_sum_ty = {
+                let TypeEnum::Sum(st) = res_hugr_ty.as_type_enum() else {
                     Err(anyhow!("ArrayOp::swap output is not a sum type"))?
                 };
                 LLVMSumType::try_new(&ts, st.clone())?
             };
-            let success_v = llvm_res_ty.build_tag(builder, 1, vec![array_v])?;
-            let failure_v = llvm_res_ty.build_tag(builder, 0, vec![array_v0])?;
+
+            let exit_rmb = ctx.new_row_mail_box([res_hugr_ty], "")?;
+
+            let exit_block = ctx.build_positioned_new_block("", None, |ctx, bb| {
+                outputs.finish(ctx.builder(), exit_rmb.read_vec(ctx.builder(), [])?)?;
+                Ok(bb)
+            })?;
+
+            let success_block =
+                ctx.build_positioned_new_block("", Some(exit_block), |ctx, bb| {
+                    // if `index1_v` == `index2_v` then the following is a no-op.
+                    // We could check for this: either with a select instruction
+                    // here, or by branching to another case in earlier.
+                    // Doing so would generate better code in cases where the
+                    // optimiser can determine that the indices are the same, at
+                    // the cost of worse code in cases where it cannot.
+                    // For now we choose the simpler option of omitting the check.
+                    let builder = ctx.builder();
+                    let array_v = with_array_alloca(builder, array_v, |ptr| {
+                        // inside `success_block` we know `index1_v` and `index2_v`
+                        // to be in bounds.
+                        let elem1_addr =
+                            unsafe { builder.build_in_bounds_gep(ptr, &[index1_v], "")? };
+                        let elem1_v = builder.build_load(elem1_addr, "")?;
+                        let elem2_addr =
+                            unsafe { builder.build_in_bounds_gep(ptr, &[index2_v], "")? };
+                        let elem2_v = builder.build_load(elem2_addr, "")?;
+                        builder.build_store(elem1_addr, elem2_v)?;
+                        builder.build_store(elem2_addr, elem1_v)?;
+                        let ptr = builder
+                            .build_bitcast(
+                                ptr,
+                                array_v.get_type().ptr_type(Default::default()),
+                                "",
+                            )?
+                            .into_pointer_value();
+                        builder.build_load(ptr, "")
+                    })?;
+                    let success_v = res_sum_ty.build_tag(builder, 1, vec![array_v])?;
+                    exit_rmb.write(ctx.builder(), [success_v])?;
+                    builder.build_unconditional_branch(exit_block)?;
+                    Ok(bb)
+                })?;
+
+            let failure_block =
+                ctx.build_positioned_new_block("", Some(success_block), |ctx, bb| {
+                    let builder = ctx.builder();
+                    let failure_v = res_sum_ty.build_tag(builder, 0, vec![array_v.into()])?;
+                    exit_rmb.write(ctx.builder(), [failure_v])?;
+                    builder.build_unconditional_branch(exit_block)?;
+                    Ok(bb)
+                })?;
+
+            let builder = ctx.builder();
             let is_success = {
                 let index1_ok = builder.build_int_compare(
                     IntPredicate::ULT,
@@ -260,8 +300,9 @@ pub fn emit_array_op<'c, H: HugrView>(
                 )?;
                 builder.build_and(index1_ok, index2_ok, "")?
             };
-            let res_v = builder.build_select(is_success, success_v, failure_v, "")?;
-            outputs.finish(ctx.builder(), [res_v])
+            builder.build_conditional_branch(is_success, success_block, failure_block)?;
+            builder.position_at_end(exit_block);
+            Ok(())
         }
         ArrayOpDef::pop_left => {
             let [array_v] = inputs
@@ -562,6 +603,8 @@ mod test {
     #[case(0, 0, 1, true)]
     #[case(0, 2, 1, false)]
     #[case(2, 0, 1, false)]
+    #[case(9999999, 0, 1, false)]
+    #[case(0, 9999999, 1, false)]
     fn exec_swap(
         mut exec_ctx: TestContext,
         #[case] index1: u64,
