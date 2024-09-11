@@ -25,6 +25,7 @@ use crate::{
 
 use super::{CodegenExtension, CodegenExtsMap};
 
+
 use tket2::extension::angle::{
     AngleOp, ConstAngle, ANGLE_CUSTOM_TYPE, ANGLE_EXTENSION_ID, LOG_DENOM_MAX,
 };
@@ -382,7 +383,7 @@ impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for AngleOpEmitter<'c, '_, H> {
                         builder
                             .build_call(
                                 exp2,
-                                &[float_ty.const_float(angle_width as f64).into()],
+                                &[float_ty.const_float(-(angle_width as f64)).into()],
                                 "",
                             )?
                             .try_as_basic_value()
@@ -392,7 +393,7 @@ impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for AngleOpEmitter<'c, '_, H> {
                     };
                     let value =
                         builder.build_float_mul(value, float_ty.const_float(PI * 2.0), "")?;
-                    builder.build_float_div(value, denom, "")?
+                    builder.build_float_mul(value, denom, "")?
                 };
                 args.outputs.finish(builder, [r.into()])
             }
@@ -453,16 +454,17 @@ impl<'c, H: HugrView> CodegenExtsMap<'c, H> {
 #[cfg(test)]
 mod test {
     use hugr::{
-        builder::{Dataflow as _, DataflowSubContainer as _},
-        extension::prelude::BOOL_T,
+        builder::{Dataflow, DataflowSubContainer as _, SubContainer},
+        extension::prelude::BOOL_T, std_extensions::arithmetic::float_types::FLOAT64_TYPE,
     };
+    use hugr::extension::prelude::ConstUsize;
     use rstest::rstest;
     use tket2::extension::angle::{AngleOpBuilder as _, ANGLE_TYPE};
 
     use crate::{
         check_emission,
         emit::test::SimpleHugrConfig,
-        test::{llvm_ctx, TestContext},
+        test::{llvm_ctx, exec_ctx, TestContext},
     };
 
     use super::*;
@@ -495,4 +497,162 @@ mod test {
         });
         check_emission!(hugr, llvm_ctx);
     }
+
+    #[rstest]
+    #[case(1,1, 1 << 63)]
+    #[case(0,1, 0)]
+    #[case(3,1, 0)]
+    #[case(8,4, 1 << 63)]
+    fn exec_anew(mut exec_ctx: TestContext, #[case] value: u64, #[case] log_denom: u8, #[case] expected_aparts_value: u64) {
+        let hugr = SimpleHugrConfig::new()
+            .with_extensions(tket2::extension::REGISTRY.to_owned())
+            .with_outs(USIZE_T)
+            .finish(|mut builder| {
+                let value = builder.add_load_value(ConstUsize::new(value));
+                let log_denom = builder.add_load_value(ConstUsize::new(log_denom as u64));
+                let mb_angle = builder.add_anew(value, log_denom).unwrap();
+                let r = {
+                    let variants = {
+                        let et = sum_with_error(ANGLE_TYPE);
+                        (0..2).map(|i| et.get_variant(i).unwrap().clone().try_into().unwrap()).collect::<Vec<_>>()
+                    };
+                    let mut conditional = builder.conditional_builder((variants, mb_angle), [], USIZE_T.into()).unwrap();
+                    {
+                        let mut case = conditional.case_builder(0).unwrap();
+                        let us0 = case.add_load_value(ConstUsize::new(0));
+                        case.finish_with_outputs([us0]).unwrap();
+                    }
+                    {
+                        let mut case = conditional.case_builder(1).unwrap();
+                        let [angle] = case.input_wires_arr();
+                        let [value, _log_denom] = case.add_aparts(angle).unwrap();
+                        case.finish_with_outputs([value]).unwrap();
+                    }
+                    conditional.finish_sub_container().unwrap().out_wire(0)
+                };
+                builder.finish_with_outputs([r]).unwrap()
+            });
+        exec_ctx.add_extensions(|cge| cge.add_angle_extensions().add_default_prelude_extensions());
+
+        assert_eq!(expected_aparts_value, exec_ctx.exec_hugr_u64(hugr, "main"));
+    }
+
+    #[rstest]
+    #[case(ConstAngle::PI, 1, 1 << 63)]
+    #[case(ConstAngle::PI, LOG_DENOM_MAX, 1 << 63)]
+    fn exec_atrunc(mut exec_ctx: TestContext, #[case] angle: ConstAngle, #[case]log_denom: u8, #[case] expected_aparts_value: u64) {
+        let hugr = SimpleHugrConfig::new()
+            .with_extensions(tket2::extension::REGISTRY.to_owned())
+            .with_outs(USIZE_T)
+            .finish(|mut builder| {
+                let angle = builder.add_load_value(angle);
+                let log_denom = builder.add_load_value(ConstUsize::new(log_denom as u64));
+                let angle = builder.add_atrunc(angle, log_denom).unwrap();
+                let [value, _log_denom] = builder.add_aparts(angle).unwrap();
+                builder.finish_with_outputs([value]).unwrap()
+            });
+        exec_ctx.add_extensions(|cge| cge.add_angle_extensions().add_default_prelude_extensions());
+
+        assert_eq!(expected_aparts_value, exec_ctx.exec_hugr_u64(hugr, "main"));
+    }
+
+    #[rstest]
+    #[case(ConstAngle::new(1, 1).unwrap(), ConstAngle::new(4, 4).unwrap(), 3 << 62)]
+    #[case(ConstAngle::PI, ConstAngle::new(4, 8).unwrap(), 0)]
+    fn exec_aadd(mut exec_ctx: TestContext, #[case] angle1: ConstAngle, #[case] angle2: ConstAngle, #[case] expected_aparts_value: u64) {
+        let hugr = SimpleHugrConfig::new()
+            .with_extensions(tket2::extension::REGISTRY.to_owned())
+            .with_outs(USIZE_T)
+            .finish(|mut builder| {
+                let angle1 = builder.add_load_value(angle1);
+                let angle2 = builder.add_load_value(angle2);
+                let angle = builder.add_aadd(angle1, angle2).unwrap();
+                let [value, _log_denom] = builder.add_aparts(angle).unwrap();
+                builder.finish_with_outputs([value]).unwrap()
+            });
+        exec_ctx.add_extensions(|cge| cge.add_angle_extensions().add_default_prelude_extensions());
+
+        assert_eq!(expected_aparts_value, exec_ctx.exec_hugr_u64(hugr, "main"));
+    }
+
+    #[rstest]
+    #[case(ConstAngle::new(1, 1).unwrap(), ConstAngle::new(4, 4).unwrap(), 1 << 62)]
+    #[case(ConstAngle::PI, ConstAngle::new(4, 8).unwrap(), 0)]
+    fn exec_asub(mut exec_ctx: TestContext, #[case] angle1: ConstAngle, #[case] angle2: ConstAngle, #[case] expected_aparts_value: u64) {
+        let hugr = SimpleHugrConfig::new()
+            .with_extensions(tket2::extension::REGISTRY.to_owned())
+            .with_outs(USIZE_T)
+            .finish(|mut builder| {
+                let angle1 = builder.add_load_value(angle1);
+                let angle2 = builder.add_load_value(angle2);
+                let angle = builder.add_asub(angle1, angle2).unwrap();
+                let [value, _log_denom] = builder.add_aparts(angle).unwrap();
+                builder.finish_with_outputs([value]).unwrap()
+            });
+        exec_ctx.add_extensions(|cge| cge.add_angle_extensions().add_default_prelude_extensions());
+
+        assert_eq!(expected_aparts_value, exec_ctx.exec_hugr_u64(hugr, "main"));
+    }
+
+    #[rstest]
+    #[case(ConstAngle::PI, 2, 0)]
+    #[case(ConstAngle::PI, 3, 1 << 63)]
+    #[case(ConstAngle::PI, 11, 1 << 63)]
+    fn exec_amul(mut exec_ctx: TestContext, #[case] angle: ConstAngle, #[case] factor: u64, #[case] expected_aparts_value: u64) {
+        let hugr = SimpleHugrConfig::new()
+            .with_extensions(tket2::extension::REGISTRY.to_owned())
+            .with_outs(USIZE_T)
+            .finish(|mut builder| {
+                let angle = builder.add_load_value(angle);
+                let factor = builder.add_load_value(ConstUsize::new(factor));
+                let angle = builder.add_amul(angle, factor).unwrap();
+                let [value, _log_denom] = builder.add_aparts(angle).unwrap();
+                builder.finish_with_outputs([value]).unwrap()
+            });
+        exec_ctx.add_extensions(|cge| cge.add_angle_extensions().add_default_prelude_extensions());
+
+        assert_eq!(expected_aparts_value, exec_ctx.exec_hugr_u64(hugr, "main"));
+    }
+
+    #[rstest]
+    #[case(ConstAngle::PI, 1 << 63)]
+    #[case(ConstAngle::PI_2, 3 << 62)]
+    #[case(ConstAngle::PI_4, 7 << 61)]
+    fn exec_aneg(mut exec_ctx: TestContext, #[case] angle: ConstAngle, #[case] expected_aparts_value: u64) {
+        let hugr = SimpleHugrConfig::new()
+            .with_extensions(tket2::extension::REGISTRY.to_owned())
+            .with_outs(USIZE_T)
+            .finish(|mut builder| {
+                let angle = builder.add_load_value(angle);
+                let angle = builder.add_aneg(angle).unwrap();
+                let [value, _log_denom] = builder.add_aparts(angle).unwrap();
+                builder.finish_with_outputs([value]).unwrap()
+            });
+        exec_ctx.add_extensions(|cge| cge.add_angle_extensions().add_default_prelude_extensions());
+
+        assert_eq!(expected_aparts_value, exec_ctx.exec_hugr_u64(hugr, "main"));
+    }
+
+    #[rstest]
+    #[case(ConstAngle::PI, PI)]
+    // #[case(ConstAngle::TAU, 2.0 * PI)]
+    #[case(ConstAngle::PI_2, PI / 2.0)]
+    #[case(ConstAngle::PI_4, PI / 4.0)]
+    fn exec_atorad(mut exec_ctx: TestContext, #[case] angle: ConstAngle, #[case] expected_rads: f64) {
+        let hugr = SimpleHugrConfig::new()
+            .with_extensions(tket2::extension::REGISTRY.to_owned())
+            .with_outs(FLOAT64_TYPE)
+            .finish(|mut builder| {
+                let angle = builder.add_load_value(angle);
+                let rads = builder.add_atorad(angle).unwrap();
+                builder.finish_with_outputs([rads]).unwrap()
+            });
+        exec_ctx.add_extensions(|cge| cge.add_angle_extensions().add_default_prelude_extensions().add_float_extensions());
+
+        let rads = exec_ctx.exec_hugr_f64(hugr, "main");
+        dbg!(rads);
+        assert!(f64::abs(expected_rads - rads) < 0.0000000001);
+    }
+
+
 }

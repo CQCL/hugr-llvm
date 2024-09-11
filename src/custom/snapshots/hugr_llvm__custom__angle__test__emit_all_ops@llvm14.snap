@@ -13,9 +13,9 @@ alloca_block:
 
 entry_block:                                      ; preds = %alloca_block
   %2 = uitofp i64 %0 to double
-  %3 = call double @llvm.exp2.f64(double 6.400000e+01)
+  %3 = call double @llvm.exp2.f64(double -6.400000e+01)
   %4 = fmul double %2, 0x401921FB54442D18
-  %5 = fdiv double %4, %3
+  %5 = fmul double %4, %3
   %6 = fdiv double %5, 0x401921FB54442D18
   %7 = call double @llvm.floor.f64(double %6)
   %8 = fsub double %6, %7

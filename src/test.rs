@@ -3,7 +3,7 @@ use std::rc::Rc;
 use hugr::Hugr;
 use inkwell::{
     context::Context,
-    types::{BasicType, BasicTypeEnum},
+    types::{BasicType, BasicTypeEnum}, values::GenericValue,
 };
 use itertools::Itertools as _;
 use rstest::fixture;
@@ -162,6 +162,12 @@ impl TestContext {
         emission.verify().unwrap();
 
         emission.exec_u64(entry_point).unwrap()
+    }
+
+    pub fn exec_hugr_f64(&self, hugr: THugrView, entry_point: impl AsRef<str>) -> f64 {
+        let emission = Emission::emit_hugr(hugr.fat_root().unwrap(), self.get_emit_hugr()).unwrap();
+
+        emission.exec_f64(entry_point).unwrap()
     }
 }
 

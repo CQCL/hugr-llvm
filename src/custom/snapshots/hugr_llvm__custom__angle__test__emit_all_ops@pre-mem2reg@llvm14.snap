@@ -30,9 +30,9 @@ entry_block:                                      ; preds = %alloca_block
   store i64 %1, i64* %"2_1", align 4
   %"2_01" = load i64, i64* %"2_0", align 4
   %2 = uitofp i64 %"2_01" to double
-  %3 = call double @llvm.exp2.f64(double 6.400000e+01)
+  %3 = call double @llvm.exp2.f64(double -6.400000e+01)
   %4 = fmul double %2, 0x401921FB54442D18
-  %5 = fdiv double %4, %3
+  %5 = fmul double %4, %3
   store double %5, double* %"4_0", align 8
   %"2_12" = load i64, i64* %"2_1", align 4
   %"4_03" = load double, double* %"4_0", align 8
