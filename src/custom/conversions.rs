@@ -25,6 +25,7 @@ use crate::{
         ops::{emit_custom_unary_op, emit_value},
         EmitOp, EmitOpArgs,
     },
+    sum::LLVMSumValue,
     types::TypingSession,
 };
 
@@ -215,6 +216,38 @@ impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for ConversionsEmitter<'c, '_, 
                     let sum_f = sum_ty.build_tag(ctx.builder(), 0, vec![])?;
                     let sum_t = sum_ty.build_tag(ctx.builder(), 1, vec![])?;
                     Ok(vec![ctx.builder().build_select(is1, sum_t, sum_f, "")?])
+                })
+            }
+            ConvertOpDef::ifrombool => {
+                assert!(conversion_op.type_args().is_empty()); // Always bool -> 1-bit int
+                let res_ty = self
+                    .0
+                    .typing_session()
+                    .llvm_type(&INT_TYPES[0])?
+                    .into_int_type();
+                let sum_ty =
+                    self.0
+                        .typing_session()
+                        .llvm_sum_type(match BOOL_T.as_type_enum() {
+                            TypeEnum::Sum(st) => st.clone(),
+                            _ => panic!("Hugr prelude BOOL_T not a Sum"),
+                        })?;
+                emit_custom_unary_op(self.0, args, |ctx, arg, _| {
+                    let tag_ty = sum_ty.get_tag_type();
+                    let tag = LLVMSumValue::try_new(arg, sum_ty)?.build_get_tag(ctx.builder())?;
+                    let is_true = ctx.builder().build_int_compare(
+                        IntPredicate::EQ,
+                        tag,
+                        tag_ty.const_int(1, false),
+                        "",
+                    )?;
+                    let res = ctx.builder().build_select(
+                        is_true,
+                        res_ty.const_int(1, false),
+                        res_ty.const_int(0, false),
+                        "",
+                    )?;
+                    Ok(vec![res])
                 })
             }
             _ => Err(anyhow!(
