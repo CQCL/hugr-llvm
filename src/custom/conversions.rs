@@ -17,12 +17,7 @@ use hugr::{
     HugrView,
 };
 
-use inkwell::{
-    intrinsics::Intrinsic,
-    types::{BasicType, BasicTypeEnum},
-    values::{AnyValue, BasicValue},
-    FloatPredicate,
-};
+use inkwell::{types::BasicTypeEnum, values::BasicValue, FloatPredicate};
 
 use crate::{
     emit::{
@@ -44,11 +39,11 @@ impl<'c, H: HugrView> ConversionsEmitter<'c, '_, H> {
     ) -> Result<()> {
         // Note: This logic is copied from `llvm_type` in the IntTypes
         // extension. We need to have a common source of truth for this.
-        let (width, int_max_value_s, int_max_value_u) = match log_width {
-            0..=3 => (8, i8::MAX as u64, u8::MAX as u64),
-            4 => (16, i16::MAX as u64, u16::MAX as u64),
-            5 => (32, i32::MAX as u64, u32::MAX as u64),
-            6 => (64, i64::MAX as u64, u64::MAX),
+        let (width, (int_min_value_s, int_max_value_s), int_max_value_u) = match log_width {
+            0..=3 => (8, (i8::MIN as i64, i8::MAX as i64), u8::MAX as u64),
+            4 => (16, (i16::MIN as i64, i16::MAX as i64), u16::MAX as u64),
+            5 => (32, (i32::MIN as i64, i32::MAX as i64), u32::MAX as u64),
+            6 => (64, (i64::MIN, i64::MAX), u64::MAX),
             m => {
                 return Err(anyhow!(
                     "IntTypesCodegenExtension: unsupported log_width: {}",
@@ -68,15 +63,6 @@ impl<'c, H: HugrView> ConversionsEmitter<'c, '_, H> {
         let sum_ty = self.0.typing_session().llvm_sum_type(hugr_sum_ty)?;
 
         emit_custom_unary_op(self.0, args, |ctx, arg, _| {
-            // Build fabs intrinsic
-            let fabs_intr = Intrinsic::find("llvm.fabs.f64").expect("Couldn't find fabs intrinsic");
-            let fabs = fabs_intr
-                .get_declaration(
-                    ctx.get_current_module(),
-                    &[ctx.iw_context().f64_type().as_basic_type_enum()],
-                )
-                .ok_or(anyhow!("TODO"))?;
-
             // We have to check if the conversion will work, so we
             // make the maximum int and convert to a float, then compare
             // with the function input.
@@ -90,18 +76,32 @@ impl<'c, H: HugrView> ConversionsEmitter<'c, '_, H> {
                     .const_float(int_max_value_u as f64)
             };
 
-            let fabs_call = ctx
-                .builder()
-                .build_call(fabs, &[arg.into()], "flt_pos")?
-                .as_any_value_enum()
-                .into_float_value();
-
-            let success = ctx.builder().build_float_compare(
+            let within_upper_bound = ctx.builder().build_float_compare(
                 FloatPredicate::OLE,
-                fabs_call,
+                arg.into_float_value(),
                 flt_max,
-                "conversion_valid",
+                "within_upper_bound",
             )?;
+
+            let flt_min = if signed {
+                ctx.iw_context()
+                    .f64_type()
+                    .const_float(int_min_value_s as f64)
+            } else {
+                ctx.iw_context().f64_type().const_float(0.0)
+            };
+
+            let within_lower_bound = ctx.builder().build_float_compare(
+                FloatPredicate::OLE,
+                flt_min,
+                arg.into_float_value(),
+                "within_lower_bound",
+            )?;
+
+            let success = ctx
+                .builder()
+                .build_and(within_upper_bound, within_lower_bound, "success")
+                .unwrap();
 
             // Perform the conversion unconditionally, which will result
             // in a poison value if the input was too large. We will

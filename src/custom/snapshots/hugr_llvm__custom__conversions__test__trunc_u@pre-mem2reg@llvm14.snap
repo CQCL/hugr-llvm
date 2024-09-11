@@ -17,20 +17,16 @@ alloca_block:
 entry_block:                                      ; preds = %alloca_block
   store double %0, double* %"2_0", align 8
   %"2_01" = load double, double* %"2_0", align 8
-  %flt_pos = call double @llvm.fabs.f64(double %"2_01")
-  %conversion_valid = fcmp ole double %flt_pos, 0x43F0000000000000
+  %within_upper_bound = fcmp ole double %"2_01", 0x43F0000000000000
+  %within_lower_bound = fcmp ole double 0.000000e+00, %"2_01"
+  %success = and i1 %within_upper_bound, %within_lower_bound
   %trunc_result = fptoui double %"2_01" to i64
   %1 = insertvalue { i64 } undef, i64 %trunc_result, 0
   %2 = insertvalue { i32, { { i32, i8* } }, { i64 } } { i32 1, { { i32, i8* } } poison, { i64 } poison }, { i64 } %1, 2
-  %3 = select i1 %conversion_valid, { i32, { { i32, i8* } }, { i64 } } %2, { i32, { { i32, i8* } }, { i64 } } { i32 0, { { i32, i8* } } { { i32, i8* } { i32 2, i8* getelementptr inbounds ([58 x i8], [58 x i8]* @0, i32 0, i32 0) } }, { i64 } poison }
+  %3 = select i1 %success, { i32, { { i32, i8* } }, { i64 } } %2, { i32, { { i32, i8* } }, { i64 } } { i32 0, { { i32, i8* } } { { i32, i8* } { i32 2, i8* getelementptr inbounds ([58 x i8], [58 x i8]* @0, i32 0, i32 0) } }, { i64 } poison }
   store { i32, { { i32, i8* } }, { i64 } } %3, { i32, { { i32, i8* } }, { i64 } }* %"4_0", align 8
   %"4_02" = load { i32, { { i32, i8* } }, { i64 } }, { i32, { { i32, i8* } }, { i64 } }* %"4_0", align 8
   store { i32, { { i32, i8* } }, { i64 } } %"4_02", { i32, { { i32, i8* } }, { i64 } }* %"0", align 8
   %"03" = load { i32, { { i32, i8* } }, { i64 } }, { i32, { { i32, i8* } }, { i64 } }* %"0", align 8
   ret { i32, { { i32, i8* } }, { i64 } } %"03"
 }
-
-; Function Attrs: nofree nosync nounwind readnone speculatable willreturn
-declare double @llvm.fabs.f64(double) #0
-
-attributes #0 = { nofree nosync nounwind readnone speculatable willreturn }
