@@ -145,38 +145,72 @@ pub fn emit_array_op<'c, H: HugrView>(
                 .map_err(|_| anyhow!("ArrayOpDef::set expects three arguments"))?;
             let array_v = array_v0.into_array_value();
             let index_v = index_v.into_int_value();
-            let (elem_v, array_v) = with_array_alloca(builder, array_v, |ptr| {
-                let elem_addr = unsafe { builder.build_gep(ptr, &[index_v], "")? };
-                let elem_v = builder.build_load(elem_addr, "")?;
-                builder.build_store(elem_addr, value_v)?;
-                let ptr = builder
-                    .build_bitcast(ptr, array_v.get_type().ptr_type(Default::default()), "")?
-                    .into_pointer_value();
-                let array_v = builder.build_load(ptr, "")?;
-                Ok((elem_v, array_v))
-            })?;
+
+            let res_hugr_ty = sig
+                .output()
+                .get(0)
+                .ok_or(anyhow!("ArrayOp::set has no outputs"))?;
 
             let res_sum_ty = {
-                let TypeEnum::Sum(st) = sig
-                    .output()
-                    .get(0)
-                    .ok_or(anyhow!("ArrayOp::get has no outputs"))?
-                    .as_type_enum()
-                else {
+                let TypeEnum::Sum(st) = res_hugr_ty.as_type_enum() else {
                     Err(anyhow!("ArrayOp::set output is not a sum type"))?
                 };
                 LLVMSumType::try_new(&ts, st.clone())?
             };
-            let success_v = res_sum_ty.build_tag(builder, 1, vec![elem_v, array_v])?;
-            let failure_v = res_sum_ty.build_tag(builder, 0, vec![value_v, array_v0])?;
+
+            let exit_rmb = ctx.new_row_mail_box([res_hugr_ty], "")?;
+
+            let exit_block = ctx.build_positioned_new_block("", None, |ctx, bb| {
+                outputs.finish(ctx.builder(), exit_rmb.read_vec(ctx.builder(), [])?)?;
+                Ok(bb)
+            })?;
+
+            let success_block =
+                ctx.build_positioned_new_block("", Some(exit_block), |ctx, bb| {
+                    let builder = ctx.builder();
+                    let (elem_v, array_v) = with_array_alloca(builder, array_v, |ptr| {
+                        // inside `success_block` we know `index_v` to be in
+                        // bounds.
+                        let elem_addr =
+                            unsafe { builder.build_in_bounds_gep(ptr, &[index_v], "")? };
+                        let elem_v = builder.build_load(elem_addr, "")?;
+                        builder.build_store(elem_addr, value_v)?;
+                        let ptr = builder
+                            .build_bitcast(
+                                ptr,
+                                array_v.get_type().ptr_type(Default::default()),
+                                "",
+                            )?
+                            .into_pointer_value();
+                        let array_v = builder.build_load(ptr, "")?;
+                        Ok((elem_v, array_v))
+                    })?;
+                    let success_v = res_sum_ty.build_tag(builder, 1, vec![elem_v, array_v])?;
+                    exit_rmb.write(ctx.builder(), [success_v])?;
+                    builder.build_unconditional_branch(exit_block)?;
+                    Ok(bb)
+                })?;
+
+            let failure_block =
+                ctx.build_positioned_new_block("", Some(success_block), |ctx, bb| {
+                    let builder = ctx.builder();
+                    let failure_v =
+                        res_sum_ty.build_tag(builder, 0, vec![value_v, array_v.into()])?;
+                    exit_rmb.write(ctx.builder(), [failure_v])?;
+                    builder.build_unconditional_branch(exit_block)?;
+                    Ok(bb)
+                })?;
+
+            let builder = ctx.builder();
             let is_success = builder.build_int_compare(
                 IntPredicate::ULT,
                 index_v,
                 index_v.get_type().const_int(size, false),
                 "",
             )?;
-            let res_v = builder.build_select(is_success, success_v, failure_v, "")?;
-            outputs.finish(ctx.builder(), [res_v])
+            builder.build_conditional_branch(is_success, success_block, failure_block)?;
+            builder.position_at_end(exit_block);
+            Ok(())
         }
         ArrayOpDef::swap => {
             let [array_v0, index1_v, index2_v] = inputs
@@ -428,6 +462,7 @@ mod test {
     #[case(0, 3, 1, 3)]
     #[case(1, 3, 2, 1)]
     #[case(2, 3, 3, 1)]
+    #[case(999999, 3, 3, 1)]
     fn exec_set(
         mut exec_ctx: TestContext,
         #[case] index: u64,
