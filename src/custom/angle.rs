@@ -329,7 +329,7 @@ impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for AngleOpEmitter<'c, '_, H> {
                 let [angle] = args
                     .inputs
                     .try_into()
-                    .map_err(|_| anyhow!("AngleOp::atorad expects one arguments"))?;
+                    .map_err(|_| anyhow!("AngleOp::atorad expects one argument"))?;
                 let angle = angle.into_int_value();
                 let r = {
                     // r = angle * 2 * PI / 2 ^ angle_width = angle * PI * 2 ^ -(angle_width - 1)
