@@ -46,7 +46,7 @@ impl<'c, H: HugrView> ConversionsEmitter<'c, '_, H> {
             6 => (64, (i64::MIN, i64::MAX), u64::MAX),
             m => {
                 return Err(anyhow!(
-                    "IntTypesCodegenExtension: unsupported log_width: {}",
+                    "ConversionEmitter: unsupported log_width: {}",
                     m
                 ))
             }
@@ -98,6 +98,7 @@ impl<'c, H: HugrView> ConversionsEmitter<'c, '_, H> {
                 "within_lower_bound",
             )?;
 
+            // N.B. If the float value is NaN, we will never succeed.
             let success = ctx
                 .builder()
                 .build_and(within_upper_bound, within_lower_bound, "success")
@@ -211,7 +212,7 @@ impl<'c, H: HugrView> CodegenExtension<'c, H> for ConversionsCodegenExtension {
         hugr_type: &CustomType,
     ) -> Result<BasicTypeEnum<'c>> {
         Err(anyhow!(
-            "IntOpsCodegenExtension: unsupported type: {}",
+            "ConversionEmitter: unsupported type: {}",
             hugr_type
         ))
     }
