@@ -144,7 +144,7 @@ impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for AngleOpEmitter<'c, '_, H> {
                 let [lhs, rhs] = args
                     .inputs
                     .try_into()
-                    .map_err(|_| anyhow!("AngleOp::asub expects one arguments"))?;
+                    .map_err(|_| anyhow!("AngleOp::asub expects two arguments"))?;
                 let (lhs, rhs) = (lhs.into_int_value(), rhs.into_int_value());
                 let r = builder.build_int_sub(lhs, rhs, "")?;
                 args.outputs.finish(builder, [r.into()])
