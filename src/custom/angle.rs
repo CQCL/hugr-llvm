@@ -234,8 +234,9 @@ impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for AngleOpEmitter<'c, '_, H> {
                 // normalised_rads is in the interval 0..1
                 let normalised_rads = {
                     // normalised_rads = (rads / (2 * PI)) - floor(rads / (2 * PI))
-                    // note that floor(x) gives the smallest integral value less than x
-                    // so this deals with both positive and negative rads
+                    // note that floor(x) gives the largest integral value less
+                    // than or equal to x so this deals with both positive and
+                    // negative rads.
 
                     let rads_by_2pi = builder.build_float_div(rads, two_pi, "")?;
                     let floor_rads_by_2pi = {
@@ -614,7 +615,8 @@ mod test {
 
     #[rstest]
     #[case(ConstAngle::PI, PI)]
-    // #[case(ConstAngle::TAU, 2.0 * PI)]
+    #[ignore = "Fails due to a bug in tket2, fixed by https://github.com/CQCL/tket2/pull/609"]
+    #[case(ConstAngle::TAU, 2.0 * PI)]
     #[case(ConstAngle::PI_2, PI / 2.0)]
     #[case(ConstAngle::PI_4, PI / 4.0)]
     fn exec_atorad(
@@ -697,7 +699,6 @@ mod test {
     #[rstest]
     #[case(PI, 1<<63)]
     #[case(-PI, 1<<63)]
-    // #[case(ConstAngle::TAU, 2.0 * PI)]
     #[case(PI / 2.0, 1 << 62)]
     #[case(-PI / 2.0, 3 << 62)]
     #[case(PI / 4.0, 1 << 61)]

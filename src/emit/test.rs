@@ -87,7 +87,9 @@ impl<'c> Emission<'c> {
         Ok(gv.as_int(false))
     }
 
-    /// TODO
+    /// JIT and execute the function named `entry` in the inner module.
+    ///
+    /// That function must take no arguments and return an `f64`.
     pub fn exec_f64(&self, entry: impl AsRef<str>) -> Result<f64> {
         let gv = self.exec_impl(entry)?;
         Ok(gv.as_float(&self.module.get_context().f64_type()))
