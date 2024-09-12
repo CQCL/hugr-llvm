@@ -348,26 +348,9 @@ mod test {
         assert_eq!(val, exec_ctx.exec_hugr_u64(hugr, "main"));
     }
 
-    #[rstest]
-    // Being roundtrippable from float isn't defined on every value in u64, but
-    // here are some that should work.
-    #[case(0)]
-    #[case(3)]
-    #[case(255)]
-    #[case(4294967295)]
-    #[case(42)]
-    #[case(18_000_000_000_000_000_000)]
-    // N.B.: There's some strange behaviour at the upper end of the ints - the
-    // first case gets converted to something that's off by 1,000, but the second
-    // (which is (2 ^ 64) - 1) gets converted to (2 ^ 32) - off by 9 million!
-    // The fact that the first case works as expected  tells me this isn't to do
-    // with int widths - maybe a floating point expert could explain that this
-    // is standard behaviour...
-    // #[case(18_446_744_073_709_550_000)]
-    // #[case(18_446_744_073_709_551_615)]
-    fn float_roundtrip(mut exec_ctx: TestContext, #[case] val: u64) -> () {
+    fn roundtrip_hugr(val: u64) -> Hugr {
         let int64 = INT_TYPES[6].clone();
-        let hugr = SimpleHugrConfig::new()
+        SimpleHugrConfig::new()
             .with_outs(USIZE_T)
             .with_extensions(CONVERT_OPS_REGISTRY.clone())
             .finish(|mut builder| {
@@ -410,11 +393,42 @@ mod test {
                     .unwrap()
                     .outputs_arr();
                 builder.finish_with_outputs([usize_]).unwrap()
-            });
-        exec_ctx.add_extensions(add_conversions_extension);
-        exec_ctx.add_extensions(add_default_prelude_extensions);
-        exec_ctx.add_extensions(add_float_extensions);
-        exec_ctx.add_extensions(add_int_extensions);
+            })
+    }
+
+    fn add_extensions(ctx: &mut TestContext) {
+        ctx.add_extensions(add_conversions_extension);
+        ctx.add_extensions(add_default_prelude_extensions);
+        ctx.add_extensions(add_float_extensions);
+        ctx.add_extensions(add_int_extensions);
+    }
+
+    #[rstest]
+    // Exact roundtrip conversion is defined on values up to 2**53 for f64.
+    #[case(0)]
+    #[case(3)]
+    #[case(255)]
+    #[case(4294967295)]
+    #[case(42)]
+    #[case(18_000_000_000_000_000_000)]
+    fn roundtrip(mut exec_ctx: TestContext, #[case] val: u64) {
+        add_extensions(&mut exec_ctx);
+        let hugr = roundtrip_hugr(val);
         assert_eq!(val, exec_ctx.exec_hugr_u64(hugr, "main"));
+    }
+
+    // N.B.: There's some strange behaviour at the upper end of the ints - the
+    // first case gets converted to something that's off by 1,000, but the second
+    // (which is (2 ^ 64) - 1) gets converted to (2 ^ 32) - off by 9 million!
+    // The fact that the first case works as expected  tells me this isn't to do
+    // with int widths - maybe a floating point expert could explain that this
+    // is standard behaviour...
+    #[rstest]
+    #[case(18_446_744_073_709_550_000, 18_446_744_073_709_549_568)]
+    #[case(18_446_744_073_709_551_615,  9_223_372_036_854_775_808)] // 2 ^ 63
+    fn approx_roundtrip(mut exec_ctx: TestContext, #[case] val: u64, #[case] expected: u64) {
+        add_extensions(&mut exec_ctx);
+        let hugr = roundtrip_hugr(val);
+        assert_eq!(expected, exec_ctx.exec_hugr_u64(hugr, "main"));
     }
 }
