@@ -13,8 +13,8 @@ alloca_block:
 
 entry_block:                                      ; preds = %alloca_block
   %2 = uitofp i64 %0 to double
-  %3 = call double @llvm.exp2.f64(double -6.400000e+01)
-  %4 = fmul double %2, 0x401921FB54442D18
+  %3 = call double @llvm.exp2.f64(double -6.300000e+01)
+  %4 = fmul double %2, 0x400921FB54442D18
   %5 = fmul double %4, %3
   %6 = fdiv double %5, 0x401921FB54442D18
   %7 = call double @llvm.floor.f64(double %6)
@@ -38,16 +38,14 @@ entry_block:                                      ; preds = %alloca_block
   %25 = select i1 %24, { i32, {}, {} } { i32 1, {} poison, {} undef }, { i32, {}, {} } { i32 0, {} undef, {} poison }
   %26 = shl i64 1, 64
   %27 = icmp ule i64 64, 53
-  %28 = icmp ule i64 64, 64
-  %29 = and i1 %27, %28
-  %30 = icmp ult i64 %22, %26
-  %31 = freeze i1 %30
-  %32 = and i1 %29, %31
-  %33 = sub i64 64, 64
-  %34 = shl i64 %22, %33
-  %35 = insertvalue { i64 } undef, i64 %34, 0
-  %36 = insertvalue { i32, { { i32, i8* } }, { i64 } } { i32 1, { { i32, i8* } } poison, { i64 } poison }, { i64 } %35, 2
-  %37 = select i1 %32, { i32, { { i32, i8* } }, { i64 } } %36, { i32, { { i32, i8* } }, { i64 } } { i32 0, { { i32, i8* } } { { i32, i8* } { i32 3, i8* getelementptr inbounds ([14 x i8], [14 x i8]* @0, i32 0, i32 0) } }, { i64 } poison }
+  %28 = icmp ult i64 %22, %26
+  %29 = freeze i1 %28
+  %30 = and i1 %27, %29
+  %31 = sub i64 64, 64
+  %32 = shl i64 %22, %31
+  %33 = insertvalue { i64 } undef, i64 %32, 0
+  %34 = insertvalue { i32, { { i32, i8* } }, { i64 } } { i32 1, { { i32, i8* } } poison, { i64 } poison }, { i64 } %33, 2
+  %35 = select i1 %30, { i32, { { i32, i8* } }, { i64 } } %34, { i32, { { i32, i8* } }, { i64 } } { i32 0, { { i32, i8* } } { { i32, i8* } { i32 3, i8* getelementptr inbounds ([14 x i8], [14 x i8]* @0, i32 0, i32 0) } }, { i64 } poison }
   ret { i32, {}, {} } %25
 }
 

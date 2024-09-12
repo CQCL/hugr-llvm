@@ -12,7 +12,7 @@ use hugr::{
     HugrView,
 };
 use inkwell::{
-    types::BasicTypeEnum,
+    types::{BasicTypeEnum, IntType},
     values::{AsValueRef, BasicValue, BasicValueEnum, FloatValue, IntValue},
     FloatPredicate, IntPredicate,
 };
@@ -29,83 +29,31 @@ use tket2::extension::angle::{
     AngleOp, ConstAngle, ANGLE_CUSTOM_TYPE, ANGLE_EXTENSION_ID, LOG_DENOM_MAX,
 };
 
-// #[derive(Debug, Clone, Copy)]
-// struct LLVMAngleType<'c>(IntType<'c>);
-
-// impl<'c> LLVMAngleType<'c> {
-//     pub fn new(usize_type: IntType<'c>) -> Self {
-//         Self(usize_type)
-//     }
-
-//     fn value_field_type(&self) -> IntType<'c> {
-//         self.0
-//     }
-
-//     pub fn const_angle(&self, value: u64, log_denom: u8) -> Result<LLVMAngleValue<'c>> {
-//         let log_denom = log_denom as u64;
-//         let width =
-//             self.0.size_of().get_zero_extended_constant().ok_or(anyhow!("Width of
-//             usize is not a constant"))?;
-//         ensure!(width >= log_denom, "log_denom is greater than width of usize: {log_denom} > {width}");
-//         Ok(LLVMAngleValue(self.0.const_int(value << (width - log_denom), false), *self))
-//     }
-
-//     // pub fn build_value(
-//     //     &self,
-//     //     builder: &Builder<'c>,
-//     //     value: impl BasicValue<'c>,
-//     //     log_denom: impl BasicValue<'c>,
-//     // ) -> Result<LLVMAngleValue<'c>> {
-//     //     let (value, log_denom) = (value.as_basic_value_enum(), log_denom.as_basic_value_enum());
-//     //     ensure!(value.get_type() == self.value_field_type().as_basic_type_enum());
-
-//     //     let r = self.0.get_undef();
-//     //     let r = builder.build_insert_value(r, value, 0, "")?;
-//     //     let r = builder.build_insert_value(r, log_denom, 1, "")?;
-//     //     Ok(LLVMAngleValue(r.into_struct_value(), *self))
-//     // }
-// }
-
-// unsafe impl<'c> AsTypeRef for LLVMAngleType<'c> {
-//     fn as_type_ref(&self) -> LLVMTypeRef {
-//         self.0.as_type_ref()
-//     }
-// }
-
-// unsafe impl<'c> AnyType<'c> for LLVMAngleType<'c> {}
-// unsafe impl<'c> BasicType<'c> for LLVMAngleType<'c> {}
-
-// #[derive(Debug, Clone, Copy)]
-// struct LLVMAngleValue<'c>(IntValue<'c>, LLVMAngleType<'c>);
-
-// impl<'c> LLVMAngleValue<'c> {
-//     fn try_new(typ: LLVMAngleType<'c>, value: impl BasicValue<'c>) -> Result<Self> {
-//         let value = value.as_basic_value_enum();
-//         ensure!(typ.as_basic_type_enum() == value.get_type());
-//         Ok(Self(value.into_int_value(), typ))
-//     }
-
-//     fn build_get_value(&self, _builder: &Builder<'c>) -> Result<IntValue<'c>> {
-//         Ok(self.0)
-//     }
-// }
-
-// impl<'c> From<LLVMAngleValue<'c>> for BasicValueEnum<'c> {
-//     fn from(value: LLVMAngleValue<'c>) -> Self {
-//         value.as_basic_value_enum()
-//     }
-// }
-
-// unsafe impl<'c> AsValueRef for LLVMAngleValue<'c> {
-//     fn as_value_ref(&self) -> LLVMValueRef {
-//         self.0.as_value_ref()
-//     }
-// }
-
-// unsafe impl<'c> AnyValue<'c> for LLVMAngleValue<'c> {}
-// unsafe impl<'c> BasicValue<'c> for LLVMAngleValue<'c> {}
-
+/// A codegen extension for the `tket2.angle` extension.
+///
+/// We lower [ANGLE_CUSTOM_TYPE] to the same [IntType] to which [USIZE_T] is
+/// lowered.  We choose to normalise all such values to have a log_denom equal
+/// to the width of this type. This makes many operations simple to lower:
+///  - `atrunc` becomes a no-op
+///  - `aadd`, `asub`, `amul`, `aeq`, `aneg` are simply the equivalent unsigned int operations,
+///    which give us the wrapping semantics we require.
+///
+/// As a consequence of this choice, `aparts` will always return a `log_denom`
+///    of the width of [USIZE_T]. In particular this may be larger than
+///    [LOG_DENOM_MAX].
+///
+/// The lowering of `afromrad` arbitrarily treats non-finite input (quiet NaNs,
+///    +/- infinity) as zero.
+///
+/// We choose not to lower `adiv` as we expect it to be removed:
+/// <https://github.com/CQCL/tket2/issues/605>
 pub struct AngleCodegenExtension;
+
+fn llvm_angle_type<'c, H: HugrView>(ts: &TypingSession<'c, H>) -> Result<IntType<'c>> {
+    let usize_t = ts.llvm_type(&USIZE_T)?;
+    ensure!(usize_t.is_int_type(), "USIZE_T is not an int type");
+    Ok(usize_t.into_int_type())
+}
 
 impl<'c, H: HugrView> CodegenExtension<'c, H> for AngleCodegenExtension {
     fn extension(&self) -> ExtensionId {
@@ -146,7 +94,7 @@ impl<'c, H: HugrView> CodegenExtension<'c, H> for AngleCodegenExtension {
         let Some(angle) = konst.downcast_ref::<ConstAngle>() else {
             return Ok(None);
         };
-        let angle_type = context.llvm_type(&USIZE_T)?.into_int_type();
+        let angle_type = llvm_angle_type(&context.typing_session())?;
         let log_denom = angle.log_denom() as u64;
         let width = angle_type.get_bit_width() as u64;
         ensure!(
@@ -163,51 +111,20 @@ impl<'c, H: HugrView> CodegenExtension<'c, H> for AngleCodegenExtension {
 
 struct AngleOpEmitter<'c, 'd, H>(&'d mut EmitFuncContext<'c, H>);
 
-// impl<'c, 'd, H: HugrView> AngleOpEmitter<'c, 'd, H> {
-//     fn binary_angle_op<E>(
-//         &self,
-//         lhs: LLVMAngleValue<'c>,
-//         rhs: LLVMAngleValue<'c>,
-//         go: impl FnOnce(IntValue<'c>, IntValue<'c>) -> Result<IntValue<'c>, E>,
-//     ) -> Result<LLVMAngleValue<'c>>
-//     where
-//         anyhow::Error: From<E>,
-//     {
-//         let angle_ty = self.1;
-//         let builder = self.0.builder();
-//         let lhs_value = lhs.build_get_value(builder)?;
-//         let rhs_value = lhs.build_get_value(builder)?;
-//         let new_value = go(lhs_value, rhs_value)?;
-
-//         let lhs_log_denom = lhs.build_get_log_denom(builder)?;
-//         let rhs_log_denom = lhs.build_get_log_denom(builder)?;
-
-//         let lhs_log_denom_larger =
-//             builder.build_int_compare(IntPredicate::UGT, lhs_log_denom, rhs_log_denom, "")?;
-//         let lhs_larger_r = {
-//             let v = lhs.build_unmax_denom(builder, new_value)?;
-//             angle_ty.build_value(builder, v, lhs_log_denom)?
-//         };
-//         let rhs_larger_r = {
-//             let v = rhs.build_unmax_denom(builder, new_value)?;
-//             angle_ty.build_value(builder, v, rhs_log_denom)?
-//         };
-//         let r = builder.build_select(lhs_log_denom_larger, lhs_larger_r, rhs_larger_r, "")?;
-//         LLVMAngleValue::try_new(angle_ty, r)
-//     }
-// }
-
 impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for AngleOpEmitter<'c, '_, H> {
     fn emit(&mut self, args: EmitOpArgs<'c, ExtensionOp, H>) -> Result<()> {
         let ts = self.0.typing_session();
         let module = self.0.get_current_module();
         let float_ty = self.0.iw_context().f64_type();
         let builder = self.0.builder();
-        let angle_ty = self.0.llvm_type(&USIZE_T)?.into_int_type();
+        let angle_ty = llvm_angle_type(&ts)?;
         let angle_width = angle_ty.get_bit_width() as u64;
 
         match AngleOp::from_op(&args.node())? {
             AngleOp::atrunc => {
+                // As we always normalise angles to have a log_denom of
+                // angle_width, this is a no-op, and we do not need the
+                // log_denom.
                 let [angle, _] = args
                     .inputs
                     .try_into()
@@ -248,29 +165,26 @@ impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for AngleOpEmitter<'c, '_, H> {
                     .map_err(|_| anyhow!("AngleOp::anew expects two arguments"))?;
                 let value = value.into_int_value();
                 let log_denom = log_denom.into_int_value();
+                // this value may be poison if log_denom is too large. This is
+                // accounted for below.
                 let denom =
                     builder.build_left_shift(angle_ty.const_int(1, false), log_denom, "")?;
                 let ok = {
                     let log_denom_ok = {
-                        let log_denom_in_range = builder.build_int_compare(
+                        builder.build_int_compare(
                             IntPredicate::ULE,
                             log_denom,
-                            log_denom.get_type().const_int(LOG_DENOM_MAX as u64, false),
+                            log_denom
+                                .get_type()
+                                .const_int(angle_width.min(LOG_DENOM_MAX as u64), false),
                             "",
-                        )?;
-                        let width_large_enough = builder.build_int_compare(
-                            IntPredicate::ULE,
-                            log_denom,
-                            angle_ty.const_int(angle_width, false),
-                            "",
-                        )?;
-                        builder.build_and(log_denom_in_range, width_large_enough, "")?
+                        )?
                     };
 
                     let value_ok = {
                         let ok = builder.build_int_compare(IntPredicate::ULT, value, denom, "")?;
-                        // if `log_denom_ok` is false, denom may be poison and so may `ok`.
-                        // We freeze `ok` here since `log_denom_ok` is false and so
+                        // if `log_denom_ok` is false, denom may be poison and hense so may `ok`.
+                        // We freeze `ok` here since in this case `log_denom_ok` is false and so
                         // the `and` below will be false independently of `value_ok''s value.
                         unsafe {
                             IntValue::new(LLVMBuildFreeze(
@@ -306,6 +220,8 @@ impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for AngleOpEmitter<'c, '_, H> {
                 )
             }
             AngleOp::afromrad => {
+                // As we always normalise angles to have a log_denom of
+                // angle_width, we do not need the log_denom.
                 let [_log_denom, rads] = args
                     .inputs
                     .try_into()
@@ -315,8 +231,12 @@ impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for AngleOpEmitter<'c, '_, H> {
                     .map_err(|_| anyhow!("afromrad expects a float argument"))?;
                 let float_ty = rads.get_type();
                 let two_pi = float_ty.const_float(PI * 2.0);
-                // normalised_rads will be in the interval 0..1
+                // normalised_rads is in the interval 0..1
                 let normalised_rads = {
+                    // normalised_rads = (rads / (2 * PI)) - floor(rads / (2 * PI))
+                    // note that floor(x) gives the smallest integral value less than x
+                    // so this deals with both positive and negative rads
+
                     let rads_by_2pi = builder.build_float_div(rads, two_pi, "")?;
                     let floor_rads_by_2pi = {
                         let floor = get_intrinsic(module, "llvm.floor", [float_ty.into()])?;
@@ -330,6 +250,13 @@ impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for AngleOpEmitter<'c, '_, H> {
 
                     let normalised_rads =
                         builder.build_float_sub(rads_by_2pi, floor_rads_by_2pi, "")?;
+
+                    // We choose to treat {Quiet NaNs, infinities} as zero.
+                    // the `llvm.is.fpclass` intrinsic was introduced in llvm 15
+                    // and is the best way to distinguish these float values.
+                    // For now we are using llvm 14, and so we use 3 `feq`s.
+                    // Below is commented code that we can use once we support
+                    // llvm 15.
                     #[cfg(feature = "llvm14-0")]
                     let rads_ok = {
                         let is_pos_inf = builder.build_float_compare(
@@ -358,7 +285,6 @@ impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for AngleOpEmitter<'c, '_, H> {
                     //     let i32_ty = self.0.iw_context().i32_type();
                     //     let builder = self.0.builder();
                     //     let is_fpclass = get_intrinsic(module, "llvm.is.fpclass", [float_ty.as_basic_type_enum(), i32_ty.as_basic_type_enum()])?;
-                    //     // We choose to treat {Quiet NaNs, infinities, subnormal values} as zero.
                     //     // Here we pick out the following floats:
                     //     //  - bit 0: Signalling Nan
                     //     //  - bit 3: Negative normal
@@ -378,6 +304,7 @@ impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for AngleOpEmitter<'c, '_, H> {
                 };
 
                 let value = {
+                    // value = int(normalised_value * 2 ^ angle_width + .5)
                     let exp2 = get_intrinsic(module, "llvm.exp2", [float_ty.into()])?;
                     let log_denom = float_ty.const_float(angle_width as f64);
                     let denom = builder
@@ -405,13 +332,14 @@ impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for AngleOpEmitter<'c, '_, H> {
                     .map_err(|_| anyhow!("AngleOp::atorad expects one arguments"))?;
                 let angle = angle.into_int_value();
                 let r = {
+                    // r = angle * 2 * PI / 2 ^ angle_width = angle * PI * 2 ^ -(angle_width - 1)
                     let value = builder.build_unsigned_int_to_float(angle, float_ty, "")?;
                     let denom = {
                         let exp2 = get_intrinsic(module, "llvm.exp2", [float_ty.into()])?;
                         builder
                             .build_call(
                                 exp2,
-                                &[float_ty.const_float(-(angle_width as f64)).into()],
+                                &[float_ty.const_float(-((angle_width - 1) as f64)).into()],
                                 "",
                             )?
                             .try_as_basic_value()
@@ -419,8 +347,7 @@ impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for AngleOpEmitter<'c, '_, H> {
                             .ok_or(anyhow!("exp2 intrinsic had no return value"))?
                             .into_float_value()
                     };
-                    let value =
-                        builder.build_float_mul(value, float_ty.const_float(PI * 2.0), "")?;
+                    let value = builder.build_float_mul(value, float_ty.const_float(PI), "")?;
                     builder.build_float_mul(value, denom, "")?
                 };
                 args.outputs.finish(builder, [r.into()])
@@ -450,21 +377,7 @@ impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for AngleOpEmitter<'c, '_, H> {
                 let r = builder.build_int_mul(lhs, rhs, "")?;
                 args.outputs.finish(builder, [r.into()])
             }
-            AngleOp::adiv => {
-                let [lhs, rhs] = args
-                    .inputs
-                    .try_into()
-                    .map_err(|_| anyhow!("AngleOp::adiv expects two arguments"))?;
-                let (lhs, rhs) = (lhs.into_int_value(), rhs.into_int_value());
-                // Division by zero is undefined behaviour in LLVM. Should we:
-                //  - leave this as is. I.e. it is undefined behaviour in HUGR
-                //  - check for zero and branch, then in the is-zero branch:
-                //    - panic
-                //    - return poison. I.e. it is fine in HUGR if you never look at the result
-                let r = builder.build_int_unsigned_div(lhs, rhs, "")?;
-                args.outputs.finish(builder, [r.into()])
-            }
-            _ => todo!(),
+            op => bail!("Unsupported op: {op:?}"),
         }
     }
 }
@@ -488,7 +401,7 @@ mod test {
         builder::{Dataflow, DataflowSubContainer as _, SubContainer},
         extension::{prelude::BOOL_T, ExtensionSet},
         ops::OpName,
-        std_extensions::arithmetic::float_types::{self, FLOAT64_TYPE, ConstF64},
+        std_extensions::arithmetic::float_types::{self, ConstF64, FLOAT64_TYPE},
     };
     use rstest::rstest;
     use tket2::extension::angle::{AngleOpBuilder as _, ANGLE_TYPE};
@@ -724,7 +637,8 @@ mod test {
         });
 
         let rads = exec_ctx.exec_hugr_f64(hugr, "main");
-        assert!(f64::abs(expected_rads - rads) < 0.0000000001);
+        let epsilon = 0.0000000000001; // chosen without too much thought
+        assert!(f64::abs(expected_rads - rads) < epsilon);
     }
 
     #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -821,6 +735,9 @@ mod test {
         });
 
         let r = exec_ctx.exec_hugr_u64(hugr, "main");
-        assert!((expected_aparts_value.wrapping_sub(r) as i64).abs() < 1 << 15);
+        // chosen without too much thought, except that a f64 has 53 bits of
+        // precision so 1 << 11 is the lowest reasonable value.
+        let epsilon = 1 << 15;
+        assert!((expected_aparts_value.wrapping_sub(r) as i64).abs() < epsilon);
     }
 }

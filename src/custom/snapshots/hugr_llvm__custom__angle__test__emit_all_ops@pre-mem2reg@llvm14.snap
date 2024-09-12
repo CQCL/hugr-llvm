@@ -30,8 +30,8 @@ entry_block:                                      ; preds = %alloca_block
   store i64 %1, i64* %"2_1", align 4
   %"2_01" = load i64, i64* %"2_0", align 4
   %2 = uitofp i64 %"2_01" to double
-  %3 = call double @llvm.exp2.f64(double -6.400000e+01)
-  %4 = fmul double %2, 0x401921FB54442D18
+  %3 = call double @llvm.exp2.f64(double -6.300000e+01)
+  %4 = fmul double %2, 0x400921FB54442D18
   %5 = fmul double %4, %3
   store double %5, double* %"4_0", align 8
   %"2_12" = load i64, i64* %"2_1", align 4
@@ -83,17 +83,15 @@ entry_block:                                      ; preds = %alloca_block
   %"12_118" = load i64, i64* %"12_1", align 4
   %26 = shl i64 1, %"12_118"
   %27 = icmp ule i64 %"12_118", 53
-  %28 = icmp ule i64 %"12_118", 64
-  %29 = and i1 %27, %28
-  %30 = icmp ult i64 %"12_017", %26
-  %31 = freeze i1 %30
-  %32 = and i1 %29, %31
-  %33 = sub i64 64, %"12_118"
-  %34 = shl i64 %"12_017", %33
-  %35 = insertvalue { i64 } undef, i64 %34, 0
-  %36 = insertvalue { i32, { { i32, i8* } }, { i64 } } { i32 1, { { i32, i8* } } poison, { i64 } poison }, { i64 } %35, 2
-  %37 = select i1 %32, { i32, { { i32, i8* } }, { i64 } } %36, { i32, { { i32, i8* } }, { i64 } } { i32 0, { { i32, i8* } } { { i32, i8* } { i32 3, i8* getelementptr inbounds ([14 x i8], [14 x i8]* @0, i32 0, i32 0) } }, { i64 } poison }
-  store { i32, { { i32, i8* } }, { i64 } } %37, { i32, { { i32, i8* } }, { i64 } }* %"13_0", align 8
+  %28 = icmp ult i64 %"12_017", %26
+  %29 = freeze i1 %28
+  %30 = and i1 %27, %29
+  %31 = sub i64 64, %"12_118"
+  %32 = shl i64 %"12_017", %31
+  %33 = insertvalue { i64 } undef, i64 %32, 0
+  %34 = insertvalue { i32, { { i32, i8* } }, { i64 } } { i32 1, { { i32, i8* } } poison, { i64 } poison }, { i64 } %33, 2
+  %35 = select i1 %30, { i32, { { i32, i8* } }, { i64 } } %34, { i32, { { i32, i8* } }, { i64 } } { i32 0, { { i32, i8* } } { { i32, i8* } { i32 3, i8* getelementptr inbounds ([14 x i8], [14 x i8]* @0, i32 0, i32 0) } }, { i64 } poison }
+  store { i32, { { i32, i8* } }, { i64 } } %35, { i32, { { i32, i8* } }, { i64 } }* %"13_0", align 8
   %"019" = load { i32, {}, {} }, { i32, {}, {} }* %"0", align 4
   ret { i32, {}, {} } %"019"
 }

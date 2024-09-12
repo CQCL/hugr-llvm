@@ -93,7 +93,7 @@ impl<'c> Emission<'c> {
         Ok(gv.as_float(&self.module.get_context().f64_type()))
     }
 
-    pub(crate) fn exec_impl (&self, entry: impl AsRef<str>) -> Result<GenericValue<'c>> {
+    pub(crate) fn exec_impl(&self, entry: impl AsRef<str>) -> Result<GenericValue<'c>> {
         let entry_fv = self
             .module
             .get_function(entry.as_ref())
