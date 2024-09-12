@@ -14,7 +14,7 @@ use hugr::{
 use inkwell::{
     types::BasicTypeEnum,
     values::{AsValueRef, BasicValue, BasicValueEnum, FloatValue, IntValue},
-    IntPredicate,
+    FloatPredicate, IntPredicate,
 };
 use llvm_sys_140::core::LLVMBuildFreeze;
 
@@ -24,7 +24,6 @@ use crate::{
 };
 
 use super::{CodegenExtension, CodegenExtsMap};
-
 
 use tket2::extension::angle::{
     AngleOp, ConstAngle, ANGLE_CUSTOM_TYPE, ANGLE_EXTENSION_ID, LOG_DENOM_MAX,
@@ -329,8 +328,35 @@ impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for AngleOpEmitter<'c, '_, H> {
                             .into_float_value()
                     };
 
-                    builder.build_float_sub(rads_by_2pi, floor_rads_by_2pi, "")?
+                    let normalised_rads =
+                        builder.build_float_sub(rads_by_2pi, floor_rads_by_2pi, "")?;
+                    #[cfg(feature = "llvm14-0")]
+                    let rads_ok = {
+                        let is_pos_inf = builder.build_float_compare(
+                            FloatPredicate::OEQ,
+                            rads,
+                            float_ty.const_float(f64::INFINITY),
+                            "",
+                        )?;
+                        let is_neg_inf = builder.build_float_compare(
+                            FloatPredicate::OEQ,
+                            rads,
+                            float_ty.const_float(f64::NEG_INFINITY),
+                            "",
+                        )?;
+                        let is_nan = builder.build_float_compare(
+                            FloatPredicate::UNO,
+                            rads,
+                            float_ty.const_zero(),
+                            "",
+                        )?;
+                        let r = builder.build_or(is_pos_inf, is_neg_inf, "")?;
+                        let r = builder.build_or(r, is_nan, "")?;
+                        builder.build_not(r, "")?
+                    };
                     // let rads_ok = {
+                    //     let i32_ty = self.0.iw_context().i32_type();
+                    //     let builder = self.0.builder();
                     //     let is_fpclass = get_intrinsic(module, "llvm.is.fpclass", [float_ty.as_basic_type_enum(), i32_ty.as_basic_type_enum()])?;
                     //     // We choose to treat {Quiet NaNs, infinities, subnormal values} as zero.
                     //     // Here we pick out the following floats:
@@ -345,8 +371,10 @@ impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for AngleOpEmitter<'c, '_, H> {
                     //         .ok_or(anyhow!("llvm.is.fpclass has no return value"))?
                     //         .into_int_value()
                     // };
-                    // let zero = float_ty.const_zero();
-                    // builder.build_select(rads_ok, normalised_rads, zero, "")?.into_float_value()
+                    let zero = float_ty.const_zero();
+                    builder
+                        .build_select(rads_ok, normalised_rads, zero, "")?
+                        .into_float_value()
                 };
 
                 let value = {
@@ -453,18 +481,23 @@ impl<'c, H: HugrView> CodegenExtsMap<'c, H> {
 
 #[cfg(test)]
 mod test {
+    use std::collections::HashSet;
+
+    use hugr::extension::prelude::ConstUsize;
     use hugr::{
         builder::{Dataflow, DataflowSubContainer as _, SubContainer},
-        extension::prelude::BOOL_T, std_extensions::arithmetic::float_types::FLOAT64_TYPE,
+        extension::{prelude::BOOL_T, ExtensionSet},
+        ops::OpName,
+        std_extensions::arithmetic::float_types::{self, FLOAT64_TYPE, ConstF64},
     };
-    use hugr::extension::prelude::ConstUsize;
     use rstest::rstest;
     use tket2::extension::angle::{AngleOpBuilder as _, ANGLE_TYPE};
 
     use crate::{
         check_emission,
         emit::test::SimpleHugrConfig,
-        test::{llvm_ctx, exec_ctx, TestContext},
+        test::{exec_ctx, llvm_ctx, TestContext},
+        types::HugrType,
     };
 
     use super::*;
@@ -500,10 +533,15 @@ mod test {
 
     #[rstest]
     #[case(1,1, 1 << 63)]
-    #[case(0,1, 0)]
-    #[case(3,1, 0)]
+    #[case(0, 1, 0)]
+    #[case(3, 1, 0)]
     #[case(8,4, 1 << 63)]
-    fn exec_anew(mut exec_ctx: TestContext, #[case] value: u64, #[case] log_denom: u8, #[case] expected_aparts_value: u64) {
+    fn exec_anew(
+        mut exec_ctx: TestContext,
+        #[case] value: u64,
+        #[case] log_denom: u8,
+        #[case] expected_aparts_value: u64,
+    ) {
         let hugr = SimpleHugrConfig::new()
             .with_extensions(tket2::extension::REGISTRY.to_owned())
             .with_outs(USIZE_T)
@@ -514,9 +552,13 @@ mod test {
                 let r = {
                     let variants = {
                         let et = sum_with_error(ANGLE_TYPE);
-                        (0..2).map(|i| et.get_variant(i).unwrap().clone().try_into().unwrap()).collect::<Vec<_>>()
+                        (0..2)
+                            .map(|i| et.get_variant(i).unwrap().clone().try_into().unwrap())
+                            .collect::<Vec<_>>()
                     };
-                    let mut conditional = builder.conditional_builder((variants, mb_angle), [], USIZE_T.into()).unwrap();
+                    let mut conditional = builder
+                        .conditional_builder((variants, mb_angle), [], USIZE_T.into())
+                        .unwrap();
                     {
                         let mut case = conditional.case_builder(0).unwrap();
                         let us0 = case.add_load_value(ConstUsize::new(0));
@@ -540,7 +582,12 @@ mod test {
     #[rstest]
     #[case(ConstAngle::PI, 1, 1 << 63)]
     #[case(ConstAngle::PI, LOG_DENOM_MAX, 1 << 63)]
-    fn exec_atrunc(mut exec_ctx: TestContext, #[case] angle: ConstAngle, #[case]log_denom: u8, #[case] expected_aparts_value: u64) {
+    fn exec_atrunc(
+        mut exec_ctx: TestContext,
+        #[case] angle: ConstAngle,
+        #[case] log_denom: u8,
+        #[case] expected_aparts_value: u64,
+    ) {
         let hugr = SimpleHugrConfig::new()
             .with_extensions(tket2::extension::REGISTRY.to_owned())
             .with_outs(USIZE_T)
@@ -559,7 +606,12 @@ mod test {
     #[rstest]
     #[case(ConstAngle::new(1, 1).unwrap(), ConstAngle::new(4, 4).unwrap(), 3 << 62)]
     #[case(ConstAngle::PI, ConstAngle::new(4, 8).unwrap(), 0)]
-    fn exec_aadd(mut exec_ctx: TestContext, #[case] angle1: ConstAngle, #[case] angle2: ConstAngle, #[case] expected_aparts_value: u64) {
+    fn exec_aadd(
+        mut exec_ctx: TestContext,
+        #[case] angle1: ConstAngle,
+        #[case] angle2: ConstAngle,
+        #[case] expected_aparts_value: u64,
+    ) {
         let hugr = SimpleHugrConfig::new()
             .with_extensions(tket2::extension::REGISTRY.to_owned())
             .with_outs(USIZE_T)
@@ -578,7 +630,12 @@ mod test {
     #[rstest]
     #[case(ConstAngle::new(1, 1).unwrap(), ConstAngle::new(4, 4).unwrap(), 1 << 62)]
     #[case(ConstAngle::PI, ConstAngle::new(4, 8).unwrap(), 0)]
-    fn exec_asub(mut exec_ctx: TestContext, #[case] angle1: ConstAngle, #[case] angle2: ConstAngle, #[case] expected_aparts_value: u64) {
+    fn exec_asub(
+        mut exec_ctx: TestContext,
+        #[case] angle1: ConstAngle,
+        #[case] angle2: ConstAngle,
+        #[case] expected_aparts_value: u64,
+    ) {
         let hugr = SimpleHugrConfig::new()
             .with_extensions(tket2::extension::REGISTRY.to_owned())
             .with_outs(USIZE_T)
@@ -598,7 +655,12 @@ mod test {
     #[case(ConstAngle::PI, 2, 0)]
     #[case(ConstAngle::PI, 3, 1 << 63)]
     #[case(ConstAngle::PI, 11, 1 << 63)]
-    fn exec_amul(mut exec_ctx: TestContext, #[case] angle: ConstAngle, #[case] factor: u64, #[case] expected_aparts_value: u64) {
+    fn exec_amul(
+        mut exec_ctx: TestContext,
+        #[case] angle: ConstAngle,
+        #[case] factor: u64,
+        #[case] expected_aparts_value: u64,
+    ) {
         let hugr = SimpleHugrConfig::new()
             .with_extensions(tket2::extension::REGISTRY.to_owned())
             .with_outs(USIZE_T)
@@ -618,7 +680,11 @@ mod test {
     #[case(ConstAngle::PI, 1 << 63)]
     #[case(ConstAngle::PI_2, 3 << 62)]
     #[case(ConstAngle::PI_4, 7 << 61)]
-    fn exec_aneg(mut exec_ctx: TestContext, #[case] angle: ConstAngle, #[case] expected_aparts_value: u64) {
+    fn exec_aneg(
+        mut exec_ctx: TestContext,
+        #[case] angle: ConstAngle,
+        #[case] expected_aparts_value: u64,
+    ) {
         let hugr = SimpleHugrConfig::new()
             .with_extensions(tket2::extension::REGISTRY.to_owned())
             .with_outs(USIZE_T)
@@ -638,7 +704,11 @@ mod test {
     // #[case(ConstAngle::TAU, 2.0 * PI)]
     #[case(ConstAngle::PI_2, PI / 2.0)]
     #[case(ConstAngle::PI_4, PI / 4.0)]
-    fn exec_atorad(mut exec_ctx: TestContext, #[case] angle: ConstAngle, #[case] expected_rads: f64) {
+    fn exec_atorad(
+        mut exec_ctx: TestContext,
+        #[case] angle: ConstAngle,
+        #[case] expected_rads: f64,
+    ) {
         let hugr = SimpleHugrConfig::new()
             .with_extensions(tket2::extension::REGISTRY.to_owned())
             .with_outs(FLOAT64_TYPE)
@@ -647,12 +717,110 @@ mod test {
                 let rads = builder.add_atorad(angle).unwrap();
                 builder.finish_with_outputs([rads]).unwrap()
             });
-        exec_ctx.add_extensions(|cge| cge.add_angle_extensions().add_default_prelude_extensions().add_float_extensions());
+        exec_ctx.add_extensions(|cge| {
+            cge.add_angle_extensions()
+                .add_default_prelude_extensions()
+                .add_float_extensions()
+        });
 
         let rads = exec_ctx.exec_hugr_f64(hugr, "main");
-        dbg!(rads);
         assert!(f64::abs(expected_rads - rads) < 0.0000000001);
     }
 
+    #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+    struct NonFiniteConst64(f64);
 
+    #[typetag::serde]
+    impl CustomConst for NonFiniteConst64 {
+        fn name(&self) -> OpName {
+            "NonFiniteConst64".into()
+        }
+
+        fn extension_reqs(&self) -> ExtensionSet {
+            float_types::EXTENSION_ID.into()
+        }
+
+        fn get_type(&self) -> HugrType {
+            FLOAT64_TYPE
+        }
+    }
+
+    struct NonFiniteConst64CodegenExtension;
+
+    impl<'c, H: HugrView> CodegenExtension<'c, H> for NonFiniteConst64CodegenExtension {
+        fn extension(&self) -> ExtensionId {
+            ExtensionId::new_unchecked("NonFiniteConst64")
+        }
+
+        fn llvm_type(&self, _: &TypingSession<'c, H>, _: &CustomType) -> Result<BasicTypeEnum<'c>> {
+            panic!("no types")
+        }
+
+        fn emitter<'a>(
+            &'a self,
+            _: &'a mut EmitFuncContext<'c, H>,
+        ) -> Box<dyn EmitOp<'c, ExtensionOp, H> + 'a> {
+            panic!("no ops")
+        }
+
+        fn supported_consts(&self) -> HashSet<TypeId> {
+            let of = TypeId::of::<NonFiniteConst64>();
+            [of].into_iter().collect()
+        }
+
+        fn load_constant(
+            &self,
+            context: &mut EmitFuncContext<'c, H>,
+            konst: &dyn CustomConst,
+        ) -> Result<Option<BasicValueEnum<'c>>> {
+            let Some(NonFiniteConst64(f)) = konst.downcast_ref::<NonFiniteConst64>() else {
+                panic!("load_constant")
+            };
+            Ok(Some(context.iw_context().f64_type().const_float(*f).into()))
+        }
+    }
+
+    #[rstest]
+    #[case(PI, 1<<63)]
+    #[case(-PI, 1<<63)]
+    // #[case(ConstAngle::TAU, 2.0 * PI)]
+    #[case(PI / 2.0, 1 << 62)]
+    #[case(-PI / 2.0, 3 << 62)]
+    #[case(PI / 4.0, 1 << 61)]
+    #[case(-PI / 4.0, 7 << 61)]
+    #[case(13.0 * PI, 1 << 63)]
+    #[case(-13.0 * PI, 1 << 63)]
+    #[case(f64::NAN, 0)]
+    #[case(f64::INFINITY, 0)]
+    #[case(f64::NEG_INFINITY, 0)]
+    fn exec_afromrad(
+        mut exec_ctx: TestContext,
+        #[case] rads: f64,
+        #[case] expected_aparts_value: u64,
+    ) {
+        let hugr = SimpleHugrConfig::new()
+            .with_extensions(tket2::extension::REGISTRY.to_owned())
+            .with_outs(USIZE_T)
+            .finish(|mut builder| {
+                let konst: Value = if rads.is_finite() {
+                    ConstF64::new(rads).into()
+                } else {
+                    NonFiniteConst64(rads).into()
+                };
+                let rads = builder.add_load_value(konst);
+                let us4 = builder.add_load_value(ConstUsize::new(4));
+                let angle = builder.add_afromrad(us4, rads).unwrap();
+                let [value, _log_denom] = builder.add_aparts(angle).unwrap();
+                builder.finish_with_outputs([value]).unwrap()
+            });
+        exec_ctx.add_extensions(|cge| {
+            cge.add_angle_extensions()
+                .add_default_prelude_extensions()
+                .add_float_extensions()
+                .add_cge(NonFiniteConst64CodegenExtension)
+        });
+
+        let r = exec_ctx.exec_hugr_u64(hugr, "main");
+        assert!((expected_aparts_value.wrapping_sub(r) as i64).abs() < 1 << 15);
+    }
 }

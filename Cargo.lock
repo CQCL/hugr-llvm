@@ -508,8 +508,10 @@ dependencies = [
  "petgraph",
  "portgraph",
  "rstest",
+ "serde",
  "serde_json",
  "tket2",
+ "typetag",
 ]
 
 [[package]]

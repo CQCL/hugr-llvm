@@ -3,7 +3,7 @@ use std::rc::Rc;
 use hugr::Hugr;
 use inkwell::{
     context::Context,
-    types::{BasicType, BasicTypeEnum}, values::GenericValue,
+    types::{BasicType, BasicTypeEnum},
 };
 use itertools::Itertools as _;
 use rstest::fixture;
