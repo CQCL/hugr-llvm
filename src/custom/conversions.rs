@@ -44,12 +44,7 @@ impl<'c, H: HugrView> ConversionsEmitter<'c, '_, H> {
             4 => (16, (i16::MIN as i64, i16::MAX as i64), u16::MAX as u64),
             5 => (32, (i32::MIN as i64, i32::MAX as i64), u32::MAX as u64),
             6 => (64, (i64::MIN, i64::MAX), u64::MAX),
-            m => {
-                return Err(anyhow!(
-                    "ConversionEmitter: unsupported log_width: {}",
-                    m
-                ))
-            }
+            m => return Err(anyhow!("ConversionEmitter: unsupported log_width: {}", m)),
         };
 
         let hugr_int_ty = INT_TYPES[log_width as usize].clone();
@@ -298,7 +293,11 @@ mod test {
     #[rstest]
     #[case("trunc_u", 6)]
     #[case("trunc_s", 5)]
-    fn test_truncation(mut llvm_ctx: TestContext, #[case] op_name: &str, #[case] log_width: u8) -> () {
+    fn test_truncation(
+        mut llvm_ctx: TestContext,
+        #[case] op_name: &str,
+        #[case] log_width: u8,
+    ) -> () {
         llvm_ctx.add_extensions(add_int_extensions);
         llvm_ctx.add_extensions(add_float_extensions);
         llvm_ctx.add_extensions(add_conversions_extension);
@@ -425,7 +424,7 @@ mod test {
     // is standard behaviour...
     #[rstest]
     #[case(18_446_744_073_709_550_000, 18_446_744_073_709_549_568)]
-    #[case(18_446_744_073_709_551_615,  9_223_372_036_854_775_808)] // 2 ^ 63
+    #[case(18_446_744_073_709_551_615, 9_223_372_036_854_775_808)] // 2 ^ 63
     fn approx_roundtrip(mut exec_ctx: TestContext, #[case] val: u64, #[case] expected: u64) {
         add_extensions(&mut exec_ctx);
         let hugr = roundtrip_hugr(val);
