@@ -45,12 +45,7 @@ impl<'c, H: HugrView> ConversionsEmitter<'c, '_, H> {
             4 => (16, (i16::MIN as i64, i16::MAX as i64), u16::MAX as u64),
             5 => (32, (i32::MIN as i64, i32::MAX as i64), u32::MAX as u64),
             6 => (64, (i64::MIN, i64::MAX), u64::MAX),
-            m => {
-                return Err(anyhow!(
-                    "IntTypesCodegenExtension: unsupported log_width: {}",
-                    m
-                ))
-            }
+            m => return Err(anyhow!("ConversionEmitter: unsupported log_width: {}", m)),
         };
 
         let hugr_int_ty = INT_TYPES[log_width as usize].clone();
@@ -99,6 +94,7 @@ impl<'c, H: HugrView> ConversionsEmitter<'c, '_, H> {
                 "within_lower_bound",
             )?;
 
+            // N.B. If the float value is NaN, we will never succeed.
             let success = ctx
                 .builder()
                 .build_and(within_upper_bound, within_lower_bound, "success")
@@ -258,7 +254,7 @@ impl<'c, H: HugrView> CodegenExtension<'c, H> for ConversionsCodegenExtension {
         hugr_type: &CustomType,
     ) -> Result<BasicTypeEnum<'c>> {
         Err(anyhow!(
-            "IntOpsCodegenExtension: unsupported type: {}",
+            "ConversionEmitter: unsupported type: {}",
             hugr_type
         ))
     }
@@ -332,27 +328,31 @@ mod test {
     #[rstest]
     #[case("convert_u", 4)]
     #[case("convert_s", 5)]
-    fn test_convert(mut llvm_ctx: TestContext, #[case] op_name: &str, #[case] width: u8) -> () {
+    fn test_convert(mut llvm_ctx: TestContext, #[case] op_name: &str, #[case] log_width: u8) -> () {
         llvm_ctx.add_extensions(add_int_extensions);
         llvm_ctx.add_extensions(add_float_extensions);
         llvm_ctx.add_extensions(add_conversions_extension);
-        let in_ty = INT_TYPES[width as usize].clone();
+        let in_ty = INT_TYPES[log_width as usize].clone();
         let out_ty = FLOAT64_TYPE;
-        let hugr = test_conversion_op(op_name, in_ty, out_ty, width);
+        let hugr = test_conversion_op(op_name, in_ty, out_ty, log_width);
         check_emission!(op_name, hugr, llvm_ctx);
     }
 
     #[rstest]
     #[case("trunc_u", 6)]
     #[case("trunc_s", 5)]
-    fn test_truncation(mut llvm_ctx: TestContext, #[case] op_name: &str, #[case] width: u8) -> () {
+    fn test_truncation(
+        mut llvm_ctx: TestContext,
+        #[case] op_name: &str,
+        #[case] log_width: u8,
+    ) -> () {
         llvm_ctx.add_extensions(add_int_extensions);
         llvm_ctx.add_extensions(add_float_extensions);
         llvm_ctx.add_extensions(add_conversions_extension);
         llvm_ctx.add_extensions(add_default_prelude_extensions);
         let in_ty = FLOAT64_TYPE;
-        let out_ty = sum_with_error(INT_TYPES[width as usize].clone());
-        let hugr = test_conversion_op(op_name, in_ty, out_ty.into(), width);
+        let out_ty = sum_with_error(INT_TYPES[log_width as usize].clone());
+        let hugr = test_conversion_op(op_name, in_ty, out_ty.into(), log_width);
         check_emission!(op_name, hugr, llvm_ctx);
     }
 
@@ -429,26 +429,9 @@ mod test {
         assert_eq!(val, exec_ctx.exec_hugr_u64(hugr, "main"));
     }
 
-    #[rstest]
-    // Being roundtrippable from float isn't defined on every value in u64, but
-    // here are some that should work.
-    #[case(0)]
-    #[case(3)]
-    #[case(255)]
-    #[case(4294967295)]
-    #[case(42)]
-    #[case(18_000_000_000_000_000_000)]
-    // N.B.: There's some strange behaviour at the upper end of the ints - the
-    // first case gets converted to something that's off by 1,000, but the second
-    // (which is (2 ^ 64) - 1) gets converted to (2 ^ 32) - off by 9 million!
-    // The fact that the first case works as expected  tells me this isn't to do
-    // with int widths - maybe a floating point expert could explain that this
-    // is standard behaviour...
-    // #[case(18_446_744_073_709_550_000)]
-    // #[case(18_446_744_073_709_551_615)]
-    fn float_roundtrip(mut exec_ctx: TestContext, #[case] val: u64) -> () {
+    fn roundtrip_hugr(val: u64) -> Hugr {
         let int64 = INT_TYPES[6].clone();
-        let hugr = SimpleHugrConfig::new()
+        SimpleHugrConfig::new()
             .with_outs(USIZE_T)
             .with_extensions(CONVERT_OPS_REGISTRY.clone())
             .finish(|mut builder| {
@@ -491,12 +474,43 @@ mod test {
                     .unwrap()
                     .outputs_arr();
                 builder.finish_with_outputs([usize_]).unwrap()
-            });
-        exec_ctx.add_extensions(add_conversions_extension);
-        exec_ctx.add_extensions(add_default_prelude_extensions);
-        exec_ctx.add_extensions(add_float_extensions);
-        exec_ctx.add_extensions(add_int_extensions);
+            })
+    }
+
+    fn add_extensions(ctx: &mut TestContext) {
+        ctx.add_extensions(add_conversions_extension);
+        ctx.add_extensions(add_default_prelude_extensions);
+        ctx.add_extensions(add_float_extensions);
+        ctx.add_extensions(add_int_extensions);
+    }
+
+    #[rstest]
+    // Exact roundtrip conversion is defined on values up to 2**53 for f64.
+    #[case(0)]
+    #[case(3)]
+    #[case(255)]
+    #[case(4294967295)]
+    #[case(42)]
+    #[case(18_000_000_000_000_000_000)]
+    fn roundtrip(mut exec_ctx: TestContext, #[case] val: u64) {
+        add_extensions(&mut exec_ctx);
+        let hugr = roundtrip_hugr(val);
         assert_eq!(val, exec_ctx.exec_hugr_u64(hugr, "main"));
+    }
+
+    // N.B.: There's some strange behaviour at the upper end of the ints - the
+    // first case gets converted to something that's off by 1,000, but the second
+    // (which is (2 ^ 64) - 1) gets converted to (2 ^ 32) - off by 9 million!
+    // The fact that the first case works as expected  tells me this isn't to do
+    // with int widths - maybe a floating point expert could explain that this
+    // is standard behaviour...
+    #[rstest]
+    #[case(18_446_744_073_709_550_000, 18_446_744_073_709_549_568)]
+    #[case(18_446_744_073_709_551_615, 9_223_372_036_854_775_808)] // 2 ^ 63
+    fn approx_roundtrip(mut exec_ctx: TestContext, #[case] val: u64, #[case] expected: u64) {
+        add_extensions(&mut exec_ctx);
+        let hugr = roundtrip_hugr(val);
+        assert_eq!(expected, exec_ctx.exec_hugr_u64(hugr, "main"));
     }
 
     #[rstest]
