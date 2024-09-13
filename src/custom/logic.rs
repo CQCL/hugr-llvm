@@ -20,12 +20,12 @@ use anyhow::{anyhow, Result};
 /// extension.
 pub struct LogicCodegenExtension;
 
-impl<'c, H: HugrView> CodegenExtension<'c, H> for LogicCodegenExtension {
+impl<H: HugrView> CodegenExtension<H> for LogicCodegenExtension {
     fn extension(&self) -> ExtensionId {
         logic::EXTENSION_ID
     }
 
-    fn llvm_type<'d>(
+    fn llvm_type<'c>(
         &self,
         _context: &TypingSession<'c, H>,
         hugr_type: &CustomType,
@@ -36,7 +36,7 @@ impl<'c, H: HugrView> CodegenExtension<'c, H> for LogicCodegenExtension {
         ))
     }
 
-    fn emit_extension_op(
+    fn emit_extension_op<'c>(
         &self,
         context: &mut EmitFuncContext<'c, H>,
         args: EmitOpArgs<'c, ExtensionOp, H>,

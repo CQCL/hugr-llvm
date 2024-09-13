@@ -22,7 +22,8 @@ use inkwell::{types::BasicTypeEnum, values::BasicValue, FloatPredicate};
 use crate::{
     emit::{
         func::EmitFuncContext,
-        ops::{emit_custom_unary_op, emit_value}, EmitOpArgs,
+        ops::{emit_custom_unary_op, emit_value},
+        EmitOpArgs,
     },
     types::TypingSession,
 };
@@ -134,12 +135,12 @@ fn build_trunc_op<'c, H: HugrView>(
 
 pub struct ConversionsCodegenExtension;
 
-impl<'c, H: HugrView> CodegenExtension<'c, H> for ConversionsCodegenExtension {
+impl<H: HugrView> CodegenExtension<H> for ConversionsCodegenExtension {
     fn extension(&self) -> ExtensionId {
         conversions::EXTENSION_ID
     }
 
-    fn llvm_type<'d>(
+    fn llvm_type<'c>(
         &self,
         _context: &TypingSession<'c, H>,
         hugr_type: &CustomType,
@@ -150,9 +151,9 @@ impl<'c, H: HugrView> CodegenExtension<'c, H> for ConversionsCodegenExtension {
         ))
     }
 
-    fn emit_extension_op<'a>(
-        &'a self,
-        context: &'a mut EmitFuncContext<'c, H>,
+    fn emit_extension_op<'c>(
+        &self,
+        context: &mut EmitFuncContext<'c, H>,
         args: EmitOpArgs<'c, ExtensionOp, H>,
     ) -> Result<()> {
         let conversion_op =

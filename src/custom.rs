@@ -19,7 +19,6 @@ use crate::{
     types::TypingSession,
 };
 
-
 pub mod conversions;
 pub mod float;
 pub mod int;
@@ -27,7 +26,7 @@ pub mod logic;
 pub mod prelude;
 
 /// The extension point for lowering HUGR Extensions to LLVM.
-pub trait CodegenExtension<'c, H> {
+pub trait CodegenExtension<H> {
     /// The [ExtensionId] for which this extension will lower `ExtensionOp`s and
     /// [CustomType]s.
     ///
@@ -45,7 +44,7 @@ pub trait CodegenExtension<'c, H> {
 
     /// Return the type of the given [CustomType], which will have an extension
     /// that matches `Self`.
-    fn llvm_type(
+    fn llvm_type<'c>(
         &self,
         context: &TypingSession<'c, H>,
         hugr_type: &CustomType,
@@ -53,9 +52,9 @@ pub trait CodegenExtension<'c, H> {
 
     /// Return an emitter that will be asked to emit `ExtensionOp`s that have an
     /// extension that matches `Self.`
-    fn emit_extension_op<'a>(
-        &'a self,
-        context: &'a mut EmitFuncContext<'c, H>,
+    fn emit_extension_op<'c>(
+        &self,
+        context: &mut EmitFuncContext<'c, H>,
         args: EmitOpArgs<'c, ExtensionOp, H>,
     ) -> Result<()>;
 
@@ -64,7 +63,7 @@ pub trait CodegenExtension<'c, H> {
     ///
     /// If the result is `Ok(None)`, [CodegenExtsMap] may try other
     /// `CodegenExtension`s.
-    fn load_constant(
+    fn load_constant<'c>(
         &self,
         #[allow(unused)] context: &mut EmitFuncContext<'c, H>,
         #[allow(unused)] konst: &dyn CustomConst,
@@ -77,9 +76,9 @@ pub trait CodegenExtension<'c, H> {
 ///
 /// Provides methods to delegate operations to appropriate contained
 /// [CodegenExtension]s.
-pub struct CodegenExtsMap<'c, H> {
+pub struct CodegenExtsMap<'a, H> {
     supported_consts: HashMap<TypeId, HashSet<ExtensionId>>,
-    extensions: HashMap<ExtensionId, Box<dyn 'c + CodegenExtension<'c, H>>>,
+    extensions: HashMap<ExtensionId, Box<dyn 'a + CodegenExtension<H>>>,
 }
 
 impl<'c, H> CodegenExtsMap<'c, H> {
@@ -93,7 +92,7 @@ impl<'c, H> CodegenExtsMap<'c, H> {
 
     /// Consumes a `CodegenExtsMap` and returns a new one, with `ext`
     /// incorporated.
-    pub fn add_cge(mut self, ext: impl 'c + CodegenExtension<'c, H>) -> Self {
+    pub fn add_cge(mut self, ext: impl 'c + CodegenExtension<H>) -> Self {
         let extension = ext.extension();
         for k in ext.supported_consts() {
             self.supported_consts
@@ -106,7 +105,7 @@ impl<'c, H> CodegenExtsMap<'c, H> {
     }
 
     /// Returns the matching inner [CodegenExtension] if it exists.
-    pub fn get(&self, extension: &ExtensionId) -> Result<&dyn CodegenExtension<'c, H>> {
+    pub fn get(&self, extension: &ExtensionId) -> Result<&dyn CodegenExtension<H>> {
         let b = self
             .extensions
             .get(extension)

@@ -16,7 +16,8 @@ use inkwell::{
 };
 
 use crate::emit::{
-    emit_value, func::EmitFuncContext, ops::emit_custom_binary_op, ops::emit_custom_unary_op, EmitOpArgs,
+    emit_value, func::EmitFuncContext, ops::emit_custom_binary_op, ops::emit_custom_unary_op,
+    EmitOpArgs,
 };
 use crate::types::TypingSession;
 
@@ -53,12 +54,12 @@ fn emit_icmp<'c, H: HugrView>(
 /// TODO: very incomplete
 pub struct IntOpsCodegenExtension;
 
-impl<'c, H: HugrView> CodegenExtension<'c, H> for IntOpsCodegenExtension {
+impl<H: HugrView> CodegenExtension<H> for IntOpsCodegenExtension {
     fn extension(&self) -> ExtensionId {
         int_ops::EXTENSION_ID
     }
 
-    fn llvm_type<'d>(
+    fn llvm_type<'c>(
         &self,
         _context: &TypingSession<'c, H>,
         hugr_type: &CustomType,
@@ -69,9 +70,9 @@ impl<'c, H: HugrView> CodegenExtension<'c, H> for IntOpsCodegenExtension {
         ))
     }
 
-    fn emit_extension_op<'a>(
-        &'a self,
-        context: &'a mut EmitFuncContext<'c, H>,
+    fn emit_extension_op<'c>(
+        &self,
+        context: &mut EmitFuncContext<'c, H>,
         args: EmitOpArgs<'c, ExtensionOp, H>,
     ) -> Result<()> {
         let iot = ConcreteIntOp::from_optype(&args.node().generalise()).ok_or(anyhow!(
@@ -139,12 +140,12 @@ impl<'c, H: HugrView> CodegenExtension<'c, H> for IntOpsCodegenExtension {
 /// extension.
 pub struct IntTypesCodegenExtension;
 
-impl<'c, H: HugrView> CodegenExtension<'c, H> for IntTypesCodegenExtension {
+impl<H: HugrView> CodegenExtension<H> for IntTypesCodegenExtension {
     fn extension(&self) -> ExtensionId {
         int_types::EXTENSION_ID
     }
 
-    fn llvm_type<'d>(
+    fn llvm_type<'c>(
         &self,
         context: &TypingSession<'c, H>,
         hugr_type: &CustomType,
@@ -172,9 +173,9 @@ impl<'c, H: HugrView> CodegenExtension<'c, H> for IntTypesCodegenExtension {
         ))
     }
 
-    fn emit_extension_op<'a>(
-        &'a self,
-        _: &'a mut EmitFuncContext<'c, H>,
+    fn emit_extension_op<'c>(
+        &self,
+        _: &mut EmitFuncContext<'c, H>,
         args: EmitOpArgs<'c, ExtensionOp, H>,
     ) -> Result<()> {
         bail!("Unsupported op: {:?}", args.node().as_ref())
@@ -184,10 +185,10 @@ impl<'c, H: HugrView> CodegenExtension<'c, H> for IntTypesCodegenExtension {
         [TypeId::of::<ConstInt>()].into_iter().collect()
     }
 
-    fn load_constant(
+    fn load_constant<'c>(
         &self,
         context: &mut EmitFuncContext<'c, H>,
-        konst: &dyn hugr::ops::constant::CustomConst,
+        konst: &dyn CustomConst,
     ) -> Result<Option<BasicValueEnum<'c>>> {
         let Some(k) = konst.downcast_ref::<ConstInt>() else {
             return Ok(None);

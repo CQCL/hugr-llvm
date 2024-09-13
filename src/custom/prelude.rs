@@ -24,7 +24,8 @@ use itertools::Itertools;
 use crate::{
     emit::{
         func::EmitFuncContext,
-        libc::{emit_libc_abort, emit_libc_printf}, EmitOpArgs, RowPromise,
+        libc::{emit_libc_abort, emit_libc_printf},
+        EmitOpArgs, RowPromise,
     },
     sum::LLVMSumValue,
     types::TypingSession,
@@ -135,14 +136,12 @@ impl<PCG: PreludeCodegen> From<PCG> for PreludeCodegenExtension<PCG> {
     }
 }
 
-impl<'c, H: HugrView, PCG: PreludeCodegen> CodegenExtension<'c, H>
-    for PreludeCodegenExtension<PCG>
-{
+impl<H: HugrView, PCG: PreludeCodegen> CodegenExtension<H> for PreludeCodegenExtension<PCG> {
     fn extension(&self) -> hugr::extension::ExtensionId {
         prelude::PRELUDE_ID
     }
 
-    fn llvm_type(
+    fn llvm_type<'c>(
         &self,
         ts: &crate::types::TypingSession<'c, H>,
         hugr_type: &hugr::types::CustomType,
@@ -181,9 +180,9 @@ impl<'c, H: HugrView, PCG: PreludeCodegen> CodegenExtension<'c, H>
         }
     }
 
-    fn emit_extension_op<'a>(
-        &'a self,
-        context: &'a mut EmitFuncContext<'c, H>,
+    fn emit_extension_op<'c>(
+        &self,
+        context: &mut EmitFuncContext<'c, H>,
         args: EmitOpArgs<'c, ExtensionOp, H>,
     ) -> Result<()> {
         let node = args.node();
@@ -236,7 +235,7 @@ impl<'c, H: HugrView, PCG: PreludeCodegen> CodegenExtension<'c, H>
         .collect()
     }
 
-    fn load_constant(
+    fn load_constant<'c>(
         &self,
         context: &mut EmitFuncContext<'c, H>,
         konst: &dyn CustomConst,

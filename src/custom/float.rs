@@ -2,9 +2,11 @@ use std::{any::TypeId, collections::HashSet};
 
 use anyhow::{anyhow, bail, Result};
 use hugr::extension::simple_op::MakeExtensionOp;
+use hugr::extension::ExtensionId;
 use hugr::ops::ExtensionOp;
 use hugr::ops::{constant::CustomConst, Value};
 use hugr::std_extensions::arithmetic::float_ops::FloatOps;
+use hugr::types::CustomType;
 use hugr::{
     std_extensions::arithmetic::{
         float_ops,
@@ -12,6 +14,7 @@ use hugr::{
     },
     HugrView,
 };
+use inkwell::types::BasicTypeEnum;
 use inkwell::{
     types::{BasicType, FloatType},
     values::{BasicValue, BasicValueEnum},
@@ -20,22 +23,23 @@ use inkwell::{
 use crate::emit::emit_value;
 use crate::emit::ops::{emit_custom_binary_op, emit_custom_unary_op};
 use crate::emit::{func::EmitFuncContext, EmitOpArgs};
+use crate::types::TypingSession;
 
 use super::{CodegenExtension, CodegenExtsMap};
 
 /// A [CodegenExtension] for the [hugr::std_extensions::arithmetic::float_types] extension.
 pub struct FloatTypesCodegenExtension;
 
-impl<'c, H: HugrView> CodegenExtension<'c, H> for FloatTypesCodegenExtension {
-    fn extension(&self) -> hugr::extension::ExtensionId {
+impl<H: HugrView> CodegenExtension<H> for FloatTypesCodegenExtension {
+    fn extension(&self) -> ExtensionId {
         float_types::EXTENSION_ID
     }
 
-    fn llvm_type(
+    fn llvm_type<'c>(
         &self,
-        context: &crate::types::TypingSession<'c, H>,
-        hugr_type: &hugr::types::CustomType,
-    ) -> anyhow::Result<inkwell::types::BasicTypeEnum<'c>> {
+        context: &TypingSession<'c, H>,
+        hugr_type: &CustomType,
+    ) -> anyhow::Result<BasicTypeEnum<'c>> {
         if hugr_type == &FLOAT64_CUSTOM_TYPE {
             Ok(context.iw_context().f64_type().as_basic_type_enum())
         } else {
@@ -46,9 +50,9 @@ impl<'c, H: HugrView> CodegenExtension<'c, H> for FloatTypesCodegenExtension {
         }
     }
 
-    fn emit_extension_op<'a>(
-        &'a self,
-        _: &'a mut EmitFuncContext<'c, H>,
+    fn emit_extension_op<'c>(
+        &self,
+        _: &mut EmitFuncContext<'c, H>,
         args: EmitOpArgs<'c, ExtensionOp, H>,
     ) -> Result<()> {
         bail!("Unsupported op: {}", args.node())
@@ -57,7 +61,7 @@ impl<'c, H: HugrView> CodegenExtension<'c, H> for FloatTypesCodegenExtension {
         [TypeId::of::<ConstF64>()].into_iter().collect()
     }
 
-    fn load_constant(
+    fn load_constant<'c>(
         &self,
         context: &mut EmitFuncContext<'c, H>,
         konst: &dyn hugr::ops::constant::CustomConst,
@@ -72,24 +76,24 @@ impl<'c, H: HugrView> CodegenExtension<'c, H> for FloatTypesCodegenExtension {
 
 struct FloatOpsCodegenExtension;
 
-impl<'c, H: HugrView> CodegenExtension<'c, H> for FloatOpsCodegenExtension {
+impl<H: HugrView> CodegenExtension<H> for FloatOpsCodegenExtension {
     fn extension(&self) -> hugr::extension::ExtensionId {
         float_ops::EXTENSION_ID
     }
 
-    fn llvm_type(
+    fn llvm_type<'c>(
         &self,
-        _context: &crate::types::TypingSession<'c, H>,
-        hugr_type: &hugr::types::CustomType,
-    ) -> anyhow::Result<inkwell::types::BasicTypeEnum<'c>> {
+        _context: &TypingSession<'c, H>,
+        hugr_type: &CustomType,
+    ) -> anyhow::Result<BasicTypeEnum<'c>> {
         Err(anyhow!(
             "FloatOpsCodegenExtension: unsupported type: {hugr_type}"
         ))
     }
 
-    fn emit_extension_op<'a>(
-        &'a self,
-        context: &'a mut EmitFuncContext<'c, H>,
+    fn emit_extension_op<'c>(
+        &self,
+        context: &mut EmitFuncContext<'c, H>,
         args: EmitOpArgs<'c, ExtensionOp, H>,
     ) -> Result<()> {
         let op = FloatOps::from_optype(&args.node().generalise()).ok_or(anyhow!(

@@ -10,14 +10,16 @@ use hugr::{
     extension::{prelude, ExtensionId, ExtensionRegistry},
     ops::{DataflowOpTrait as _, ExtensionOp},
     std_extensions::arithmetic::{float_types, int_ops, int_types},
+    types::CustomType,
     Hugr, HugrView,
 };
 use hugr_llvm::{
     custom::{CodegenExtension, CodegenExtsMap},
-    emit::{deaggregate_call_result, EmitHugr, EmitOpArgs, Namer},
+    emit::{deaggregate_call_result, EmitFuncContext, EmitHugr, EmitOpArgs, Namer},
     fat::FatExt as _,
+    types::TypingSession,
 };
-use inkwell::{context::Context, module::Module};
+use inkwell::{context::Context, module::Module, types::BasicTypeEnum};
 use itertools::Itertools as _;
 use lazy_static::lazy_static;
 use rstest::{fixture, rstest};
@@ -35,22 +37,22 @@ lazy_static! {
 // A toy codegen extension for "quantum.tket2" ops.
 struct Tket2CodegenExtension;
 
-impl<'c, H: HugrView> CodegenExtension<'c, H> for Tket2CodegenExtension {
+impl<H: HugrView> CodegenExtension<H> for Tket2CodegenExtension {
     fn extension(&self) -> ExtensionId {
         ExtensionId::new("quantum.tket2").unwrap()
     }
 
-    fn llvm_type(
+    fn llvm_type<'c>(
         &self,
-        _context: &hugr_llvm::types::TypingSession<'c, H>,
-        _hugr_type: &hugr::types::CustomType,
-    ) -> anyhow::Result<inkwell::types::BasicTypeEnum<'c>> {
+        _context: &TypingSession<'c, H>,
+        _hugr_type: &CustomType,
+    ) -> anyhow::Result<BasicTypeEnum<'c>> {
         unimplemented!()
     }
 
-    fn emit_extension_op<'a>(
-        &'a self,
-        context: &'a mut hugr_llvm::emit::EmitFuncContext<'c, H>,
+    fn emit_extension_op<'c>(
+        &self,
+        context: &mut EmitFuncContext<'c, H>,
         args: EmitOpArgs<'c, ExtensionOp, H>,
     ) -> Result<()> {
         // we lower all ops by declaring an extern function of the same name
