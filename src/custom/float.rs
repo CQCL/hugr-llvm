@@ -1,6 +1,6 @@
 use std::{any::TypeId, collections::HashSet};
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Result};
 use hugr::extension::simple_op::MakeExtensionOp;
 use hugr::ops::ExtensionOp;
 use hugr::ops::{constant::CustomConst, Value};
@@ -19,7 +19,7 @@ use inkwell::{
 
 use crate::emit::emit_value;
 use crate::emit::ops::{emit_custom_binary_op, emit_custom_unary_op};
-use crate::emit::{func::EmitFuncContext, EmitOp, EmitOpArgs, NullEmitLlvm};
+use crate::emit::{func::EmitFuncContext, EmitOpArgs};
 
 use super::{CodegenExtension, CodegenExtsMap};
 
@@ -46,13 +46,13 @@ impl<'c, H: HugrView> CodegenExtension<'c, H> for FloatTypesCodegenExtension {
         }
     }
 
-    fn emitter<'a>(
-        &self,
-        _context: &'a mut crate::emit::func::EmitFuncContext<'c, H>,
-    ) -> Box<dyn crate::emit::EmitOp<'c, hugr::ops::ExtensionOp, H> + 'a> {
-        Box::new(NullEmitLlvm)
+    fn emit_extension_op<'a>(
+        &'a self,
+        _: &'a mut EmitFuncContext<'c, H>,
+        args: EmitOpArgs<'c, ExtensionOp, H>,
+    ) -> Result<()> {
+        bail!("Unsupported op: {}", args.node())
     }
-
     fn supported_consts(&self) -> HashSet<TypeId> {
         [TypeId::of::<ConstF64>()].into_iter().collect()
     }
@@ -87,16 +87,69 @@ impl<'c, H: HugrView> CodegenExtension<'c, H> for FloatOpsCodegenExtension {
         ))
     }
 
-    fn emitter<'a>(
-        &self,
-        context: &'a mut crate::emit::func::EmitFuncContext<'c, H>,
-    ) -> Box<dyn crate::emit::EmitOp<'c, hugr::ops::ExtensionOp, H> + 'a> {
-        Box::new(FloatOpEmitter(context))
+    fn emit_extension_op<'a>(
+        &'a self,
+        context: &'a mut EmitFuncContext<'c, H>,
+        args: EmitOpArgs<'c, ExtensionOp, H>,
+    ) -> Result<()> {
+        let op = FloatOps::from_optype(&args.node().generalise()).ok_or(anyhow!(
+            "FloatOpEmitter: from_optype_failed: {:?}",
+            args.node().as_ref()
+        ))?;
+        // We emit the float comparison variants where NaN is an absorbing value.
+        // Any comparison with NaN is always false.
+        #[allow(clippy::wildcard_in_or_patterns)]
+        match op {
+            FloatOps::feq => emit_fcmp(context, args, inkwell::FloatPredicate::OEQ),
+            FloatOps::fne => emit_fcmp(context, args, inkwell::FloatPredicate::ONE),
+            FloatOps::flt => emit_fcmp(context, args, inkwell::FloatPredicate::OLT),
+            FloatOps::fgt => emit_fcmp(context, args, inkwell::FloatPredicate::OGT),
+            FloatOps::fle => emit_fcmp(context, args, inkwell::FloatPredicate::OLE),
+            FloatOps::fge => emit_fcmp(context, args, inkwell::FloatPredicate::OGE),
+            FloatOps::fadd => emit_custom_binary_op(context, args, |ctx, (lhs, rhs), _| {
+                Ok(vec![ctx
+                    .builder()
+                    .build_float_add(lhs.into_float_value(), rhs.into_float_value(), "")?
+                    .as_basic_value_enum()])
+            }),
+            FloatOps::fsub => emit_custom_binary_op(context, args, |ctx, (lhs, rhs), _| {
+                Ok(vec![ctx
+                    .builder()
+                    .build_float_sub(lhs.into_float_value(), rhs.into_float_value(), "")?
+                    .as_basic_value_enum()])
+            }),
+            FloatOps::fneg => emit_custom_unary_op(context, args, |ctx, v, _| {
+                Ok(vec![ctx
+                    .builder()
+                    .build_float_neg(v.into_float_value(), "")?
+                    .as_basic_value_enum()])
+            }),
+            FloatOps::fmul => emit_custom_binary_op(context, args, |ctx, (lhs, rhs), _| {
+                Ok(vec![ctx
+                    .builder()
+                    .build_float_mul(lhs.into_float_value(), rhs.into_float_value(), "")?
+                    .as_basic_value_enum()])
+            }),
+            FloatOps::fdiv => emit_custom_binary_op(context, args, |ctx, (lhs, rhs), _| {
+                Ok(vec![ctx
+                    .builder()
+                    .build_float_div(lhs.into_float_value(), rhs.into_float_value(), "")?
+                    .as_basic_value_enum()])
+            }),
+            // Missing ops, not supported by inkwell
+            FloatOps::fmax
+            | FloatOps::fmin
+            | FloatOps::fabs
+            | FloatOps::ffloor
+            | FloatOps::fceil
+            | FloatOps::ftostring
+            | _ => {
+                let name: &str = op.into();
+                Err(anyhow!("FloatOpEmitter: unimplemented op: {name}"))
+            }
+        }
     }
 }
-
-/// An emitter for [hugr::std_extensions::arithmetic::float_ops] ops.
-struct FloatOpEmitter<'c, 'd, H>(&'d mut EmitFuncContext<'c, H>);
 
 /// Emit a float comparison operation.
 fn emit_fcmp<'c, H: HugrView>(
@@ -120,67 +173,6 @@ fn emit_fcmp<'c, H: HugrView>(
             .builder()
             .build_select(r, true_val, false_val, "")?])
     })
-}
-
-impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for FloatOpEmitter<'c, '_, H> {
-    fn emit(&mut self, args: EmitOpArgs<'c, ExtensionOp, H>) -> Result<()> {
-        let op = FloatOps::from_optype(&args.node().generalise()).ok_or(anyhow!(
-            "FloatOpEmitter: from_optype_failed: {:?}",
-            args.node().as_ref()
-        ))?;
-        // We emit the float comparison variants where NaN is an absorbing value.
-        // Any comparison with NaN is always false.
-        #[allow(clippy::wildcard_in_or_patterns)]
-        match op {
-            FloatOps::feq => emit_fcmp(self.0, args, inkwell::FloatPredicate::OEQ),
-            FloatOps::fne => emit_fcmp(self.0, args, inkwell::FloatPredicate::ONE),
-            FloatOps::flt => emit_fcmp(self.0, args, inkwell::FloatPredicate::OLT),
-            FloatOps::fgt => emit_fcmp(self.0, args, inkwell::FloatPredicate::OGT),
-            FloatOps::fle => emit_fcmp(self.0, args, inkwell::FloatPredicate::OLE),
-            FloatOps::fge => emit_fcmp(self.0, args, inkwell::FloatPredicate::OGE),
-            FloatOps::fadd => emit_custom_binary_op(self.0, args, |ctx, (lhs, rhs), _| {
-                Ok(vec![ctx
-                    .builder()
-                    .build_float_add(lhs.into_float_value(), rhs.into_float_value(), "")?
-                    .as_basic_value_enum()])
-            }),
-            FloatOps::fsub => emit_custom_binary_op(self.0, args, |ctx, (lhs, rhs), _| {
-                Ok(vec![ctx
-                    .builder()
-                    .build_float_sub(lhs.into_float_value(), rhs.into_float_value(), "")?
-                    .as_basic_value_enum()])
-            }),
-            FloatOps::fneg => emit_custom_unary_op(self.0, args, |ctx, v, _| {
-                Ok(vec![ctx
-                    .builder()
-                    .build_float_neg(v.into_float_value(), "")?
-                    .as_basic_value_enum()])
-            }),
-            FloatOps::fmul => emit_custom_binary_op(self.0, args, |ctx, (lhs, rhs), _| {
-                Ok(vec![ctx
-                    .builder()
-                    .build_float_mul(lhs.into_float_value(), rhs.into_float_value(), "")?
-                    .as_basic_value_enum()])
-            }),
-            FloatOps::fdiv => emit_custom_binary_op(self.0, args, |ctx, (lhs, rhs), _| {
-                Ok(vec![ctx
-                    .builder()
-                    .build_float_div(lhs.into_float_value(), rhs.into_float_value(), "")?
-                    .as_basic_value_enum()])
-            }),
-            // Missing ops, not supported by inkwell
-            FloatOps::fmax
-            | FloatOps::fmin
-            | FloatOps::fabs
-            | FloatOps::ffloor
-            | FloatOps::fceil
-            | FloatOps::ftostring
-            | _ => {
-                let name: &str = op.into();
-                Err(anyhow!("FloatOpEmitter: unimplemented op: {name}"))
-            }
-        }
-    }
 }
 
 pub fn add_float_extensions<H: HugrView>(cem: CodegenExtsMap<'_, H>) -> CodegenExtsMap<'_, H> {

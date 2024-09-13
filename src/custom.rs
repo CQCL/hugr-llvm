@@ -19,7 +19,6 @@ use crate::{
     types::TypingSession,
 };
 
-use super::emit::EmitOp;
 
 pub mod conversions;
 pub mod float;
@@ -54,10 +53,11 @@ pub trait CodegenExtension<'c, H> {
 
     /// Return an emitter that will be asked to emit `ExtensionOp`s that have an
     /// extension that matches `Self.`
-    fn emitter<'a>(
+    fn emit_extension_op<'a>(
         &'a self,
         context: &'a mut EmitFuncContext<'c, H>,
-    ) -> Box<dyn EmitOp<'c, ExtensionOp, H> + 'a>;
+        args: EmitOpArgs<'c, ExtensionOp, H>,
+    ) -> Result<()>;
 
     /// Emit instructions to materialise `konst`. `konst` will have a [TypeId]
     /// that matches `self.supported_consts`.
@@ -135,8 +135,7 @@ impl<'c, H> CodegenExtsMap<'c, H> {
         H: HugrView,
     {
         self.get(args.node().def().extension())?
-            .emitter(context)
-            .emit(args)
+            .emit_extension_op(context, args)
     }
 
     /// Emit instructions to materialise `konst` by delegating to the

@@ -22,176 +22,114 @@ use inkwell::{types::BasicTypeEnum, values::BasicValue, FloatPredicate};
 use crate::{
     emit::{
         func::EmitFuncContext,
-        ops::{emit_custom_unary_op, emit_value},
-        EmitOp, EmitOpArgs,
+        ops::{emit_custom_unary_op, emit_value}, EmitOpArgs,
     },
     types::TypingSession,
 };
 
-struct ConversionsEmitter<'c, 'd, H>(&'d mut EmitFuncContext<'c, H>);
+fn build_trunc_op<'c, H: HugrView>(
+    context: &mut EmitFuncContext<'c, H>,
+    signed: bool,
+    log_width: u64,
+    args: EmitOpArgs<'c, ExtensionOp, H>,
+) -> Result<()> {
+    // Note: This logic is copied from `llvm_type` in the IntTypes
+    // extension. We need to have a common source of truth for this.
+    let (width, (int_min_value_s, int_max_value_s), int_max_value_u) = match log_width {
+        0..=3 => (8, (i8::MIN as i64, i8::MAX as i64), u8::MAX as u64),
+        4 => (16, (i16::MIN as i64, i16::MAX as i64), u16::MAX as u64),
+        5 => (32, (i32::MIN as i64, i32::MAX as i64), u32::MAX as u64),
+        6 => (64, (i64::MIN, i64::MAX), u64::MAX),
+        m => return Err(anyhow!("ConversionEmitter: unsupported log_width: {}", m)),
+    };
 
-impl<'c, H: HugrView> ConversionsEmitter<'c, '_, H> {
-    fn build_trunc_op(
-        &mut self,
-        signed: bool,
-        log_width: u64,
-        args: EmitOpArgs<'c, ExtensionOp, H>,
-    ) -> Result<()> {
-        // Note: This logic is copied from `llvm_type` in the IntTypes
-        // extension. We need to have a common source of truth for this.
-        let (width, (int_min_value_s, int_max_value_s), int_max_value_u) = match log_width {
-            0..=3 => (8, (i8::MIN as i64, i8::MAX as i64), u8::MAX as u64),
-            4 => (16, (i16::MIN as i64, i16::MAX as i64), u16::MAX as u64),
-            5 => (32, (i32::MIN as i64, i32::MAX as i64), u32::MAX as u64),
-            6 => (64, (i64::MIN, i64::MAX), u64::MAX),
-            m => return Err(anyhow!("ConversionEmitter: unsupported log_width: {}", m)),
+    let hugr_int_ty = INT_TYPES[log_width as usize].clone();
+    let int_ty = context
+        .typing_session()
+        .llvm_type(&hugr_int_ty)?
+        .into_int_type();
+
+    let hugr_sum_ty = sum_with_error(vec![hugr_int_ty]);
+    let sum_ty = context.typing_session().llvm_sum_type(hugr_sum_ty)?;
+
+    emit_custom_unary_op(context, args, |ctx, arg, _| {
+        // We have to check if the conversion will work, so we
+        // make the maximum int and convert to a float, then compare
+        // with the function input.
+        let flt_max = if signed {
+            ctx.iw_context()
+                .f64_type()
+                .const_float(int_max_value_s as f64)
+        } else {
+            ctx.iw_context()
+                .f64_type()
+                .const_float(int_max_value_u as f64)
         };
 
-        let hugr_int_ty = INT_TYPES[log_width as usize].clone();
-        let int_ty = self
-            .0
-            .typing_session()
-            .llvm_type(&hugr_int_ty)?
-            .into_int_type();
+        let within_upper_bound = ctx.builder().build_float_compare(
+            FloatPredicate::OLE,
+            arg.into_float_value(),
+            flt_max,
+            "within_upper_bound",
+        )?;
 
-        let hugr_sum_ty = sum_with_error(vec![hugr_int_ty]);
-        let sum_ty = self.0.typing_session().llvm_sum_type(hugr_sum_ty)?;
+        let flt_min = if signed {
+            ctx.iw_context()
+                .f64_type()
+                .const_float(int_min_value_s as f64)
+        } else {
+            ctx.iw_context().f64_type().const_float(0.0)
+        };
 
-        emit_custom_unary_op(self.0, args, |ctx, arg, _| {
-            // We have to check if the conversion will work, so we
-            // make the maximum int and convert to a float, then compare
-            // with the function input.
-            let flt_max = if signed {
-                ctx.iw_context()
-                    .f64_type()
-                    .const_float(int_max_value_s as f64)
-            } else {
-                ctx.iw_context()
-                    .f64_type()
-                    .const_float(int_max_value_u as f64)
-            };
+        let within_lower_bound = ctx.builder().build_float_compare(
+            FloatPredicate::OLE,
+            flt_min,
+            arg.into_float_value(),
+            "within_lower_bound",
+        )?;
 
-            let within_upper_bound = ctx.builder().build_float_compare(
-                FloatPredicate::OLE,
+        // N.B. If the float value is NaN, we will never succeed.
+        let success = ctx
+            .builder()
+            .build_and(within_upper_bound, within_lower_bound, "success")
+            .unwrap();
+
+        // Perform the conversion unconditionally, which will result
+        // in a poison value if the input was too large. We will
+        // decide whether we return it based on the result of our
+        // earlier check.
+        let trunc_result = if signed {
+            ctx.builder()
+                .build_float_to_signed_int(arg.into_float_value(), int_ty, "trunc_result")
+        } else {
+            ctx.builder().build_float_to_unsigned_int(
                 arg.into_float_value(),
-                flt_max,
-                "within_upper_bound",
-            )?;
+                int_ty,
+                "trunc_result",
+            )
+        }?
+        .as_basic_value_enum();
 
-            let flt_min = if signed {
-                ctx.iw_context()
-                    .f64_type()
-                    .const_float(int_min_value_s as f64)
-            } else {
-                ctx.iw_context().f64_type().const_float(0.0)
-            };
+        let err_msg = Value::extension(ConstError::new(
+            2,
+            format!(
+                "Float value too big to convert to int of given width ({})",
+                width
+            ),
+        ));
 
-            let within_lower_bound = ctx.builder().build_float_compare(
-                FloatPredicate::OLE,
-                flt_min,
-                arg.into_float_value(),
-                "within_lower_bound",
-            )?;
+        let err_val = emit_value(ctx, &err_msg)?;
+        let failure = sum_ty.build_tag(ctx.builder(), 0, vec![err_val]).unwrap();
+        let trunc_result = sum_ty
+            .build_tag(ctx.builder(), 1, vec![trunc_result])
+            .unwrap();
 
-            // N.B. If the float value is NaN, we will never succeed.
-            let success = ctx
-                .builder()
-                .build_and(within_upper_bound, within_lower_bound, "success")
-                .unwrap();
-
-            // Perform the conversion unconditionally, which will result
-            // in a poison value if the input was too large. We will
-            // decide whether we return it based on the result of our
-            // earlier check.
-            let trunc_result = if signed {
-                ctx.builder().build_float_to_signed_int(
-                    arg.into_float_value(),
-                    int_ty,
-                    "trunc_result",
-                )
-            } else {
-                ctx.builder().build_float_to_unsigned_int(
-                    arg.into_float_value(),
-                    int_ty,
-                    "trunc_result",
-                )
-            }?
-            .as_basic_value_enum();
-
-            let err_msg = Value::extension(ConstError::new(
-                2,
-                format!(
-                    "Float value too big to convert to int of given width ({})",
-                    width
-                ),
-            ));
-
-            let err_val = emit_value(ctx, &err_msg)?;
-            let failure = sum_ty.build_tag(ctx.builder(), 0, vec![err_val]).unwrap();
-            let trunc_result = sum_ty
-                .build_tag(ctx.builder(), 1, vec![trunc_result])
-                .unwrap();
-
-            let final_result = ctx
-                .builder()
-                .build_select(success, trunc_result, failure, "")
-                .unwrap();
-            Ok(vec![final_result])
-        })
-    }
-}
-
-impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for ConversionsEmitter<'c, '_, H> {
-    fn emit(&mut self, args: EmitOpArgs<'c, ExtensionOp, H>) -> Result<()> {
-        let conversion_op =
-            ConvertOpType::from_optype(&args.node().generalise()).ok_or(anyhow!(
-                "ConversionsEmitter from_optype failed: {:?}",
-                args.node().as_ref()
-            ))?;
-
-        match conversion_op.def() {
-            ConvertOpDef::trunc_u | ConvertOpDef::trunc_s => {
-                let signed = conversion_op.def() == &ConvertOpDef::trunc_s;
-                let Some(TypeArg::BoundedNat { n: log_width }) =
-                    conversion_op.type_args().last().cloned()
-                else {
-                    panic!("This op should have one type arg only: the log-width of the int we're truncating to.")
-                };
-
-                self.build_trunc_op(signed, log_width, args)
-            }
-
-            ConvertOpDef::convert_u => emit_custom_unary_op(self.0, args, |ctx, arg, out_tys| {
-                let out_ty = out_tys.last().unwrap();
-                Ok(vec![ctx
-                    .builder()
-                    .build_unsigned_int_to_float(
-                        arg.into_int_value(),
-                        out_ty.into_float_type(),
-                        "",
-                    )?
-                    .as_basic_value_enum()])
-            }),
-
-            ConvertOpDef::convert_s => emit_custom_unary_op(self.0, args, |ctx, arg, out_tys| {
-                let out_ty = out_tys.last().unwrap();
-                Ok(vec![ctx
-                    .builder()
-                    .build_signed_int_to_float(arg.into_int_value(), out_ty.into_float_type(), "")?
-                    .as_basic_value_enum()])
-            }),
-            // These ops convert between hugr's `USIZE` and u64. The former is
-            // implementation-dependent and we define them to be the same.
-            // Hence our implementation is a noop.
-            ConvertOpDef::itousize | ConvertOpDef::ifromusize => {
-                emit_custom_unary_op(self.0, args, |_, arg, _| Ok(vec![arg]))
-            }
-            _ => Err(anyhow!(
-                "Conversion op not implemented: {:?}",
-                args.node().as_ref()
-            )),
-        }
-    }
+        let final_result = ctx
+            .builder()
+            .build_select(success, trunc_result, failure, "")
+            .unwrap();
+        Ok(vec![final_result])
+    })
 }
 
 pub struct ConversionsCodegenExtension;
@@ -212,11 +150,59 @@ impl<'c, H: HugrView> CodegenExtension<'c, H> for ConversionsCodegenExtension {
         ))
     }
 
-    fn emitter<'a>(
-        &self,
+    fn emit_extension_op<'a>(
+        &'a self,
         context: &'a mut EmitFuncContext<'c, H>,
-    ) -> Box<dyn EmitOp<'c, ExtensionOp, H> + 'a> {
-        Box::new(ConversionsEmitter(context))
+        args: EmitOpArgs<'c, ExtensionOp, H>,
+    ) -> Result<()> {
+        let conversion_op =
+            ConvertOpType::from_optype(&args.node().generalise()).ok_or(anyhow!(
+                "ConversionsEmitter from_optype failed: {:?}",
+                args.node().as_ref()
+            ))?;
+
+        match conversion_op.def() {
+            ConvertOpDef::trunc_u | ConvertOpDef::trunc_s => {
+                let signed = conversion_op.def() == &ConvertOpDef::trunc_s;
+                let Some(TypeArg::BoundedNat { n: log_width }) =
+                    conversion_op.type_args().last().cloned()
+                else {
+                    panic!("This op should have one type arg only: the log-width of the int we're truncating to.")
+                };
+
+                build_trunc_op(context, signed, log_width, args)
+            }
+
+            ConvertOpDef::convert_u => emit_custom_unary_op(context, args, |ctx, arg, out_tys| {
+                let out_ty = out_tys.last().unwrap();
+                Ok(vec![ctx
+                    .builder()
+                    .build_unsigned_int_to_float(
+                        arg.into_int_value(),
+                        out_ty.into_float_type(),
+                        "",
+                    )?
+                    .as_basic_value_enum()])
+            }),
+
+            ConvertOpDef::convert_s => emit_custom_unary_op(context, args, |ctx, arg, out_tys| {
+                let out_ty = out_tys.last().unwrap();
+                Ok(vec![ctx
+                    .builder()
+                    .build_signed_int_to_float(arg.into_int_value(), out_ty.into_float_type(), "")?
+                    .as_basic_value_enum()])
+            }),
+            // These ops convert between hugr's `USIZE` and u64. The former is
+            // implementation-dependent and we define them to be the same.
+            // Hence our implementation is a noop.
+            ConvertOpDef::itousize | ConvertOpDef::ifromusize => {
+                emit_custom_unary_op(context, args, |_, arg, _| Ok(vec![arg]))
+            }
+            _ => Err(anyhow!(
+                "Conversion op not implemented: {:?}",
+                args.node().as_ref()
+            )),
+        }
     }
 }
 

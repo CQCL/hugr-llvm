@@ -14,7 +14,7 @@ use hugr::{
 };
 use hugr_llvm::{
     custom::{CodegenExtension, CodegenExtsMap},
-    emit::{deaggregate_call_result, EmitHugr, EmitOp, EmitOpArgs, Namer},
+    emit::{deaggregate_call_result, EmitHugr, EmitOpArgs, Namer},
     fat::FatExt as _,
 };
 use inkwell::{context::Context, module::Module};
@@ -30,25 +30,6 @@ lazy_static! {
         float_types::EXTENSION.to_owned(),
     ])
     .unwrap();
-}
-
-struct Tket2Emitter<'a, 'c, H>(&'a mut hugr_llvm::emit::EmitFuncContext<'c, H>);
-
-impl<'a, 'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for Tket2Emitter<'a, 'c, H> {
-    fn emit(&mut self, args: EmitOpArgs<'c, ExtensionOp, H>) -> Result<()> {
-        // we lower all ops by declaring an extern function of the same name
-        // and signature, and calling that function.
-        // let opaque = args.node().as_ref().clone().into_opaque();
-        let node = args.node();
-        let sig = node.signature();
-        let func_type = self.0.llvm_func_type(&sig)?;
-        let func = self.0.get_extern_func(node.def().name(), func_type)?;
-        let call_args = args.inputs.into_iter().map_into().collect_vec();
-        let builder = self.0.builder();
-        let call_result = builder.build_call(func, &call_args, "")?;
-        let call_result = deaggregate_call_result(builder, call_result, args.outputs.len())?;
-        args.outputs.finish(builder, call_result)
-    }
 }
 
 // A toy codegen extension for "quantum.tket2" ops.
@@ -67,11 +48,23 @@ impl<'c, H: HugrView> CodegenExtension<'c, H> for Tket2CodegenExtension {
         unimplemented!()
     }
 
-    fn emitter<'a>(
-        &self,
+    fn emit_extension_op<'a>(
+        &'a self,
         context: &'a mut hugr_llvm::emit::EmitFuncContext<'c, H>,
-    ) -> Box<dyn hugr_llvm::emit::EmitOp<'c, hugr::ops::ExtensionOp, H> + 'a> {
-        Box::new(Tket2Emitter(context))
+        args: EmitOpArgs<'c, ExtensionOp, H>,
+    ) -> Result<()> {
+        // we lower all ops by declaring an extern function of the same name
+        // and signature, and calling that function.
+        // let opaque = args.node().as_ref().clone().into_opaque();
+        let node = args.node();
+        let sig = node.signature();
+        let func_type = context.llvm_func_type(&sig)?;
+        let func = context.get_extern_func(node.def().name(), func_type)?;
+        let call_args = args.inputs.into_iter().map_into().collect_vec();
+        let builder = context.builder();
+        let call_result = builder.build_call(func, &call_args, "")?;
+        let call_result = deaggregate_call_result(builder, call_result, args.outputs.len())?;
+        args.outputs.finish(builder, call_result)
     }
 }
 

@@ -24,8 +24,7 @@ use itertools::Itertools;
 use crate::{
     emit::{
         func::EmitFuncContext,
-        libc::{emit_libc_abort, emit_libc_printf},
-        EmitOp, EmitOpArgs, RowPromise,
+        libc::{emit_libc_abort, emit_libc_printf}, EmitOpArgs, RowPromise,
     },
     sum::LLVMSumValue,
     types::TypingSession,
@@ -114,55 +113,6 @@ pub trait PreludeCodegen: Clone {
     }
 }
 
-struct PreludeEmitter<'c, 'd, H: HugrView, PCG: PreludeCodegen>(
-    &'d mut EmitFuncContext<'c, H>,
-    PCG,
-);
-
-impl<'c, 'a, H: HugrView, PCG: PreludeCodegen> EmitOp<'c, ExtensionOp, H>
-    for PreludeEmitter<'c, 'a, H, PCG>
-{
-    fn emit(&mut self, args: EmitOpArgs<'c, ExtensionOp, H>) -> Result<()> {
-        let node = args.node();
-        let name = node.def().name();
-        if let Result::Ok(make_tuple) = MakeTuple::from_extension_op(&node) {
-            let llvm_sum_type = self.0.llvm_sum_type(SumType::new([make_tuple.0]))?;
-            let r = llvm_sum_type.build_tag(self.0.builder(), 0, args.inputs)?;
-            args.outputs.finish(self.0.builder(), [r])
-        } else if let Result::Ok(unpack_tuple) = UnpackTuple::from_extension_op(&node) {
-            let llvm_sum_type = self.0.llvm_sum_type(SumType::new([unpack_tuple.0]))?;
-            let llvm_sum_value = args
-                .inputs
-                .into_iter()
-                .exactly_one()
-                .map_err(|_| anyhow!("UnpackTuple does not have exactly one input"))
-                .and_then(|v| LLVMSumValue::try_new(v, llvm_sum_type))?;
-            let rs = llvm_sum_value.build_untag(self.0.builder(), 0)?;
-            args.outputs.finish(self.0.builder(), rs)
-        } else if let Result::Ok(op) = ArrayOp::from_extension_op(&node) {
-            self.1.emit_array_op(self.0, op, args.inputs, args.outputs)
-        } else if *name == PRINT_OP_ID {
-            let text = args.inputs[0];
-            self.1.emit_print(self.0, text)?;
-            args.outputs.finish(self.0.builder(), [])
-        } else if *name == PANIC_OP_ID {
-            let builder = self.0.builder();
-            let err = args.inputs[0].into_struct_value();
-            let signal = builder.build_extract_value(err, 0, "")?.into_int_value();
-            let msg = builder.build_extract_value(err, 1, "")?;
-            self.1.emit_panic(self.0, signal, msg)?;
-            let returns = args
-                .outputs
-                .get_types()
-                .map(|ty| ty.const_zero())
-                .collect_vec();
-            args.outputs.finish(self.0.builder(), returns)
-        } else {
-            Err(anyhow!("PreludeEmitter: Unknown op: {}", name))
-        }
-    }
-}
-
 /// A trivial implementation of [PreludeCodegen] which passes all methods
 /// through to their default implementations.
 #[derive(Default, Clone)]
@@ -231,11 +181,48 @@ impl<'c, H: HugrView, PCG: PreludeCodegen> CodegenExtension<'c, H>
         }
     }
 
-    fn emitter<'a>(
+    fn emit_extension_op<'a>(
         &'a self,
-        ctx: &'a mut EmitFuncContext<'c, H>,
-    ) -> Box<dyn EmitOp<'c, ExtensionOp, H> + 'a> {
-        Box::new(PreludeEmitter(ctx, self.0.clone()))
+        context: &'a mut EmitFuncContext<'c, H>,
+        args: EmitOpArgs<'c, ExtensionOp, H>,
+    ) -> Result<()> {
+        let node = args.node();
+        let name = node.def().name();
+        if let Result::Ok(make_tuple) = MakeTuple::from_extension_op(&node) {
+            let llvm_sum_type = context.llvm_sum_type(SumType::new([make_tuple.0]))?;
+            let r = llvm_sum_type.build_tag(context.builder(), 0, args.inputs)?;
+            args.outputs.finish(context.builder(), [r])
+        } else if let Result::Ok(unpack_tuple) = UnpackTuple::from_extension_op(&node) {
+            let llvm_sum_type = context.llvm_sum_type(SumType::new([unpack_tuple.0]))?;
+            let llvm_sum_value = args
+                .inputs
+                .into_iter()
+                .exactly_one()
+                .map_err(|_| anyhow!("UnpackTuple does not have exactly one input"))
+                .and_then(|v| LLVMSumValue::try_new(v, llvm_sum_type))?;
+            let rs = llvm_sum_value.build_untag(context.builder(), 0)?;
+            args.outputs.finish(context.builder(), rs)
+        } else if let Result::Ok(op) = ArrayOp::from_extension_op(&node) {
+            self.0.emit_array_op(context, op, args.inputs, args.outputs)
+        } else if *name == PRINT_OP_ID {
+            let text = args.inputs[0];
+            self.0.emit_print(context, text)?;
+            args.outputs.finish(context.builder(), [])
+        } else if *name == PANIC_OP_ID {
+            let builder = context.builder();
+            let err = args.inputs[0].into_struct_value();
+            let signal = builder.build_extract_value(err, 0, "")?.into_int_value();
+            let msg = builder.build_extract_value(err, 1, "")?;
+            self.0.emit_panic(context, signal, msg)?;
+            let returns = args
+                .outputs
+                .get_types()
+                .map(|ty| ty.const_zero())
+                .collect_vec();
+            args.outputs.finish(context.builder(), returns)
+        } else {
+            Err(anyhow!("PreludeEmitter: Unknown op: {}", name))
+        }
     }
 
     fn supported_consts(&self) -> HashSet<TypeId> {
