@@ -625,7 +625,7 @@ mod test {
         // We build a HUGR that:
         // - Creates an array: [1 ,2]
         // - Swaps the elements at the given indices
-        // - Checks the following, returning 1 iff they are all true:
+        // - Checks the following, returning 1 iff the following are all true:
         //  - The element at index 0 is `expected_elem_0`
         //  - The swap operation succeeded iff `expected_succeeded`
         let int_ty = int_type(3);
