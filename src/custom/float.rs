@@ -53,7 +53,7 @@ impl<H: HugrView> CodegenExtension<H> for FloatTypesCodegenExtension {
     fn emit_extension_op<'c>(
         &self,
         _: &mut EmitFuncContext<'c, H>,
-        args: EmitOpArgs<'c, ExtensionOp, H>,
+        args: EmitOpArgs<'c, '_, ExtensionOp, H>,
     ) -> Result<()> {
         bail!("Unsupported op: {}", args.node())
     }
@@ -94,7 +94,7 @@ impl<H: HugrView> CodegenExtension<H> for FloatOpsCodegenExtension {
     fn emit_extension_op<'c>(
         &self,
         context: &mut EmitFuncContext<'c, H>,
-        args: EmitOpArgs<'c, ExtensionOp, H>,
+        args: EmitOpArgs<'c, '_, ExtensionOp, H>,
     ) -> Result<()> {
         let op = FloatOps::from_optype(&args.node().generalise()).ok_or(anyhow!(
             "FloatOpEmitter: from_optype_failed: {:?}",
@@ -158,7 +158,7 @@ impl<H: HugrView> CodegenExtension<H> for FloatOpsCodegenExtension {
 /// Emit a float comparison operation.
 fn emit_fcmp<'c, H: HugrView>(
     context: &mut EmitFuncContext<'c, H>,
-    args: EmitOpArgs<'c, ExtensionOp, H>,
+    args: EmitOpArgs<'c, '_, ExtensionOp, H>,
     pred: inkwell::FloatPredicate,
 ) -> Result<()> {
     let true_val = emit_value(context, &Value::true_val())?;

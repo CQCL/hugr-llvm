@@ -32,7 +32,7 @@ fn build_trunc_op<'c, H: HugrView>(
     context: &mut EmitFuncContext<'c, H>,
     signed: bool,
     log_width: u64,
-    args: EmitOpArgs<'c, ExtensionOp, H>,
+    args: EmitOpArgs<'c, '_, ExtensionOp, H>,
 ) -> Result<()> {
     // Note: This logic is copied from `llvm_type` in the IntTypes
     // extension. We need to have a common source of truth for this.
@@ -154,7 +154,7 @@ impl<H: HugrView> CodegenExtension<H> for ConversionsCodegenExtension {
     fn emit_extension_op<'c>(
         &self,
         context: &mut EmitFuncContext<'c, H>,
-        args: EmitOpArgs<'c, ExtensionOp, H>,
+        args: EmitOpArgs<'c, '_, ExtensionOp, H>,
     ) -> Result<()> {
         let conversion_op =
             ConvertOpType::from_optype(&args.node().generalise()).ok_or(anyhow!(

@@ -39,7 +39,7 @@ impl<H: HugrView> CodegenExtension<H> for LogicCodegenExtension {
     fn emit_extension_op<'c>(
         &self,
         context: &mut EmitFuncContext<'c, H>,
-        args: EmitOpArgs<'c, ExtensionOp, H>,
+        args: EmitOpArgs<'c, '_, ExtensionOp, H>,
     ) -> Result<()> {
         let lot = LogicOp::from_optype(&args.node().generalise()).ok_or(anyhow!(
             "LogicOpEmitter: from_optype_failed: {:?}",

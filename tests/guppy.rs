@@ -53,7 +53,7 @@ impl<H: HugrView> CodegenExtension<H> for Tket2CodegenExtension {
     fn emit_extension_op<'c>(
         &self,
         context: &mut EmitFuncContext<'c, H>,
-        args: EmitOpArgs<'c, ExtensionOp, H>,
+        args: EmitOpArgs<'c, '_, ExtensionOp, H>,
     ) -> Result<()> {
         // we lower all ops by declaring an extern function of the same name
         // and signature, and calling that function.

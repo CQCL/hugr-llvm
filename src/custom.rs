@@ -55,7 +55,7 @@ pub trait CodegenExtension<H> {
     fn emit_extension_op<'c>(
         &self,
         context: &mut EmitFuncContext<'c, H>,
-        args: EmitOpArgs<'c, ExtensionOp, H>,
+        args: EmitOpArgs<'c, '_, ExtensionOp, H>,
     ) -> Result<()>;
 
     /// Emit instructions to materialise `konst`. `konst` will have a [TypeId]
@@ -125,10 +125,10 @@ impl<'c, H> CodegenExtsMap<'c, H> {
 
     /// Emit instructions for `args` by delegating to the appropriate inner
     /// [CodegenExtension].
-    pub fn emit(
+    pub fn emit<'hugr>(
         self: Rc<Self>,
         context: &mut EmitFuncContext<'c, H>,
-        args: EmitOpArgs<'c, ExtensionOp, H>,
+        args: EmitOpArgs<'c, 'hugr, ExtensionOp, H>,
     ) -> Result<()>
     where
         H: HugrView,

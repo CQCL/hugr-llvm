@@ -27,7 +27,7 @@ use anyhow::{anyhow, bail, Result};
 /// Emit an integer comparison operation.
 fn emit_icmp<'c, H: HugrView>(
     context: &mut EmitFuncContext<'c, H>,
-    args: EmitOpArgs<'c, ExtensionOp, H>,
+    args: EmitOpArgs<'c, '_, ExtensionOp, H>,
     pred: inkwell::IntPredicate,
 ) -> Result<()> {
     let true_val = emit_value(context, &Value::true_val())?;
@@ -73,7 +73,7 @@ impl<H: HugrView> CodegenExtension<H> for IntOpsCodegenExtension {
     fn emit_extension_op<'c>(
         &self,
         context: &mut EmitFuncContext<'c, H>,
-        args: EmitOpArgs<'c, ExtensionOp, H>,
+        args: EmitOpArgs<'c, '_, ExtensionOp, H>,
     ) -> Result<()> {
         let iot = ConcreteIntOp::from_optype(&args.node().generalise()).ok_or(anyhow!(
             "IntOpEmitter from_optype failed: {:?}",
@@ -176,7 +176,7 @@ impl<H: HugrView> CodegenExtension<H> for IntTypesCodegenExtension {
     fn emit_extension_op<'c>(
         &self,
         _: &mut EmitFuncContext<'c, H>,
-        args: EmitOpArgs<'c, ExtensionOp, H>,
+        args: EmitOpArgs<'c, '_, ExtensionOp, H>,
     ) -> Result<()> {
         bail!("Unsupported op: {:?}", args.node().as_ref())
     }

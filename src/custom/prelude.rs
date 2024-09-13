@@ -11,7 +11,7 @@ use hugr::{
         simple_op::MakeExtensionOp as _,
     },
     ops::{constant::CustomConst, ExtensionOp},
-    types::{SumType, TypeArg, TypeEnum},
+    types::{CustomType, SumType, TypeArg, TypeEnum},
     HugrView,
 };
 use inkwell::{
@@ -143,8 +143,8 @@ impl<H: HugrView, PCG: PreludeCodegen> CodegenExtension<H> for PreludeCodegenExt
 
     fn llvm_type<'c>(
         &self,
-        ts: &crate::types::TypingSession<'c, H>,
-        hugr_type: &hugr::types::CustomType,
+        ts: &TypingSession<'c, H>,
+        hugr_type: &CustomType,
     ) -> anyhow::Result<BasicTypeEnum<'c>> {
         let TypeEnum::Extension(qubit_custom_type) = QB_T.as_type_enum().clone() else {
             panic!("Qubit is not a custom type: {QB_T:?}");
@@ -183,7 +183,7 @@ impl<H: HugrView, PCG: PreludeCodegen> CodegenExtension<H> for PreludeCodegenExt
     fn emit_extension_op<'c>(
         &self,
         context: &mut EmitFuncContext<'c, H>,
-        args: EmitOpArgs<'c, ExtensionOp, H>,
+        args: EmitOpArgs<'c, '_, ExtensionOp, H>,
     ) -> Result<()> {
         let node = args.node();
         let name = node.def().name();
