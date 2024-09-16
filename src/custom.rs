@@ -21,7 +21,7 @@ use crate::{
 
 use super::emit::EmitOp;
 
-pub mod angle;
+pub mod rotation;
 pub mod conversions;
 pub mod float;
 pub mod int;

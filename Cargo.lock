@@ -1078,9 +1078,9 @@ dependencies = [
 
 [[package]]
 name = "tket2"
-version = "0.3.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "57fb2e60f70575331945d7c23d98b893ded2228d23156fd50da44b5d759a016d"
+checksum = "0c35c849d8926181b596794db80286e74f9c40f6798a99514635254fb1e1a4d3"
 dependencies = [
  "bytemuck",
  "cgmath",
