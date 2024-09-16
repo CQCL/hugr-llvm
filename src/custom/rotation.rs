@@ -165,7 +165,7 @@ impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for RotationOpEmitter<'c, '_, H
                 let [half_turns] = args
                     .inputs
                     .try_into()
-                    .map_err(|_| anyhow!("AngleOp::atorad expects one argument"))?;
+                    .map_err(|_| anyhow!("RotationOp::tohalfturns expects one argument"))?;
                 let half_turns = half_turns.into_float_value();
 
                 // normalised_half_turns is in the interval 0..2
