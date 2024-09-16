@@ -95,8 +95,6 @@ impl<'c, H: HugrView> EmitOp<'c, ExtensionOp, H> for RotationOpEmitter<'c, '_, H
                 args.outputs.finish(builder, [r.into()])
             }
             RotationOp::from_halfturns => {
-                // As we always normalise angles to have a log_denom of
-                // angle_width, we do not need the log_denom.
                 let [half_turns] = args
                     .inputs
                     .try_into()
