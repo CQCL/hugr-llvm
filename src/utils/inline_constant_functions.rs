@@ -47,7 +47,7 @@ fn inline_constant_functions_impl(
         for load_constant in hugr.output_neighbours(n) {
             if !hugr.get_optype(load_constant).is_load_constant() {
                 bail!(
-                    "Const function has non-LoadConstant output-neighbour: {load_constant} {:?}",
+                    "Constant function has non-LoadConstant output-neighbour: {load_constant} {:?}",
                     hugr.get_optype(load_constant)
                 )
             }
