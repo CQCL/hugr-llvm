@@ -34,9 +34,10 @@ fn inline_constant_functions_impl(
             let Value::Function { hugr } = konst.value() else {
                 continue;
             };
-            if !hugr.get_optype(hugr.root()).is_dfg() {
+            let optype = hugr.get_optype(hugr.root());
+            if !optype.is_dfg() && !optype.is_func_defn() {
                 bail!(
-                    "Constant Function has non-dfg root: {:?}",
+                    "Constant Function has unsupported root: {:?}",
                     hugr.get_optype(hugr.root())
                 )
             }
