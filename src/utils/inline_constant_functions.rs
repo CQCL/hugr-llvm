@@ -1,4 +1,3 @@
-
 use hugr::{
     extension::ExtensionRegistry,
     hugr::hugrmut::HugrMut,
