@@ -37,7 +37,7 @@ fn inline_constant_functions_impl(
             let optype = hugr.get_optype(hugr.root());
             if !optype.is_dfg() && !optype.is_func_defn() {
                 bail!(
-                    "Constant Function has unsupported root: {:?}",
+                    "Constant function has unsupported root: {:?}",
                     hugr.get_optype(hugr.root())
                 )
             }
