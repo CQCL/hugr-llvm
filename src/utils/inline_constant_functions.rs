@@ -63,7 +63,7 @@ fn inline_constant_functions_impl(
             let polysignature: PolyFuncType = func_hugr
                 .inner_function_type()
                 .ok_or(anyhow!(
-                    "Constant func hugr has no inner_func_type: {}",
+                    "Constant function hugr has no inner_func_type: {}",
                     konst_n.index()
                 ))?
                 .into();
