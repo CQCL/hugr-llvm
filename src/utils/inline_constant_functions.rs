@@ -1,9 +1,5 @@
 use hugr::{
-    extension::ExtensionRegistry,
-    hugr::hugrmut::HugrMut,
-    ops::{FuncDefn, LoadFunction, Value},
-    types::PolyFuncType,
-    HugrView, Node, NodeIndex as _,
+    extension::ExtensionRegistry, hugr::hugrmut::HugrMut, ops::{FuncDefn, LoadFunction, Value}, types::PolyFuncType, HugrView, IncomingPort, Node, NodeIndex as _
 };
 
 use anyhow::{anyhow, bail, Result};
@@ -75,10 +71,12 @@ fn inline_constant_functions_impl(
             hugr.insert_hugr(func_node, func_hugr);
 
             for lcn in load_constant_ns {
+                hugr.disconnect(lcn, IncomingPort::from(0));
                 hugr.replace_op(
                     lcn,
                     LoadFunction::try_new(polysignature.clone(), [], registry)?,
                 )?;
+                hugr.connect(func_node, 0, lcn, 0);
             }
             any_changes = true;
         }
