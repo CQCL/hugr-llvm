@@ -6,7 +6,7 @@ use crate::fat::FatNode;
 use super::func::RowPromise;
 
 /// A type used whenever emission is delegated to a function, for example in
-/// [crate::emit::EmitOp].
+/// [crate::custom::CodegenExtension::emit_extension_op].
 pub struct EmitOpArgs<'c, 'hugr, OT, H> {
     /// The [HugrView] and [hugr::Node] we are emitting
     pub node: FatNode<'hugr, OT, H>,

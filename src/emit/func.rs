@@ -29,9 +29,8 @@ pub use mailbox::{RowMailBox, RowPromise};
 
 /// A context for emitting an LLVM function.
 ///
-/// One of the primary interfaces that impls of
-/// [crate::custom::CodegenExtension] and [super::EmitOp] will interface with,
-/// we have methods for:
+/// One of the primary interfaces for implementing codegen extensions.
+/// We have methods for:
 ///   * Converting from hugr [Type]s to LLVM [Type](BasicTypeEnum)s;
 ///   * Maintaing [MailBox](RowMailBox) for each [Wire] in the [FuncDefn];
 ///   * Accessing the [CodegenExtsMap];

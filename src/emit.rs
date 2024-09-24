@@ -34,10 +34,6 @@ pub use func::{EmitFuncContext, RowPromise};
 pub use namer::Namer;
 pub use ops::emit_value;
 
-/// A trivial implementation of [EmitOp] used for [crate::custom::CodegenExtension]s that do
-/// not support emitting any ops.
-pub struct NullEmitLlvm;
-
 pub struct EmitModuleContext<'c, H> {
     module: Module<'c>,
     extensions: Rc<CodegenExtsMap<'c, H>>,
