@@ -11,7 +11,8 @@ use itertools::Itertools as _;
 
 use crate::{
     emit::{
-        func::{EmitFuncContext, RowMailBox, RowPromise}, EmitOpArgs,
+        func::{EmitFuncContext, RowMailBox, RowPromise},
+        EmitOpArgs,
     },
     fat::FatNode,
     sum::LLVMSumValue,

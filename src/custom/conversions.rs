@@ -202,20 +202,19 @@ impl<H: HugrView> CodegenExtension<H> for ConversionsCodegenExtension {
             }
             ConvertOpDef::itobool | ConvertOpDef::ifrombool => {
                 assert!(conversion_op.type_args().is_empty()); // Always 1-bit int <-> bool
-                let i0_ty = self
-                    .0
+                let i0_ty = context
                     .typing_session()
                     .llvm_type(&INT_TYPES[0])?
                     .into_int_type();
                 let sum_ty =
-                    self.0
+                    context
                         .typing_session()
                         .llvm_sum_type(match BOOL_T.as_type_enum() {
                             TypeEnum::Sum(st) => st.clone(),
                             _ => panic!("Hugr prelude BOOL_T not a Sum"),
                         })?;
 
-                emit_custom_unary_op(self.0, args, |ctx, arg, _| {
+                emit_custom_unary_op(context, args, |ctx, arg, _| {
                     let res = if conversion_op.def() == &ConvertOpDef::itobool {
                         let is1 = ctx.builder().build_int_compare(
                             IntPredicate::EQ,

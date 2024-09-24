@@ -191,7 +191,12 @@ impl<'hugr, H: HugrView> FatNode<'hugr, CFG, H> {
     ///
     /// These are guaranteed to exist the `Hugr` is valid. Panics if they do not
     /// exist.
-    pub fn get_entry_exit(&self) -> (FatNode<'hugr, DataflowBlock, H>, FatNode<'hugr, ExitBlock, H>) {
+    pub fn get_entry_exit(
+        &self,
+    ) -> (
+        FatNode<'hugr, DataflowBlock, H>,
+        FatNode<'hugr, ExitBlock, H>,
+    ) {
         let [i, o] = self
             .hugr
             .children(self.node)
