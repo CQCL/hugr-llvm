@@ -24,6 +24,7 @@ pub mod float;
 pub mod int;
 pub mod logic;
 pub mod prelude;
+pub mod rotation;
 
 /// The extension point for lowering HUGR Extensions to LLVM.
 pub trait CodegenExtension<H> {

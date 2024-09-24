@@ -394,7 +394,7 @@ pub fn get_intrinsic<'c>(
     intrinsic
         .get_declaration(module, args.as_ref())
         .ok_or(anyhow!(
-            "failed to get_delcaration for intrisic '{name}' with args '{args:?}'"
+            "failed to get_declaration for intrinsic '{name}' with args '{args:?}'"
         ))
 }
 
