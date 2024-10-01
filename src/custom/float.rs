@@ -55,7 +55,7 @@ impl<H: HugrView> CodegenExtension<H> for FloatTypesCodegenExtension {
         _: &mut EmitFuncContext<'c, H>,
         args: EmitOpArgs<'c, '_, ExtensionOp, H>,
     ) -> Result<()> {
-        bail!("Unsupported op: {}", args.node())
+        bail!("FloatTypesCodegenExtension does not implement any extension ops, try FloatOpsCodegenExtension for: {:?}", args.node().as_ref())
     }
     fn supported_consts(&self) -> HashSet<TypeId> {
         [TypeId::of::<ConstF64>()].into_iter().collect()

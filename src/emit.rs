@@ -283,10 +283,13 @@ impl<'c, H: HugrView> EmitHugr<'c, H> {
         let mut worklist: EmissionSet = [node.node()].into_iter().collect();
         let pop = |wl: &mut EmissionSet| wl.iter().next().cloned().map(|x| wl.take(&x).unwrap());
 
-        while let Some(x) = pop(&mut worklist) {
+        while let Some(next_node) = pop(&mut worklist) {
             use crate::fat::FatExt as _;
-            let Some(func) = node.hugr().try_fat(x) else {
-                continue;
+            let Some(func) = node.hugr().try_fat(next_node) else {
+                panic!(
+                    "emit_func: node in worklist was not a FuncDefn: {:?}",
+                    node.hugr().get_optype(next_node)
+                )
             };
             let (new_self, new_tasks) = self.emit_func_impl(func)?;
             self = new_self;
