@@ -30,6 +30,12 @@ pub use func::{EmitFuncContext, RowPromise};
 pub use namer::Namer;
 pub use ops::emit_value;
 
+/// A context holding data required for emitting HUGRs into an LLVM module.
+/// This includes the module itself, a set of extensions for lowering custom
+/// elements, and policy for naming various HUGR elements.
+///
+/// `'c` names the lifetime of the LLVM context.
+// TODO add another lifetime parameter for `extensions` below.
 pub struct EmitModuleContext<'c, H> {
     iw_context: &'c Context,
     module: Module<'c>,

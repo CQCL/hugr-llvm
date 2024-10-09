@@ -23,19 +23,12 @@ pub type HugrSumType = SumType;
 
 /// A type that holds [Rc] shared pointers to everything needed to convert from
 /// a hugr [HugrType] to an LLVM [Type](inkwell::types).
+///
+// TODO add another lifetime parameter and substitute it for 'static in `type_converter`
+#[derive(Clone)]
 pub struct TypingSession<'c> {
     iw_context: &'c Context,
     type_converter: Rc<TypeConverter<'static>>,
-}
-
-// TODO this con be derived once H is killed
-impl<'c> Clone for TypingSession<'c> {
-    fn clone(&self) -> Self {
-        Self {
-            iw_context: self.iw_context,
-            type_converter: self.type_converter.clone(),
-        }
-    }
 }
 
 impl<'c> TypingSession<'c> {

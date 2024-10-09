@@ -43,6 +43,8 @@ pub use mailbox::{RowMailBox, RowPromise};
 /// [MailBox](RowMailBox)es are stack allocations that are `alloca`ed in the
 /// first basic block of the function, read from to get the input values of each
 /// node, and written to with the output values of each node.
+///
+// TODO add another lifetime parameter which `emit_context` will need.
 pub struct EmitFuncContext<'c, H> {
     emit_context: EmitModuleContext<'c, H>,
     todo: EmissionSet,
@@ -104,11 +106,6 @@ impl<'c, H: HugrView> EmitFuncContext<'c, H> {
     pub fn push_todo_func(&mut self, node: FatNode<'_, FuncDefn, H>) {
         self.todo.insert(node.node());
     }
-
-    // TODO likely we don't need this
-    // pub fn func(&self) -> &FunctionValue<'c> {
-    //     &self.func
-    // }
 
     /// Returns the internal [Builder]. Callers must ensure that it is
     /// positioned at the end of a basic block. This invariant is not checked(it
@@ -291,14 +288,17 @@ impl<'c, H: HugrView> EmitFuncContext<'c, H> {
         self.emit_context.module()
     }
 
-    pub fn emit_custom_const(&mut self, v: &dyn CustomConst) -> Result<BasicValueEnum<'c>> {
+    pub(crate) fn emit_custom_const(&mut self, v: &dyn CustomConst) -> Result<BasicValueEnum<'c>> {
         let exts = self.extensions();
         exts.as_ref()
             .load_constant_handlers
             .emit_load_constant(self, v)
     }
 
-    pub fn emit_extension_op(&mut self, args: EmitOpArgs<'c, '_, ExtensionOp, H>) -> Result<()> {
+    pub(crate) fn emit_extension_op(
+        &mut self,
+        args: EmitOpArgs<'c, '_, ExtensionOp, H>,
+    ) -> Result<()> {
         let exts = self.extensions();
         exts.as_ref()
             .extension_op_handlers
