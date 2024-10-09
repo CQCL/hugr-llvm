@@ -2,12 +2,12 @@ use itertools::Itertools as _;
 
 use hugr::types::CustomType;
 
-use anyhow::{bail, Result};
+use anyhow::Result;
 use inkwell::types::{BasicMetadataTypeEnum, BasicType as _, BasicTypeEnum, FunctionType};
 
 use crate::{
     sum::LLVMSumType,
-    types::{HugrFuncType, HugrSumType, HugrType, TypingSession},
+    types::{HugrFuncType, HugrSumType, TypingSession},
     utils::type_map::TypeMapping,
 };
 
@@ -41,10 +41,6 @@ impl TypeMapping for LLVMTypeMapping {
 
     fn func_into_out<'c>(&self, sum: Self::FuncOutV<'c>) -> Self::OutV<'c> {
         sum.ptr_type(Default::default()).as_basic_type_enum()
-    }
-
-    fn default_out<'c>(&self, hugr_type: &HugrType) -> Result<Self::OutV<'c>> {
-        bail!("Unsupported type: {hugr_type}")
     }
 
     fn map_sum_type<'c>(

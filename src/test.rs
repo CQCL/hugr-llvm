@@ -66,7 +66,6 @@ pub trait MakeCodegenExtsMapFn:
 }
 
 impl<
-        'a,
         F: Fn(CodegenExtsBuilder<'static, THugrView>) -> CodegenExtsBuilder<'static, THugrView>
             + ?Sized
             + 'static,

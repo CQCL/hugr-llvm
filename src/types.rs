@@ -92,11 +92,11 @@ impl<'a> TypeConverter<'a> {
         self.0.map_function_type(hugr_type, context)
     }
 
-    pub fn llvm_sum_type<'c>(
+    pub fn llvm_sum_type(
         self: Rc<Self>,
-        context: TypingSession<'c>,
+        context: TypingSession<'_>,
         hugr_type: HugrSumType,
-    ) -> Result<LLVMSumType<'c>> {
+    ) -> Result<LLVMSumType<'_>> {
         self.0.map_sum_type(&hugr_type, context)
     }
 }

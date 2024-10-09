@@ -31,7 +31,7 @@ use crate::emit::{EmitFuncContext, EmitOpArgs};
 /// the desired semantics of the op. If a callback returns success then the callback must:
 ///  - ensure that [RowPromise::finish] has been called on the outputs.
 ///  - ensure that the contexts [Builder] is positioned at the end of a basic
-///  block, logically after the execution of the just-emitted op.
+///    block, logically after the execution of the just-emitted op.
 ///
 /// Callbacks may hold references with lifetimes older than `'a`.
 pub trait ExtensionOpFn<'a, H>:
