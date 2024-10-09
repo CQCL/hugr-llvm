@@ -60,7 +60,7 @@ pub trait TypeMapping {
         inv: Self::InV<'c>,
         inputs: impl IntoIterator<Item = Self::OutV<'c>>,
         outputs: impl IntoIterator<Item = Self::OutV<'c>>,
-    ) -> Result<Self::FuncOutV<'c>>; // fn disaggregate_variants(sum_type: &HugrSumType, v: &Self::InV) -> impl Iterator<Item=Vec<Self::InV>>;
+    ) -> Result<Self::FuncOutV<'c>>;
 
     /// Infallibly convert from the result of `map_sum_type` to the result of
     /// the mapping.
