@@ -43,17 +43,16 @@ impl<'a, H: HugrView> LoadConstantsMap<'a, H> {
     /// Register a callback to emit a `CC` value.
     ///
     /// If a callback is already registered for that type, we will replace it.
-    pub fn custom_const<CC: CustomConst>(
-        &mut self,
-        handler: impl LoadConstantFn<'a, H, CC>,
-    ) {
-        self.0
-            .insert(TypeId::of::<CC>(), Box::new(move |context, konst: &dyn CustomConst| {
-                let cc = konst
-                    .downcast_ref::<CC>()
-                    .ok_or(anyhow!("impossible! Failed to downcast in LoadConstantsMap::custom_const"))?;
-                handler(context, cc)}
-            ));
+    pub fn custom_const<CC: CustomConst>(&mut self, handler: impl LoadConstantFn<'a, H, CC>) {
+        self.0.insert(
+            TypeId::of::<CC>(),
+            Box::new(move |context, konst: &dyn CustomConst| {
+                let cc = konst.downcast_ref::<CC>().ok_or(anyhow!(
+                    "impossible! Failed to downcast in LoadConstantsMap::custom_const"
+                ))?;
+                handler(context, cc)
+            }),
+        );
     }
 
     /// Emit instructions to materialise `konst` by delegating to the

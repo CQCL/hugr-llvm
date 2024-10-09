@@ -135,7 +135,13 @@ impl<PCG: PreludeCodegen> From<PCG> for PreludeCodegenExtension<PCG> {
 }
 
 impl<PCG: PreludeCodegen> CodegenExtension for PreludeCodegenExtension<PCG> {
-    fn add_extension<'a, H: HugrView + 'a>(self, builder: CodegenExtsBuilder<'a, H>) -> CodegenExtsBuilder<'a, H> where Self: 'a {
+    fn add_extension<'a, H: HugrView + 'a>(
+        self,
+        builder: CodegenExtsBuilder<'a, H>,
+    ) -> CodegenExtsBuilder<'a, H>
+    where
+        Self: 'a,
+    {
         add_prelude_extensions(builder, self.0)
     }
 }
@@ -292,12 +298,13 @@ fn add_prelude_extensions<'a, H: HugrView + 'a>(
 mod test {
     use hugr::builder::{Dataflow, DataflowSubContainer};
     use hugr::extension::{PRELUDE, PRELUDE_REGISTRY};
-    use hugr::type_row;
     use hugr::types::{Type, TypeArg};
+    use hugr::{type_row, Hugr};
     use prelude::{BOOL_T, PANIC_OP_ID, PRINT_OP_ID, QB_T, USIZE_T};
     use rstest::rstest;
 
     use crate::check_emission;
+    use crate::custom::CodegenExtsBuilder;
     use crate::emit::test::SimpleHugrConfig;
     use crate::test::{llvm_ctx, TestContext};
     use crate::types::HugrType;
@@ -311,36 +318,29 @@ mod test {
             session.iw_context().i32_type()
         }
 
-        fn qubit_type<'c>(
-            &self,
-            session: &TypingSession<'c>,
-        ) -> impl BasicType<'c> {
+        fn qubit_type<'c>(&self, session: &TypingSession<'c>) -> impl BasicType<'c> {
             session.iw_context().f64_type()
         }
     }
 
-    // #[rstest]
-    // fn prelude_extension_types(llvm_ctx: TestContext) {
-    //     let ctx = llvm_ctx.iw_context();
-    //     let ext: PreludeCodegenExtension<TestPreludeCodegen> = TestPreludeCodegen.into();
-    //     let tc = llvm_ctx.get_typing_session();
+    #[rstest]
+    fn prelude_extension_types(llvm_ctx: TestContext) {
+        let iw_context = llvm_ctx.iw_context();
+        let type_converter = CodegenExtsBuilder::<Hugr>::default()
+            .add_prelude_extensions(TestPreludeCodegen)
+            .finish()
+            .type_converter;
+        let session = type_converter.session(iw_context);
 
-    //     let TypeEnum::Extension(qb_ct) = QB_T.as_type_enum().clone() else {
-    //         unreachable!()
-    //     };
-    //     let TypeEnum::Extension(usize_ct) = USIZE_T.as_type_enum().clone() else {
-    //         unreachable!()
-    //     };
-
-    //     assert_eq!(
-    //         ctx.i32_type().as_basic_type_enum(),
-    //         ext.llvm_type(&tc, &usize_ct).unwrap()
-    //     );
-    //     assert_eq!(
-    //         ctx.f64_type().as_basic_type_enum(),
-    //         ext.llvm_type(&tc, &qb_ct).unwrap()
-    //     );
-    // }
+        assert_eq!(
+            iw_context.i32_type().as_basic_type_enum(),
+            session.llvm_type(&USIZE_T).unwrap()
+        );
+        assert_eq!(
+            iw_context.f64_type().as_basic_type_enum(),
+            session.llvm_type(&QB_T).unwrap()
+        );
+    }
 
     #[rstest]
     fn prelude_extension_types_in_test_context(mut llvm_ctx: TestContext) {

@@ -15,7 +15,6 @@ use strum::IntoEnumIterator;
 
 use crate::emit::{EmitFuncContext, EmitOpArgs};
 
-
 /// A helper trait for describing the callback used for emitting [ExtensionOp]s,
 /// and for hanging documentation. We have the appropriate `Fn` as a supertrait,
 /// and there is a blanket impl for that `Fn`. We do not intend users to impl
@@ -85,14 +84,10 @@ impl<'a, H: HugrView> ExtensionOpMap<'a, H> {
         let handler = Rc::new(handler);
         for op in Op::iter() {
             let handler = handler.clone();
-            self.extension_op(
-                op.extension(),
-                op.name().clone(),
-                move |context, args| {
-                    let op = Op::from_extension_op(&args.node())?;
-                    handler(context, args, op)
-                }
-            );
+            self.extension_op(op.extension(), op.name().clone(), move |context, args| {
+                let op = Op::from_extension_op(&args.node())?;
+                handler(context, args, op)
+            });
         }
     }
 

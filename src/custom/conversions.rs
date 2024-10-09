@@ -216,12 +216,17 @@ fn emit_conversion_op<'c, H: HugrView>(
     }
 }
 
-#[derive(Clone,Debug)]
+#[derive(Clone, Debug)]
 pub struct ConversionExtension;
 
 impl CodegenExtension for ConversionExtension {
-    fn add_extension<'a, H: HugrView + 'a>(self, builder: CodegenExtsBuilder<'a, H>) -> CodegenExtsBuilder<'a, H>
-        where Self: 'a {
+    fn add_extension<'a, H: HugrView + 'a>(
+        self,
+        builder: CodegenExtsBuilder<'a, H>,
+    ) -> CodegenExtsBuilder<'a, H>
+    where
+        Self: 'a,
+    {
         builder.simple_extension_op(emit_conversion_op)
     }
 }
@@ -286,7 +291,11 @@ mod test {
     #[case("convert_u", 4)]
     #[case("convert_s", 5)]
     fn test_convert(mut llvm_ctx: TestContext, #[case] op_name: &str, #[case] log_width: u8) -> () {
-        llvm_ctx.add_extensions(|ceb| ceb.add_int_extensions().add_float_extensions().add_conversion_extensions());
+        llvm_ctx.add_extensions(|ceb| {
+            ceb.add_int_extensions()
+                .add_float_extensions()
+                .add_conversion_extensions()
+        });
         let in_ty = INT_TYPES[log_width as usize].clone();
         let out_ty = FLOAT64_TYPE;
         let hugr = test_conversion_op(op_name, in_ty, out_ty, log_width);
@@ -301,7 +310,13 @@ mod test {
         #[case] op_name: &str,
         #[case] log_width: u8,
     ) -> () {
-        llvm_ctx.add_extensions(|builder| builder.add_int_extensions().add_float_extensions().add_conversion_extensions().add_default_prelude_extensions());
+        llvm_ctx.add_extensions(|builder| {
+            builder
+                .add_int_extensions()
+                .add_float_extensions()
+                .add_conversion_extensions()
+                .add_default_prelude_extensions()
+        });
         let in_ty = FLOAT64_TYPE;
         let out_ty = sum_with_error(INT_TYPES[log_width as usize].clone());
         let hugr = test_conversion_op(op_name, in_ty, out_ty.into(), log_width);
@@ -321,7 +336,12 @@ mod test {
             tys.reverse()
         };
         let [in_t, out_t] = tys;
-        llvm_ctx.add_extensions(|builder| builder.add_int_extensions().add_float_extensions().add_conversion_extensions());
+        llvm_ctx.add_extensions(|builder| {
+            builder
+                .add_int_extensions()
+                .add_float_extensions()
+                .add_conversion_extensions()
+        });
         let hugr = SimpleHugrConfig::new()
             .with_ins(vec![in_t])
             .with_outs(vec![out_t])
@@ -373,7 +393,12 @@ mod test {
                     .outputs_arr();
                 builder.finish_with_outputs([usize_]).unwrap()
             });
-        exec_ctx.add_extensions(|builder| builder.add_int_extensions().add_conversion_extensions().add_default_prelude_extensions());
+        exec_ctx.add_extensions(|builder| {
+            builder
+                .add_int_extensions()
+                .add_conversion_extensions()
+                .add_default_prelude_extensions()
+        });
         assert_eq!(val, exec_ctx.exec_hugr_u64(hugr, "main"));
     }
 
@@ -426,7 +451,13 @@ mod test {
     }
 
     fn add_extensions(ctx: &mut TestContext) {
-        ctx.add_extensions(|builder| builder.add_conversion_extensions().add_default_prelude_extensions().add_float_extensions().add_int_extensions());
+        ctx.add_extensions(|builder| {
+            builder
+                .add_conversion_extensions()
+                .add_default_prelude_extensions()
+                .add_float_extensions()
+                .add_int_extensions()
+        });
     }
 
     #[rstest]
@@ -483,7 +514,12 @@ mod test {
                 let res = cond.finish_sub_container().unwrap();
                 builder.finish_with_outputs(res.outputs()).unwrap()
             });
-        exec_ctx.add_extensions(|builder| builder.add_conversion_extensions().add_default_prelude_extensions().add_int_extensions());
+        exec_ctx.add_extensions(|builder| {
+            builder
+                .add_conversion_extensions()
+                .add_default_prelude_extensions()
+                .add_int_extensions()
+        });
         assert_eq!(i * 5 + 1, exec_ctx.exec_hugr_u64(hugr, "main"));
     }
 
@@ -504,7 +540,12 @@ mod test {
                 let [i] = builder.add_dataflow_op(b2i, [b]).unwrap().outputs_arr();
                 builder.finish_with_outputs([i]).unwrap()
             });
-        exec_ctx.add_extensions(|builder| builder.add_conversion_extensions().add_default_prelude_extensions().add_int_extensions());
+        exec_ctx.add_extensions(|builder| {
+            builder
+                .add_conversion_extensions()
+                .add_default_prelude_extensions()
+                .add_int_extensions()
+        });
         assert_eq!(i, exec_ctx.exec_hugr_u64(hugr, "main"));
     }
 }

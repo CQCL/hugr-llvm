@@ -6,19 +6,24 @@ use hugr::{
     types::{CustomType, TypeEnum, TypeName, TypeRow},
 };
 
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 
 use crate::types::{HugrFuncType, HugrSumType, HugrType};
 
-pub trait TypeMapFnHelper<'c, TM: TypeMapping>: Fn(TM::InV<'c>, &CustomType) -> Result<TM::OutV<'c>> {}
+pub trait TypeMapFnHelper<'c, TM: TypeMapping>:
+    Fn(TM::InV<'c>, &CustomType) -> Result<TM::OutV<'c>>
+{
+}
 impl<'c, TM: TypeMapping, F> TypeMapFnHelper<'c, TM> for F where
     F: Fn(TM::InV<'c>, &CustomType) -> Result<TM::OutV<'c>> + ?Sized
 {
 }
 
 pub trait TypeMappingFn<'a, TM: TypeMapping>: for<'c> TypeMapFnHelper<'c, TM> + 'a {}
-impl<'a, TM: TypeMapping, F: for<'c> TypeMapFnHelper<'c, TM> + ?Sized + 'a> TypeMappingFn<'a, TM> for F {}
-
+impl<'a, TM: TypeMapping, F: for<'c> TypeMapFnHelper<'c, TM> + ?Sized + 'a> TypeMappingFn<'a, TM>
+    for F
+{
+}
 
 /// Desscribes a
 pub trait TypeMapping {
@@ -58,8 +63,14 @@ pub struct TypeMap<'a, TM: TypeMapping> {
 }
 
 impl<'a, TM: TypeMapping + 'a> TypeMap<'a, TM> {
-    pub fn set_callback(&mut self, hugr_type: CustomTypeKey, hook: impl TypeMappingFn<'a,TM> + 'a) -> bool{
-        self.custom_hooks.insert(hugr_type, Box::new(hook)).is_none()
+    pub fn set_callback(
+        &mut self,
+        hugr_type: CustomTypeKey,
+        hook: impl TypeMappingFn<'a, TM> + 'a,
+    ) -> bool {
+        self.custom_hooks
+            .insert(hugr_type, Box::new(hook))
+            .is_none()
     }
 
     pub fn map_type<'c>(&self, hugr_type: &HugrType, inv: TM::InV<'c>) -> Result<TM::OutV<'c>> {
@@ -71,7 +82,7 @@ impl<'a, TM: TypeMapping + 'a> TypeMap<'a, TM> {
             TypeEnum::Function(function_type) => self
                 .map_function_type(&function_type.as_ref().clone().try_into()?, inv)
                 .map(|x| self.type_map.func_into_out(x)),
-            _ => self.type_map.default_out(hugr_type)
+            _ => self.type_map.default_out(hugr_type),
         }
     }
 

@@ -89,8 +89,7 @@ impl<'a> TypeConverter<'a> {
         context: TypingSession<'c>,
         hugr_type: &HugrFuncType,
     ) -> Result<FunctionType<'c>> {
-        self.0
-            .map_function_type(hugr_type, context)
+        self.0.map_function_type(hugr_type, context)
     }
 
     pub fn llvm_sum_type<'c>(
@@ -98,8 +97,7 @@ impl<'a> TypeConverter<'a> {
         context: TypingSession<'c>,
         hugr_type: HugrSumType,
     ) -> Result<LLVMSumType<'c>> {
-        self.0
-            .map_sum_type(&hugr_type, context)
+        self.0.map_sum_type(&hugr_type, context)
     }
 }
 

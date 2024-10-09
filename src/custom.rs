@@ -12,9 +12,9 @@ use hugr::{
 
 use strum::IntoEnumIterator;
 
-use anyhow::Result;
 use self::load_constant::{LoadConstantFn, LoadConstantsMap};
 use self::types::LLVMCustomTypeFn;
+use anyhow::Result;
 
 use crate::{
     emit::{func::EmitFuncContext, EmitOpArgs},
@@ -33,7 +33,6 @@ pub mod logic;
 pub mod prelude;
 pub mod rotation;
 
-
 /// A helper to register codegen extensions.
 ///
 /// Types that implement this trait can be registered with a [CodgenExtsBuilder]
@@ -43,8 +42,12 @@ pub mod rotation;
 pub trait CodegenExtension {
     /// Implementers should add each of their handlers to `builder` and return the
     /// resulting [CodegenExtsBuilder].
-    fn add_extension<'a, H: HugrView + 'a>(self, builder: CodegenExtsBuilder<'a, H>) -> CodegenExtsBuilder<'a, H>
-        where Self: 'a;
+    fn add_extension<'a, H: HugrView + 'a>(
+        self,
+        builder: CodegenExtsBuilder<'a, H>,
+    ) -> CodegenExtsBuilder<'a, H>
+    where
+        Self: 'a;
 }
 
 /// A container for a collection of codegen callbacks as they are being
@@ -148,4 +151,3 @@ pub struct CodegenExtsMap<'a, H> {
     pub extension_op_handlers: Rc<ExtensionOpMap<'a, H>>,
     pub type_converter: Rc<TypeConverter<'a>>, // TODO remove this H
 }
-

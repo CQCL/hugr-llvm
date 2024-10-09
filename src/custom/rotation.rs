@@ -1,10 +1,6 @@
 use anyhow::{anyhow, bail, Result};
 
-use hugr::{
-    extension::prelude::option_type,
-    ops::ExtensionOp,
-    HugrView,
-};
+use hugr::{extension::prelude::option_type, ops::ExtensionOp, HugrView};
 use inkwell::{types::FloatType, values::BasicValueEnum, FloatPredicate};
 
 use crate::{

@@ -106,10 +106,7 @@ fn emit_int_op<'c, H: HugrView>(
     }
 }
 
-fn llvm_type<'c>(
-    context: TypingSession<'c>,
-    hugr_type: &CustomType,
-) -> Result<BasicTypeEnum<'c>> {
+fn llvm_type<'c>(context: TypingSession<'c>, hugr_type: &CustomType) -> Result<BasicTypeEnum<'c>> {
     if let [TypeArg::BoundedNat { n }] = hugr_type.args() {
         let m = *n as usize;
         if m < int_types::INT_TYPES.len() && int_types::INT_TYPES[m] == hugr_type.clone().into() {

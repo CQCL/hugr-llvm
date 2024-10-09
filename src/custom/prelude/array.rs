@@ -406,9 +406,13 @@ mod test {
     use rstest::rstest;
 
     use crate::{
-        check_emission, custom::CodegenExtsBuilder, emit::test::SimpleHugrConfig, test::{exec_ctx, llvm_ctx, TestContext}, utils::{
+        check_emission,
+        custom::CodegenExtsBuilder,
+        emit::test::SimpleHugrConfig,
+        test::{exec_ctx, llvm_ctx, TestContext},
+        utils::{
             array_op_builder, ArrayOpBuilder, IntOpBuilder, LogicOpBuilder, UnwrapBuilder as _,
-        }
+        },
     };
 
     #[rstest]
