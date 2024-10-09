@@ -1,4 +1,4 @@
-//! Provides a generic mapping from [hugr::Type] into some domain.
+//! Provides a generic mapping from [HugrType] into some domain.
 use std::collections::HashMap;
 
 use hugr::{
@@ -21,7 +21,7 @@ impl<'c, TM: TypeMapping, F> TypeMapFnHelper<'c, TM> for F where
 }
 
 /// A helper trait to name the type of the Callback used by
-/// [TypeMap<TM>](TypeMap).
+/// [`TypeMap<TM>`](TypeMap).
 pub trait TypeMappingFn<'a, TM: TypeMapping>: for<'c> TypeMapFnHelper<'c, TM> + 'a {}
 impl<'a, TM: TypeMapping, F: for<'c> TypeMapFnHelper<'c, TM> + ?Sized + 'a> TypeMappingFn<'a, TM>
     for F

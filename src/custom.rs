@@ -10,7 +10,6 @@ use self::extension_op::{ExtensionOpFn, ExtensionOpMap};
 use hugr::{
     extension::{simple_op::MakeOpDef, ExtensionId},
     ops::{constant::CustomConst, ExtensionOp, OpName},
-    types::TypeName,
     HugrView,
 };
 

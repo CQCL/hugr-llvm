@@ -5,6 +5,8 @@ use hugr::types::CustomType;
 use anyhow::Result;
 use inkwell::types::{BasicMetadataTypeEnum, BasicType as _, BasicTypeEnum, FunctionType};
 
+pub use crate::utils::type_map::CustomTypeKey;
+
 use crate::{
     sum::LLVMSumType,
     types::{HugrFuncType, HugrSumType, TypingSession},

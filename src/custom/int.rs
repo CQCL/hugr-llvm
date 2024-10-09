@@ -140,8 +140,8 @@ fn emit_const_int<'c, H: HugrView>(
     Ok(ty.const_int(k.value_u(), false).as_basic_value_enum())
 }
 
-/// Populates a [CodegenExtsMap] with all extensions needed to lower int ops,
-/// types, and constants.
+/// Populates a [CodegenExtsBuilder] with all extensions needed to lower int
+/// ops, types, and constants.
 pub fn add_int_extensions<'a, H: HugrView + 'a>(
     cem: CodegenExtsBuilder<'a, H>,
 ) -> CodegenExtsBuilder<'a, H> {
@@ -151,8 +151,8 @@ pub fn add_int_extensions<'a, H: HugrView + 'a>(
 }
 
 impl<'a, H: HugrView + 'a> CodegenExtsBuilder<'a, H> {
-    /// Populates a [CodegenExtsMap] with all extensions needed to lower int ops,
-    /// types, and constants.
+    /// Populates a [CodegenExtsBuilder] with all extensions needed to lower int
+    /// ops, types, and constants.
     pub fn add_int_extensions(self) -> Self {
         add_int_extensions(self)
     }

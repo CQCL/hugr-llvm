@@ -40,10 +40,6 @@ pub mod array;
 /// trivial implementation of this trait, which delegates everything to those
 /// default implementations.
 ///
-/// One should use either [PreludeCodegenExtension::new], or
-/// [CodegenExtsMap::add_prelude_extensions] to work with the
-/// [CodegenExtension].
-///
 /// TODO several types and ops are unimplemented. We expect to add methods to
 /// this trait as necessary, allowing downstream users to customise the lowering
 /// of `prelude`.
@@ -147,13 +143,13 @@ impl<PCG: PreludeCodegen> CodegenExtension for PreludeCodegenExtension<PCG> {
 }
 
 impl<'a, H: HugrView + 'a> CodegenExtsBuilder<'a, H> {
-    /// Add a [PreludeCodegenExtension] to the given [CodegenExtsMap] using `pcg`
+    /// Add a [PreludeCodegenExtension] to the given [CodegenExtsBuilder] using `pcg`
     /// as the implementation.
     pub fn add_default_prelude_extensions(self) -> Self {
         self.add_prelude_extensions(DefaultPreludeCodegen)
     }
 
-    /// Add a [PreludeCodegenExtension] to the given [CodegenExtsMap] using
+    /// Add a [PreludeCodegenExtension] to the given [CodegenExtsBuilder] using
     /// [DefaultPreludeCodegen] as the implementation.
     pub fn add_prelude_extensions(self, pcg: impl PreludeCodegen + 'a) -> Self {
         self.add_extension(PreludeCodegenExtension::from(pcg))
