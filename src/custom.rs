@@ -30,6 +30,7 @@ pub mod load_constant;
 pub mod types;
 
 // TODO move these extension implementations to crate::extension
+// https://github.com/CQCL/hugr-llvm/issues/121
 pub mod conversions;
 pub mod float;
 pub mod int;
@@ -158,5 +159,5 @@ impl<'a, H: HugrView + 'a> CodegenExtsBuilder<'a, H> {
 pub struct CodegenExtsMap<'a, H> {
     pub load_constant_handlers: Rc<LoadConstantsMap<'a, H>>,
     pub extension_op_handlers: Rc<ExtensionOpMap<'a, H>>,
-    pub type_converter: Rc<TypeConverter<'a>>, // TODO remove this H
+    pub type_converter: Rc<TypeConverter<'a>>,
 }

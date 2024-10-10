@@ -207,6 +207,7 @@ fn add_prelude_extensions<'a, H: HugrView + 'a>(
     })
     .custom_const::<ConstExternalSymbol>(|context, k| {
         // TODO we should namespace these symbols
+        // https://github.com/CQCL/hugr-llvm/issues/120
         let llvm_type = context.llvm_type(&k.get_type())?;
         let global = context.get_global(&k.symbol, llvm_type, k.constant)?;
         Ok(context
