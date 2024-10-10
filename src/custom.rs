@@ -57,7 +57,7 @@ pub trait CodegenExtension {
 /// A container for a collection of codegen callbacks as they are being
 /// assembled.
 ///
-/// We callbacks are registered against several keys:
+/// The callbacks are registered against several keys:
 ///  - [CustomType]s, with [CodegenExtsBuilder::custom_type]
 ///  - [CustomConst]s, with [CodegenExtsBuilder::custom_const]
 ///  - [ExtensionOp]s, with [CodegenExtsBuilder::extension_op]
