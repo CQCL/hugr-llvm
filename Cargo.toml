@@ -52,3 +52,6 @@ typetag = "0.2"
 [profile.dev.package]
 insta.opt-level = 3
 similar.opt-level = 3
+
+[workspace]
+members = ["./qir-plugin"]
