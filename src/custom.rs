@@ -36,6 +36,11 @@ pub mod float;
 pub mod int;
 pub mod logic;
 pub mod prelude;
+
+#[cfg(feature = "tket2")]
+pub mod qir;
+
+#[cfg(feature = "tket2")]
 pub mod rotation;
 
 /// A helper to register codegen extensions.

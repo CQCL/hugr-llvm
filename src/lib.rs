@@ -68,6 +68,9 @@ pub mod sum;
 pub mod types;
 pub mod utils;
 
+#[cfg(feature = "cli")]
+pub mod cli;
+
 #[allow(unreachable_code)]
 pub fn llvm_version() -> &'static str {
     #[cfg(feature = "llvm14-0")]
