@@ -84,12 +84,12 @@ fn duplicate_func<'c>(module: &mut Module<'c>, old_func: FunctionValue<'c>) -> (
     old_func.as_global_value().set_name(&old_func_name);
 
     let old_to_new = OldParamsToNewParams::new(old_func.get_param_iter());
+    let new_func_ty = module.get_context().void_type().fn_type(old_to_new.new_params().collect_vec().as_slice(), false);
+    let new_func = module.add_function(&func_name, new_func_ty, Some(old_func.get_linkage()));
 
     let return_slot_tys = old_func_ty.get_return_type().map_or(vec![], |ty| FlattenType::new(ty).flat_types().collect_vec());
-    let return_slots = return_slot_tys.iter().map(|ty| make_return_slot(module, old_func, *ty)).collect_vec();
-    let new_func_ty = module.get_context().void_type().fn_type(old_to_new.new_params().collect_vec().as_slice(), false);
+    let return_slots = return_slot_tys.iter().map(|ty| make_return_slot(module, new_func, *ty)).collect_vec();
 
-    let new_func = module.add_function(&func_name, new_func_ty, Some(old_func.get_linkage()));
 
     eprintln!("duplicate_func: {} {} \n{} {}", old_func.get_name().to_str().unwrap(), old_func_ty, new_func.get_name().to_str().unwrap(), new_func_ty);
     // TODO copy all ancilliary data like attributes, calling convention etc
@@ -192,8 +192,10 @@ pub fn replace_all_uses_with<'c>(from: impl BasicValue<'c>, to: impl BasicValue<
 fn rewrite_call<'c>(builder: &Builder<'c>, call: InstructionValue<'c>, new_func: FunctionValue<'c>, slots: impl AsRef<[GlobalValue<'c>]>) {
     assert!(new_func.get_type().get_return_type().is_none());
     let slots = slots.as_ref();
+    let call_site = CallSiteValue::try_from(call).unwrap();
     builder.position_before(&call);
-    let flat_args = call.get_operands().filter_map(|x| x.and_then(|x| x.left())).flat_map(|val| FlattenValue::from_basic_value(val).flatten(&builder)).map_into().collect_vec();
+    assert_eq!(call_site.count_arguments() + 1, call.get_num_operands());
+    let flat_args = call.get_operands().filter_map(|x| x.and_then(|x| x.left())).take(call_site.count_arguments() as usize).flat_map(|val| FlattenValue::from_basic_value(val).flatten(&builder)).map_into().collect_vec();
     // let arg_types = flat_args.iter().map(|x| x.get_type()).collect_vec();
     // assert!(new_func.get_type().get_param_types() == arg_types);
     builder.build_call(new_func, &flat_args, "").unwrap().try_as_basic_value().unwrap_right();
@@ -216,7 +218,6 @@ impl LlvmModulePass for NoAggregateFuncs {
     ) -> PreservedAnalyses {
         let mut func_slots: HashMap<FunctionValue, (FunctionValue, Vec<GlobalValue>)> = Default::default();
         for func in module.get_functions().filter(is_function_applicable) {
-            let func_ty = func.get_type();
             let (new_func, slots) = duplicate_func(module, func);
             func_slots.insert(func, (new_func, slots));
         }
