@@ -1,4 +1,9 @@
+# qir plugin prototype
+
+$ cargo build -p qir-plugin && RUST_BACKTRACE=1 opt --load-pass-plugin target/debug/libqir_plugin.so ./out.ll -O0 -S  >&out.txt --verify-each
+
 # hugr-llvm
+
 
 [![build_status][]](https://github.com/CQCL/hugr-llvm/actions)
 [![codecov](https://codecov.io/github/CQCL/hugr-llvm/graph/badge.svg?token=TN3DSNHF43)](https://codecov.io/github/CQCL/hugr-llvm)
