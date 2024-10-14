@@ -29,9 +29,6 @@ pub mod extension_op;
 pub mod load_constant;
 pub mod types;
 
-// TODO move these extension implementations to crate::extension
-// https://github.com/CQCL/hugr-llvm/issues/121
-
 /// A helper to register codegen extensions.
 ///
 /// Types that implement this trait can be registered with a [CodegenExtsBuilder]
