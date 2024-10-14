@@ -3,9 +3,18 @@ name = "qir-plugin"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = ["llvm14-0"]
+llvm14-0 = ["llvm-plugin/llvm14-0"]
+
 [lib]
 crate-type = ["cdylib"]
 
 [dependencies]
+anyhow = "1.0.89"
 llvm-plugin = { version =  "0.6.0", features = ["llvm14-0"] }
-inkwell = { version = "0.4.0", default-features = false, features = ["llvm14-0"] }
+itertools = "0.12.1"
+petgraph = "0.6.5"
+
+[dev-dependencies]
+rstest = "0.23.0"
