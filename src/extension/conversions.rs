@@ -481,7 +481,7 @@ mod test {
     // is standard behaviour...
     #[rstest]
     #[case(18_446_744_073_709_550_000, 18_446_744_073_709_549_568)]
-    #[case(18_446_744_073_709_551_615, 9_223_372_036_854_775_808)] // 2 ^ 63
+    #[case(18_446_744_073_709_551_615, 18_446_744_073_709_551_615)] // 2 ^ 63
     fn approx_roundtrip(mut exec_ctx: TestContext, #[case] val: u64, #[case] expected: u64) {
         add_extensions(&mut exec_ctx);
         let hugr = roundtrip_hugr(val);

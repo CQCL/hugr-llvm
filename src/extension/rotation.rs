@@ -8,7 +8,6 @@ use crate::{
     emit::{get_intrinsic, EmitFuncContext, EmitOpArgs},
     types::TypingSession,
 };
-
 use tket2::extension::rotation::{
     ConstRotation, RotationOp, ROTATION_CUSTOM_TYPE, ROTATION_EXTENSION_ID, ROTATION_TYPE,
 };
@@ -165,7 +164,7 @@ mod test {
     use hugr::{
         builder::{Dataflow, DataflowSubContainer as _, SubContainer},
         extension::ExtensionSet,
-        ops::{constant::CustomConst, OpName},
+        ops::{constant::{CustomConst, TryHash}, OpName},
         std_extensions::arithmetic::float_types::{self, ConstF64, FLOAT64_TYPE},
     };
     use rstest::rstest;
@@ -278,6 +277,8 @@ mod test {
 
     #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
     struct NonFiniteConst64(f64);
+
+    impl TryHash for NonFiniteConst64 {}
 
     #[typetag::serde]
     impl CustomConst for NonFiniteConst64 {
