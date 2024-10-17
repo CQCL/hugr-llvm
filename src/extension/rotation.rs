@@ -164,7 +164,10 @@ mod test {
     use hugr::{
         builder::{Dataflow, DataflowSubContainer as _, SubContainer},
         extension::ExtensionSet,
-        ops::{constant::{CustomConst, TryHash}, OpName},
+        ops::{
+            constant::{CustomConst, TryHash},
+            OpName,
+        },
         std_extensions::arithmetic::float_types::{self, ConstF64, FLOAT64_TYPE},
     };
     use rstest::rstest;
