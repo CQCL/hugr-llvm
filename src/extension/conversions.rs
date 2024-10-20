@@ -511,18 +511,18 @@ mod test {
     // The exact behaviour of the round-trip is is platform-dependent.
     #[rstest]
     #[case(u64::MAX)]
-    #[case(u64::MAX - 1)] // 2 ^ 63
-    #[case(u64::MAX - (1 << 1))] // 2 ^ 63
-    #[case(u64::MAX - (1 << 2))] // 2 ^ 63
-    #[case(u64::MAX - (1 << 3))] // 2 ^ 63
-    #[case(u64::MAX - (1 << 4))] // 2 ^ 63
-    #[case(u64::MAX - (1 << 5))] // 2 ^ 63
-    #[case(u64::MAX - (1 << 6))] // 2 ^ 63
-    #[case(u64::MAX - (1 << 7))] // 2 ^ 63
-    #[case(u64::MAX - (1 << 8))] // 2 ^ 63
-    #[case(u64::MAX - (1 << 9))] // 2 ^ 63
-    #[case(u64::MAX - (1 << 10))] // 2 ^ 63
-    #[case(u64::MAX - (1 << 11))] // 2 ^ 63
+    #[case(u64::MAX - 1)]
+    #[case(u64::MAX - (1 << 1))]
+    #[case(u64::MAX - (1 << 2))]
+    #[case(u64::MAX - (1 << 3))]
+    #[case(u64::MAX - (1 << 4))]
+    #[case(u64::MAX - (1 << 5))]
+    #[case(u64::MAX - (1 << 6))]
+    #[case(u64::MAX - (1 << 7))]
+    #[case(u64::MAX - (1 << 8))]
+    #[case(u64::MAX - (1 << 9))]
+    #[case(u64::MAX - (1 << 10))]
+    #[case(u64::MAX - (1 << 11))]
     fn approx_roundtrip_unsigned(mut exec_ctx: TestContext, #[case] val: u64) {
         add_extensions(&mut exec_ctx);
 
@@ -536,31 +536,31 @@ mod test {
 
     #[rstest]
     #[case(i64::MAX)]
-    #[case(i64::MAX - 1)] // 2 ^ 63
-    #[case(i64::MAX - (1 << 1))] // 2 ^ 63
-    #[case(i64::MAX - (1 << 2))] // 2 ^ 63
-    #[case(i64::MAX - (1 << 3))] // 2 ^ 63
-    #[case(i64::MAX - (1 << 4))] // 2 ^ 63
-    #[case(i64::MAX - (1 << 5))] // 2 ^ 63
-    #[case(i64::MAX - (1 << 6))] // 2 ^ 63
-    #[case(i64::MAX - (1 << 7))] // 2 ^ 63
-    #[case(i64::MAX - (1 << 8))] // 2 ^ 63
-    #[case(i64::MAX - (1 << 9))] // 2 ^ 63
-    #[case(i64::MAX - (1 << 10))] // 2 ^ 63
-    #[case(i64::MAX - (1 << 11))] // 2 ^ 63
+    #[case(i64::MAX - 1)]
+    #[case(i64::MAX - (1 << 1))]
+    #[case(i64::MAX - (1 << 2))]
+    #[case(i64::MAX - (1 << 3))]
+    #[case(i64::MAX - (1 << 4))]
+    #[case(i64::MAX - (1 << 5))]
+    #[case(i64::MAX - (1 << 6))]
+    #[case(i64::MAX - (1 << 7))]
+    #[case(i64::MAX - (1 << 8))]
+    #[case(i64::MAX - (1 << 9))]
+    #[case(i64::MAX - (1 << 10))]
+    #[case(i64::MAX - (1 << 11))]
     #[case(i64::MIN)]
-    #[case(i64::MIN + 1)] // 2 ^ 63
-    #[case(i64::MIN + (1 << 1))] // 2 ^ 63
-    #[case(i64::MIN + (1 << 2))] // 2 ^ 63
-    #[case(i64::MIN + (1 << 3))] // 2 ^ 63
-    #[case(i64::MIN + (1 << 4))] // 2 ^ 63
-    #[case(i64::MIN + (1 << 5))] // 2 ^ 63
-    #[case(i64::MIN + (1 << 6))] // 2 ^ 63
-    #[case(i64::MIN + (1 << 7))] // 2 ^ 63
-    #[case(i64::MIN + (1 << 8))] // 2 ^ 63
-    #[case(i64::MIN + (1 << 9))] // 2 ^ 63
-    #[case(i64::MIN + (1 << 10))] // 2 ^ 63
-    #[case(i64::MIN + (1 << 11))] // 2 ^ 63
+    #[case(i64::MIN + 1)]
+    #[case(i64::MIN + (1 << 1))]
+    #[case(i64::MIN + (1 << 2))]
+    #[case(i64::MIN + (1 << 3))]
+    #[case(i64::MIN + (1 << 4))]
+    #[case(i64::MIN + (1 << 5))]
+    #[case(i64::MIN + (1 << 6))]
+    #[case(i64::MIN + (1 << 7))]
+    #[case(i64::MIN + (1 << 8))]
+    #[case(i64::MIN + (1 << 9))]
+    #[case(i64::MIN + (1 << 10))]
+    #[case(i64::MIN + (1 << 11))]
     fn approx_roundtrip_signed(mut exec_ctx: TestContext, #[case] val: i64) {
         add_extensions(&mut exec_ctx);
 
