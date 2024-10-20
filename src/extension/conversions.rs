@@ -401,7 +401,7 @@ mod test {
         assert_eq!(val, exec_ctx.exec_hugr_u64(hugr, "main"));
     }
 
-    fn roundtrip_hugr(val: u64) -> Hugr {
+    fn roundtrip_hugr(val: u64, signed: bool) -> Hugr {
         let int64 = INT_TYPES[6].clone();
         SimpleHugrConfig::new()
             .with_outs(USIZE_T)
@@ -412,14 +412,29 @@ mod test {
                     .add_dataflow_op(ConvertOpDef::ifromusize.without_log_width(), [k])
                     .unwrap()
                     .outputs_arr();
-                let [flt] = builder
-                    .add_dataflow_op(ConvertOpDef::convert_u.with_log_width(6), [int])
+                let [flt] = {
+                    let op = if signed {
+                       ConvertOpDef::convert_s.with_log_width(6)
+                    } else {
+                       ConvertOpDef::convert_u.with_log_width(6)
+                    };
+                    builder
+                    .add_dataflow_op(op, [int])
                     .unwrap()
-                    .outputs_arr();
-                let [int_or_err] = builder
-                    .add_dataflow_op(ConvertOpDef::trunc_u.with_log_width(6), [flt])
+                    .outputs_arr()
+                };
+
+                let [int_or_err] = {
+                    let op = if signed {
+                       ConvertOpDef::trunc_s.with_log_width(6)
+                    } else {
+                       ConvertOpDef::trunc_u.with_log_width(6)
+                    };
+                    builder
+                    .add_dataflow_op(op, [flt])
                     .unwrap()
-                    .outputs_arr();
+                    .outputs_arr()
+                };
                 let sum_ty = sum_with_error(int64.clone());
                 let variants = (0..sum_ty.num_variants())
                     .map(|i| sum_ty.get_variant(i).unwrap().clone().try_into().unwrap());
@@ -467,9 +482,9 @@ mod test {
     #[case(4294967295)]
     #[case(42)]
     #[case(18_000_000_000_000_000_000)]
-    fn roundtrip(mut exec_ctx: TestContext, #[case] val: u64) {
+    fn roundtrip_signed(mut exec_ctx: TestContext, #[case] val: u64) {
         add_extensions(&mut exec_ctx);
-        let hugr = roundtrip_hugr(val);
+        let hugr = roundtrip_hugr(val, false);
         assert_eq!(val, exec_ctx.exec_hugr_u64(hugr, "main"));
     }
 
@@ -493,11 +508,49 @@ mod test {
     fn approx_roundtrip_unsigned(mut exec_ctx: TestContext, #[case] val: u64) {
         add_extensions(&mut exec_ctx);
 
-        let hugr = roundtrip_hugr(val);
+        let hugr = roundtrip_hugr(val, false);
         let result = exec_ctx.exec_hugr_u64(hugr, "main");
         let (v_r_max, v_r_min) = (val.max(result), val.min(result));
-        // if val is too large ()
+        // If val is too large the `trunc_u` op in `hugr` will return None.
+        // In this case the hugr returns the magic number `999`.
         assert!(result == 999 || (v_r_max - v_r_min) < 1 << 10);
+    }
+
+    #[rstest]
+    #[case(i64::MAX)]
+    #[case(i64::MAX - 1)] // 2 ^ 63
+    #[case(i64::MAX - (1 << 1))] // 2 ^ 63
+    #[case(i64::MAX - (1 << 2))] // 2 ^ 63
+    #[case(i64::MAX - (1 << 3))] // 2 ^ 63
+    #[case(i64::MAX - (1 << 4))] // 2 ^ 63
+    #[case(i64::MAX - (1 << 5))] // 2 ^ 63
+    #[case(i64::MAX - (1 << 6))] // 2 ^ 63
+    #[case(i64::MAX - (1 << 7))] // 2 ^ 63
+    #[case(i64::MAX - (1 << 8))] // 2 ^ 63
+    #[case(i64::MAX - (1 << 9))] // 2 ^ 63
+    #[case(i64::MAX - (1 << 10))] // 2 ^ 63
+    #[case(i64::MAX - (1 << 11))] // 2 ^ 63
+    #[case(i64::MIN)]
+    #[case(i64::MIN + 1)] // 2 ^ 63
+    #[case(i64::MIN + (1 << 1))] // 2 ^ 63
+    #[case(i64::MIN + (1 << 2))] // 2 ^ 63
+    #[case(i64::MIN + (1 << 3))] // 2 ^ 63
+    #[case(i64::MIN + (1 << 4))] // 2 ^ 63
+    #[case(i64::MIN + (1 << 5))] // 2 ^ 63
+    #[case(i64::MIN + (1 << 6))] // 2 ^ 63
+    #[case(i64::MIN + (1 << 7))] // 2 ^ 63
+    #[case(i64::MIN + (1 << 8))] // 2 ^ 63
+    #[case(i64::MIN + (1 << 9))] // 2 ^ 63
+    #[case(i64::MIN + (1 << 10))] // 2 ^ 63
+    #[case(i64::MIN + (1 << 11))] // 2 ^ 63
+    fn approx_roundtrip_signed(mut exec_ctx: TestContext, #[case] val: i64) {
+        add_extensions(&mut exec_ctx);
+
+        let hugr = roundtrip_hugr(val as u64, true);
+        let result = exec_ctx.exec_hugr_u64(hugr, "main") as i64;
+        // If val.abs() is too large the `trunc_s` op in `hugr` will return None.
+        // In this case the hugr returns the magic number `999`.
+        assert!(result == 999 || (val - result).abs() < 1 << 10);
     }
 
     #[rstest]
