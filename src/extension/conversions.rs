@@ -63,7 +63,7 @@ fn build_trunc_op<'c, H: HugrView>(
         };
 
         let within_upper_bound = ctx.builder().build_float_compare(
-            FloatPredicate::OLE,
+            FloatPredicate::OLT,
             arg.into_float_value(),
             flt_max,
             "within_upper_bound",
@@ -473,19 +473,31 @@ mod test {
         assert_eq!(val, exec_ctx.exec_hugr_u64(hugr, "main"));
     }
 
-    // N.B.: There's some strange behaviour at the upper end of the ints - the
-    // first case gets converted to something that's off by 1,000, but the second
-    // (which is (2 ^ 64) - 1) gets converted to (2 ^ 32) - off by 9 million!
-    // The fact that the first case works as expected  tells me this isn't to do
-    // with int widths - maybe a floating point expert could explain that this
-    // is standard behaviour...
+    // For unisgined ints larger than (1 << 54) - 1, f64s do not have enough
+    // precision to exactly roundtrip the int.
+    // The exact behaviour of the round-trip is is platform-dependent.
     #[rstest]
-    #[case(18_446_744_073_709_550_000, 18_446_744_073_709_549_568)]
-    #[case(18_446_744_073_709_551_615, 9_223_372_036_854_775_808)] // 2 ^ 63
-    fn approx_roundtrip(mut exec_ctx: TestContext, #[case] val: u64, #[case] expected: u64) {
+    #[case(u64::MAX)]
+    #[case(u64::MAX - 1)] // 2 ^ 63
+    #[case(u64::MAX - (1 << 1))] // 2 ^ 63
+    #[case(u64::MAX - (1 << 2))] // 2 ^ 63
+    #[case(u64::MAX - (1 << 3))] // 2 ^ 63
+    #[case(u64::MAX - (1 << 4))] // 2 ^ 63
+    #[case(u64::MAX - (1 << 5))] // 2 ^ 63
+    #[case(u64::MAX - (1 << 6))] // 2 ^ 63
+    #[case(u64::MAX - (1 << 7))] // 2 ^ 63
+    #[case(u64::MAX - (1 << 8))] // 2 ^ 63
+    #[case(u64::MAX - (1 << 9))] // 2 ^ 63
+    #[case(u64::MAX - (1 << 10))] // 2 ^ 63
+    #[case(u64::MAX - (1 << 11))] // 2 ^ 63
+    fn approx_roundtrip_unsigned(mut exec_ctx: TestContext, #[case] val: u64) {
         add_extensions(&mut exec_ctx);
+
         let hugr = roundtrip_hugr(val);
-        assert_eq!(expected, exec_ctx.exec_hugr_u64(hugr, "main"));
+        let result = exec_ctx.exec_hugr_u64(hugr, "main");
+        let (v_r_max, v_r_min) = (val.max(result), val.min(result));
+        // if val is too large ()
+        assert!(result == 999 || (v_r_max - v_r_min) < 1 << 10);
     }
 
     #[rstest]
