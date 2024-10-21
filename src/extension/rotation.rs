@@ -66,7 +66,7 @@ impl<PCG: PreludeCodegen> RotationCodegenExtension<PCG> {
     ///
     /// While lowering a `tket2.rotation.from_halfturns_unchecked` op we must
     /// panic in some codepaths. This function allows customising the panic
-    /// message. The default panic message is [DEFAULT_FROM_HALFTURNS_ERROR].
+    /// message. The default panic message is [static@DEFAULT_FROM_HALFTURNS_ERROR].
     pub fn with_from_halfturns_err(mut self, from_halfturns_err: ConstError) -> Self {
         self.from_halfturns_err = from_halfturns_err;
         self
