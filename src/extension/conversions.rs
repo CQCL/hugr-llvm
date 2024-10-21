@@ -11,11 +11,7 @@ use hugr::{
     HugrView,
 };
 
-use inkwell::{
-    types::IntType,
-    values::BasicValue,
-    FloatPredicate, IntPredicate,
-};
+use inkwell::{types::IntType, values::BasicValue, FloatPredicate, IntPredicate};
 
 use crate::{
     custom::{CodegenExtension, CodegenExtsBuilder},
