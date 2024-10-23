@@ -10,19 +10,19 @@ use anyhow::{bail, Result};
 
 use crate::types::{HugrFuncType, HugrSumType, HugrType};
 
-pub trait TypeMapFnHelper<'c, TM: TypeMapping>:
+pub trait TypeMapFnHelper<'c, TM: TypeMapping> :
     Fn(TM::InV<'c>, &CustomType) -> Result<TM::OutV<'c>>
 {
 }
 
 impl<'c, TM: TypeMapping, F> TypeMapFnHelper<'c, TM> for F where
-    F: Fn(TM::InV<'c>, &CustomType) -> Result<TM::OutV<'c>> + ?Sized
+    F: Fn(TM::InV<'c>, &CustomType) -> Result<TM::OutV<'c>> + ?Sized ,
 {
 }
 
 /// A helper trait to name the type of the Callback used by
 /// [`TypeMap<TM>`](TypeMap).
-pub trait TypeMappingFn<'a, TM: TypeMapping>: 'a {
+pub trait TypeMappingFn<'a,TM: TypeMapping> : 'a {
     fn map_type<'c>(&self, inv: TM::InV<'c>, ty: &CustomType) -> Result<TM::OutV<'c>>;
 }
 
@@ -53,7 +53,7 @@ pub trait TypeMapping {
         sum_type: &HugrSumType,
         inv: Self::InV<'c>,
         variants: impl IntoIterator<Item = Vec<Self::OutV<'c>>>,
-    ) -> Result<Self::SumOutV<'c>>;
+    ) -> Result<Self::SumOutV<'c>> ;
 
     /// Returns the result of the mapping on `function_type`, with auxilliary data
     /// `inv`, and when the result of mapping all inputs is given by `inputs`
@@ -64,15 +64,15 @@ pub trait TypeMapping {
         inv: Self::InV<'c>,
         inputs: impl IntoIterator<Item = Self::OutV<'c>>,
         outputs: impl IntoIterator<Item = Self::OutV<'c>>,
-    ) -> Result<Self::FuncOutV<'c>>;
+    ) -> Result<Self::FuncOutV<'c>>  ;
 
     /// Infallibly convert from the result of `map_sum_type` to the result of
     /// the mapping.
-    fn sum_into_out<'c>(&self, sum: Self::SumOutV<'c>) -> Self::OutV<'c>;
+    fn sum_into_out<'c>(&self, sum: Self::SumOutV<'c>) -> Self::OutV<'c>  ;
 
     /// Infallibly convert from the result of `map_functype` to the result of
     /// the mapping.
-    fn func_into_out<'c>(&self, sum: Self::FuncOutV<'c>) -> Self::OutV<'c>;
+    fn func_into_out<'c>(&self, sum: Self::FuncOutV<'c>) -> Self::OutV<'c>  ;
 
     /// Construct an appropriate result of the mapping when `hugr_type` is not a
     /// function, sum, registered custom type, or composition of same.
@@ -105,8 +105,8 @@ impl<'a, TM: TypeMapping + 'a> TypeMap<'a, TM> {
     pub fn set_callback(
         &mut self,
         custom_type_key: CustomTypeKey,
-        hook: impl TypeMappingFn<'a, TM> + 'a,
-    ) -> bool {
+        hook: impl TypeMappingFn<'a,TM> + 'a,
+    ) -> bool  {
         self.custom_hooks
             .insert(custom_type_key, Box::new(hook))
             .is_none()

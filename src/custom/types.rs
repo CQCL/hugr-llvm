@@ -31,19 +31,27 @@ impl<
 pub struct LLVMTypeMapping<'a>(PhantomData<&'a ()>);
 
 impl<'a> TypeMapping for LLVMTypeMapping<'a> {
-    type InV<'c> = TypingSession<'c, 'a>;
+    type InV<'c> = TypingSession<'c, 'a>
+    // where Self: 'c
+    ;
 
-    type OutV<'c> = BasicTypeEnum<'c>;
+    type OutV<'c> = BasicTypeEnum<'c> where
+        // Self: 'c
+        ;
 
-    type SumOutV<'c> = LLVMSumType<'c>;
+    type SumOutV<'c> = LLVMSumType<'c> where
+        // Self: 'c
+        ;
 
-    type FuncOutV<'c> = FunctionType<'c>;
+    type FuncOutV<'c> = FunctionType<'c> where
+        // Self: 'c
+        ;
 
-    fn sum_into_out<'c>(&self, sum: Self::SumOutV<'c>) -> Self::OutV<'c> {
+    fn sum_into_out<'c>(&self, sum: Self::SumOutV<'c>) -> Self::OutV<'c>{
         sum.as_basic_type_enum()
     }
 
-    fn func_into_out<'c>(&self, sum: Self::FuncOutV<'c>) -> Self::OutV<'c> {
+    fn func_into_out<'c>(&self, sum: Self::FuncOutV<'c>) -> Self::OutV<'c>  {
         sum.ptr_type(Default::default()).as_basic_type_enum()
     }
 
@@ -52,7 +60,7 @@ impl<'a> TypeMapping for LLVMTypeMapping<'a> {
         sum_type: &HugrSumType,
         context: TypingSession<'c, 'a>,
         variants: impl IntoIterator<Item = Vec<Self::OutV<'c>>>,
-    ) -> Result<Self::SumOutV<'c>> {
+    ) -> Result<Self::SumOutV<'c>>  {
         LLVMSumType::try_new2(
             context.iw_context(),
             variants.into_iter().collect(),
@@ -66,7 +74,7 @@ impl<'a> TypeMapping for LLVMTypeMapping<'a> {
         context: TypingSession<'c, 'a>,
         inputs: impl IntoIterator<Item = Self::OutV<'c>>,
         outputs: impl IntoIterator<Item = Self::OutV<'c>>,
-    ) -> Result<Self::FuncOutV<'c>> {
+    ) -> Result<Self::FuncOutV<'c>>  {
         let iw_context = context.iw_context();
         let inputs: Vec<BasicMetadataTypeEnum<'c>> = inputs.into_iter().map_into().collect_vec();
         let outputs = outputs.into_iter().collect_vec();

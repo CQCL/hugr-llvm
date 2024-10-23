@@ -27,7 +27,7 @@ use itertools::Itertools as _;
 #[derive(Debug)]
 pub struct FatNode<'hugr, OT = OpType, H = Hugr>
 where
-    H: ?Sized,
+    H: ?Sized + 'hugr,
 {
     hugr: &'hugr H,
     node: Node,

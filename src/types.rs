@@ -62,7 +62,7 @@ impl<'a> TypeConverter<'a> {
     pub(super) fn custom_type(
         &mut self,
         custom_type: (ExtensionId, TypeName),
-        handler: impl LLVMCustomTypeFn<'a>,
+        handler: impl LLVMCustomTypeFn<'a> + 'a,
     ) {
         self.0.set_callback(custom_type, handler);
     }

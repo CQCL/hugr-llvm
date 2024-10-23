@@ -25,6 +25,7 @@ use crate::{
     types::TypeConverter,
 };
 
+pub mod def_hook;
 pub mod extension_op;
 pub mod load_constant;
 pub mod types;
