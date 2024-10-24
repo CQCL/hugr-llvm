@@ -14,15 +14,14 @@ use hugr::{
 };
 
 use strum::IntoEnumIterator;
-use types::CustomTypeKey;
+use types::{CustomTypeKey, LLVMTypeMapping};
 
 use self::load_constant::{LoadConstantFn, LoadConstantsMap};
-use self::types::LLVMCustomTypeFn;
 use anyhow::Result;
 
 use crate::{
     emit::{func::EmitFuncContext, EmitOpArgs},
-    types::TypeConverter,
+    types::TypeConverter, utils::type_map::TypeMappingFn,
 };
 
 pub mod def_hook;
@@ -87,7 +86,7 @@ impl<'a, H: HugrView + 'a> CodegenExtsBuilder<'a, H> {
     pub fn custom_type(
         mut self,
         custom_type: CustomTypeKey,
-        handler: impl LLVMCustomTypeFn<'a>,
+        handler: impl TypeMappingFn<'a, LLVMTypeMapping<'a>>,
     ) -> Self {
         self.type_converter.custom_type(custom_type, handler);
         self

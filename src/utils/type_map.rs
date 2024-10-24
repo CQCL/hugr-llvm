@@ -1,5 +1,5 @@
 //! Provides a generic mapping from [HugrType] into some domain.
-use std::collections::HashMap;
+use std::{collections::HashMap, marker::PhantomData};
 
 use hugr::{
     extension::ExtensionId,
@@ -10,40 +10,42 @@ use anyhow::{bail, Result};
 
 use crate::types::{HugrFuncType, HugrSumType, HugrType};
 
-pub trait TypeMapFnHelper<'c, TM: TypeMapping> :
-    Fn(TM::InV<'c>, &CustomType) -> Result<TM::OutV<'c>>
+pub trait TypeMapFnHelper<'c, 'tm, TM: TypeMapping<'tm>> :
+    Fn(TM::InV<'c>, &CustomType) -> Result<TM::OutV<'c>> where 'tm: 'c
 {
 }
 
-impl<'c, TM: TypeMapping, F> TypeMapFnHelper<'c, TM> for F where
-    F: Fn(TM::InV<'c>, &CustomType) -> Result<TM::OutV<'c>> + ?Sized ,
+impl<'c, 'tm, TM: TypeMapping<'tm>, F> TypeMapFnHelper<'c, 'tm, TM> for F where
+    F: Fn(TM::InV<'c>, &CustomType) -> Result<TM::OutV<'c>> + ?Sized , 'tm: 'c
 {
+
 }
 
 /// A helper trait to name the type of the Callback used by
 /// [`TypeMap<TM>`](TypeMap).
-pub trait TypeMappingFn<'a,TM: TypeMapping> : 'a {
-    fn map_type<'c>(&self, inv: TM::InV<'c>, ty: &CustomType) -> Result<TM::OutV<'c>>;
+pub trait TypeMappingFn<'tm,TM: TypeMapping<'tm>> : 'tm {
+    fn map_type<'c>(&self, inv: TM::InV<'c>, ty: &CustomType) -> Result<TM::OutV<'c>> where 'tm: 'c;
+
 }
 
-impl<'a, TM: TypeMapping, F: for<'c> TypeMapFnHelper<'c, TM> + 'a> TypeMappingFn<'a, TM> for F {
-    fn map_type<'c>(&self, inv: TM::InV<'c>, ty: &CustomType) -> Result<TM::OutV<'c>> {
+impl<'tm, TM: TypeMapping<'tm>, F: for<'c> TypeMapFnHelper<'c, 'tm, TM> + 'tm> TypeMappingFn<'tm, TM> for F {
+    fn map_type<'c>(&self, inv: TM::InV<'c>, ty: &CustomType) -> Result<TM::OutV<'c>> where 'tm: 'c{
         self(inv, ty)
     }
 }
 
 /// Defines a mapping from [HugrType] to `OutV`;
-pub trait TypeMapping {
+pub trait TypeMapping<'tm> {
     /// Auxilliary data provided when mapping from a [HugrType].
-    type InV<'c>: Clone;
+    type InV<'c>: Clone where 'tm : 'c;
     /// The target type of the mapping.
-    type OutV<'c>;
+    type OutV<'c>where 'tm: 'c;
     /// The target type when mapping from [HugrSumType]s. This type must be
     /// convertible to `OutV` via `sum_into_out`.
-    type SumOutV<'c>;
+    type SumOutV<'c>where 'tm: 'c;
     /// The target type when mapping from [HugrFuncType]s. This type must be
     /// convertible to `OutV` via `func_into_out`.
-    type FuncOutV<'c>;
+    type FuncOutV<'c>where 'tm: 'c;
 
     /// Returns the result of the mapping on `sum_type`, with auxilliary data
     /// `inv`, and when the result of mapping all fields of all variants is
@@ -53,7 +55,7 @@ pub trait TypeMapping {
         sum_type: &HugrSumType,
         inv: Self::InV<'c>,
         variants: impl IntoIterator<Item = Vec<Self::OutV<'c>>>,
-    ) -> Result<Self::SumOutV<'c>> ;
+    ) -> Result<Self::SumOutV<'c>> where 'tm: 'c;
 
     /// Returns the result of the mapping on `function_type`, with auxilliary data
     /// `inv`, and when the result of mapping all inputs is given by `inputs`
@@ -64,15 +66,15 @@ pub trait TypeMapping {
         inv: Self::InV<'c>,
         inputs: impl IntoIterator<Item = Self::OutV<'c>>,
         outputs: impl IntoIterator<Item = Self::OutV<'c>>,
-    ) -> Result<Self::FuncOutV<'c>>  ;
+    ) -> Result<Self::FuncOutV<'c>> where 'tm: 'c ;
 
     /// Infallibly convert from the result of `map_sum_type` to the result of
     /// the mapping.
-    fn sum_into_out<'c>(&self, sum: Self::SumOutV<'c>) -> Self::OutV<'c>  ;
+    fn sum_into_out<'c>(&self, sum: Self::SumOutV<'c>) -> Self::OutV<'c> where 'tm: 'c ;
 
     /// Infallibly convert from the result of `map_functype` to the result of
     /// the mapping.
-    fn func_into_out<'c>(&self, sum: Self::FuncOutV<'c>) -> Self::OutV<'c>  ;
+    fn func_into_out<'c>(&self, sum: Self::FuncOutV<'c>) -> Self::OutV<'c>  where 'tm: 'c;
 
     /// Construct an appropriate result of the mapping when `hugr_type` is not a
     /// function, sum, registered custom type, or composition of same.
@@ -80,7 +82,7 @@ pub trait TypeMapping {
         &self,
         #[allow(unused)] inv: Self::InV<'c>,
         hugr_type: &HugrType,
-    ) -> Result<Self::OutV<'c>> {
+    ) -> Result<Self::OutV<'c>> where 'tm :'c{
         bail!("Unknown type: {hugr_type}")
     }
 }
@@ -92,12 +94,27 @@ pub type CustomTypeKey = (ExtensionId, TypeName);
 ///
 /// Callbacks may hold references with lifetimes longer than `'a`
 #[derive(Default)]
-pub struct TypeMap<'a, TM: TypeMapping> {
+pub struct TypeMap<'a, 'tm: 'a, TM: TypeMapping<'tm>> {
     type_map: TM,
-    custom_hooks: HashMap<CustomTypeKey, Box<dyn TypeMappingFn<'a, TM> + 'a>>,
+    custom_hooks: HashMap<CustomTypeKey, TypeMappingFunc<'a,'tm, TM>>,
+    _marker: PhantomData<&'tm ()>,
 }
 
-impl<'a, TM: TypeMapping + 'a> TypeMap<'a, TM> {
+pub struct TypeMappingFunc<'a,'tm, TM: TypeMapping<'tm>>(pub Box<dyn for<'c> TypeMapFnHelper<'c, 'tm, TM> + 'a>);
+
+impl<'a,'tm,TM: TypeMapping<'tm> + 'tm> TypeMappingFn<'tm, TM> for TypeMappingFunc<'a,'tm, TM> where 'a: 'tm{
+    fn map_type<'c>(&self, inv: <TM as TypeMapping<'tm>>::InV<'c>, ty: &CustomType) -> Result<<TM as TypeMapping<'tm>>::OutV<'c>> where 'tm :'c{
+        self.0(inv,ty)
+    }
+}
+
+impl<'a,'tm: 'a,TM: TypeMapping<'tm>> TypeMappingFunc<'a,'tm,TM> {
+    pub fn new (f: impl for<'c> TypeMapFnHelper<'c, 'tm, TM> + 'a) -> Self {
+        Self(Box::new(f))
+    }
+}
+
+impl<'a, 'tm, TM: TypeMapping<'tm> + 'tm> TypeMap<'a, 'tm, TM> where 'a: 'tm{
     /// Sets the callback for the given custom type.
     ///
     /// Returns false if this callback replaces another callback, which is
@@ -105,16 +122,16 @@ impl<'a, TM: TypeMapping + 'a> TypeMap<'a, TM> {
     pub fn set_callback(
         &mut self,
         custom_type_key: CustomTypeKey,
-        hook: impl TypeMappingFn<'a,TM> + 'a,
+        hook: TypeMappingFunc<'a,'tm,TM>
     ) -> bool  {
         self.custom_hooks
-            .insert(custom_type_key, Box::new(hook))
+            .insert(custom_type_key, hook)
             .is_none()
     }
 
     /// Map `hugr_type` using the [TypeMapping] `TM`, the registered callbacks,
     /// and the auxilliary data `inv`.
-    pub fn map_type<'c>(&self, hugr_type: &HugrType, inv: TM::InV<'c>) -> Result<TM::OutV<'c>> {
+    pub fn map_type<'c>(&self, hugr_type: &HugrType, inv: TM::InV<'c>) -> Result<TM::OutV<'c>> where 'tm: 'c{
         match hugr_type.as_type_enum() {
             TypeEnum::Extension(custom_type) => {
                 let key = (custom_type.extension().clone(), custom_type.name().clone());
@@ -138,7 +155,7 @@ impl<'a, TM: TypeMapping + 'a> TypeMap<'a, TM> {
         &self,
         sum_type: &HugrSumType,
         inv: TM::InV<'c>,
-    ) -> Result<TM::SumOutV<'c>> {
+    ) -> Result<TM::SumOutV<'c>> where 'tm: 'c {
         let inv2 = inv.clone();
         self.type_map.map_sum_type(
             sum_type,
@@ -159,7 +176,7 @@ impl<'a, TM: TypeMapping + 'a> TypeMap<'a, TM> {
         &self,
         func_type: &HugrFuncType,
         inv: TM::InV<'c>,
-    ) -> Result<TM::FuncOutV<'c>> {
+    ) -> Result<TM::FuncOutV<'c>> where 'tm: 'c{
         let inputs = func_type
             .input()
             .iter()

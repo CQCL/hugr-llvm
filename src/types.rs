@@ -7,9 +7,9 @@ use hugr::types::{SumType, Type, TypeName};
 use inkwell::types::FunctionType;
 use inkwell::{context::Context, types::BasicTypeEnum};
 
-use crate::custom::types::{LLVMCustomTypeFn, LLVMTypeMapping};
+use crate::custom::types::{LLVMTypeMapping};
 pub use crate::sum::LLVMSumType;
-use crate::utils::type_map::TypeMap;
+use crate::utils::type_map::{TypeMap, TypeMapFnHelper, TypeMappingFn, TypeMappingFunc};
 
 /// A type alias for a hugr function type. We use this to disambiguate from
 /// the LLVM [FunctionType].
@@ -56,22 +56,22 @@ impl<'c, 'a> TypingSession<'c, 'a> {
 }
 
 #[derive(Default)]
-pub struct TypeConverter<'a>(TypeMap<'a, LLVMTypeMapping<'a>>);
+pub struct TypeConverter<'tm>(TypeMap<'tm, 'tm, LLVMTypeMapping<'tm>>);
 
 impl<'a> TypeConverter<'a> {
     pub(super) fn custom_type(
         &mut self,
         custom_type: (ExtensionId, TypeName),
-        handler: impl LLVMCustomTypeFn<'a> + 'a,
+        handler: impl for<'c> TypeMapFnHelper<'c, 'a, LLVMTypeMapping<'a>> + 'a,
     ) {
-        self.0.set_callback(custom_type, handler);
+        self.0.set_callback(custom_type, TypeMappingFunc::new(handler));
     }
 
     pub fn llvm_type<'c>(
         self: Rc<Self>,
         context: TypingSession<'c, 'a>,
         hugr_type: &HugrType,
-    ) -> Result<BasicTypeEnum<'c>> {
+    ) -> Result<BasicTypeEnum<'c>> where 'a: 'c {
         self.0.map_type(hugr_type, context)
     }
 
@@ -79,7 +79,7 @@ impl<'a> TypeConverter<'a> {
         self: Rc<Self>,
         context: TypingSession<'c, 'a>,
         hugr_type: &HugrFuncType,
-    ) -> Result<FunctionType<'c>> {
+    ) -> Result<FunctionType<'c>> where 'a: 'c {
         self.0.map_function_type(hugr_type, context)
     }
 
@@ -87,7 +87,7 @@ impl<'a> TypeConverter<'a> {
         self: Rc<Self>,
         context: TypingSession<'c, 'a>,
         hugr_type: HugrSumType,
-    ) -> Result<LLVMSumType<'c>> {
+    ) -> Result<LLVMSumType<'c>> where 'a: 'c {
         self.0.map_sum_type(&hugr_type, context)
     }
 
