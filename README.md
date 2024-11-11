@@ -18,8 +18,6 @@ At present only `llvm14-0` is supported but we expect to introduce supported ver
 
 See the [llvm-sys][] crate for details on how to use your preferred llvm installation.
 
-For an example lowering [guppy][] programs to LLVM see [tests/guppy.rs](./tests/guppy.rs)
-
 ## Recent Changes
 
 See [CHANGELOG](CHANGELOG.md) for a list of changes. The minimum supported rust
