@@ -1,3 +1,9 @@
+
+> [!IMPORTANT]  
+> This project has been archived.
+>
+> The `hugr-llvm` crate has been merged into the [CQCL/hugr](https://github.com/CQCL/hugr/tree/main/hugr-llvm) repository.
+
 # hugr-llvm
 
 [![build_status][]](https://github.com/CQCL/hugr-llvm/actions)
